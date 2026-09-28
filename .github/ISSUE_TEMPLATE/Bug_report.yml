@@ -1,0 +1,58 @@
+# Imported from ipsocode/hypervel-packages github/ISSUE_TEMPLATE/Bug_report.yml. Edit it there.
+name: Bug Report
+description: Report something that's broken in hypervel-influxdb.
+body:
+  - type: markdown
+    attributes:
+      value: If you notice a stray DocBlock, PHPStan, or IDE-only warning, please open a pull request to fix it instead of filing an issue.
+  - type: input
+    attributes:
+      label: Package Version
+      description: The hypervel-influxdb tag or commit you're on.
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Hypervel Version
+      description: The hypervel/components version installed (see composer.lock).
+      placeholder: 0.4.x
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: PHP Version
+      placeholder: 8.4.3
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Swoole Extension Version
+      description: Run `php --ri swoole` to get it.
+      placeholder: 6.2.3
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Description
+      description: A detailed description of the issue — what you expected, and what happened instead. Issues labeled `not enough info` are closed after 3 days without a follow-up.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps To Reproduce
+      description: Exact steps, or a minimal repository, that reproduces the bug. Include the input you passed and the output or error you got back.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Environment and configuration
+      description: Whatever else the bug depends on — the database, server or API the package talks to and its version, related library versions, and your package config where it differs from the defaults. Remove every credential, token and key first.
+    validations:
+      required: false
+  - type: checkboxes
+    attributes:
+      label: Coroutine context
+      description: Hypervel runs in long-lived Swoole workers serving concurrent requests via coroutines.
+      options:
+        - label: This only reproduces under concurrency (several requests or coroutines at once), not with one request or call at a time

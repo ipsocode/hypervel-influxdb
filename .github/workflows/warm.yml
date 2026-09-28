@@ -1,0 +1,146 @@
+# Imported from ipsocode/hypervel-packages github/workflows/warm.yml. Edit it there.
+name: warm
+
+# Fills main's caches, the ones every pull request can read: tests.yml's Composer downloads and
+# tests/.cache (the PHPStan and php-cs-fixer caches; PHPUnit's warms on a pull request's first
+# run), and the automated review's Claude Code (the last job below). tests.yml runs only on pull
+# requests, and a run saves its caches under its pull request's own ref, which no other pull
+# request reads; so without this, each pull request's first run starts cold. On
+# hypervel-auditing#15, which ran this beside tests.yml, tests.yml's PHP 8.5 install took 12 s
+# from the entry this had saved, where its PHP 8.4 install, started before that, took 43 s.
+#
+# The keys and paths are tests.yml's and .github/actions/review-claude's (whose key
+# `review.sh claude-version` prints), so a pull request's run restores these by the same key, or,
+# for tests.yml, by prefix: tests/.cache's key rolls with every commit, and Composer's with
+# composer.json. A key or path changed there has to change here too.
+#
+# Runs after each push to main, which is a merge, since main is protected, and by hand. GitHub
+# evicts an entry after 7 days unused, and a pull request's run restoring it counts as a use, so
+# only a repository with no merge and no pull request run for a week starts cold again, once.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# As in tests.yml, which says why each is set.
+env:
+  OTEL_SDK_DISABLED: 'true'
+  COMPOSER_CACHE_DIR: /tmp/composer-cache
+  COMPOSER_MEMORY_LIMIT: '-1'
+  COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
+
+jobs:
+  caches:
+    name: PHP ${{ matrix.php }} caches
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+
+    # A newer push to main supersedes a run still filling the caches for the one before.
+    concurrency:
+      group: warm-${{ github.ref }}-${{ matrix.php }}
+      cancel-in-progress: true
+
+    container:
+      image: ghcr.io/ipsocode/hypervel/ci:${{ matrix.php }}-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/composer-cache
+          key: composer-${{ matrix.php }}-${{ hashFiles('composer.json') }}
+          restore-keys: composer-${{ matrix.php }}-
+
+      - name: Install dependencies
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          composer update --prefer-dist --no-interaction --optimize-autoloader
+
+      # tests.yml's step, which says why: the same path, key and place, right after the install.
+      - name: Cache tests/.cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: tests/.cache
+          key: tests-cache-${{ matrix.php }}-${{ hashFiles('composer.json', 'phpstan.neon', 'phpunit.xml', '.php-cs-fixer.dist.php') }}-${{ github.sha }}
+          restore-keys: tests-cache-${{ matrix.php }}-${{ hashFiles('composer.json', 'phpstan.neon', 'phpunit.xml', '.php-cs-fixer.dist.php') }}-
+
+      # Run for the result cache it leaves. A finding on main fails the next pull request's
+      # PHP 8.4 or PHP 8.5, where it belongs; failing here would only leave both caches unsaved,
+      # since a cache is saved only when its job succeeds.
+      - name: Run PHPStan
+        continue-on-error: true
+        run: vendor/bin/phpstan analyse --memory-limit 1G -c phpstan.neon --no-progress
+
+      # The same, for php-cs-fixer's cache, on PHP 8.4 only, where tests.yml checks the style.
+      # The suite is not run: its coverage cache warms on a pull request's first run instead, and
+      # that pull request's later runs reuse it.
+      - name: Check code style
+        if: matrix.php == '8.4'
+        continue-on-error: true
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff
+
+  # The Claude Code that .github/actions/review-claude restores instead of installing: the
+  # version its action pins, at the path and key it restores from, both from review.sh. Installed
+  # and saved only when main has no entry for that version yet, which after a Dependabot bump of
+  # the action is once.
+  claude-code:
+    name: Claude Code
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    concurrency:
+      group: warm-${{ github.ref }}-claude-code
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # --strict: not knowing the version is a warning here, since it leaves this job nothing to
+      # do, where in the review it is a notice and the action installs Claude Code itself.
+      - name: Find the Claude Code version the review's action installs
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/review.sh claude-version --strict
+
+      # Only whether main has it: a hit needs nothing more, so nothing is downloaded.
+      - name: Look for it in the cache
+        id: cache
+        if: steps.version.outputs.version != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/claude/versions/${{ steps.version.outputs.version }}
+          key: ${{ steps.version.outputs.key }}
+          lookup-only: true
+
+      # --strict: a failed install fails this job, where the review's own setup would leave the
+      # action to install Claude Code itself.
+      - name: Install Claude Code
+        id: setup
+        if: steps.version.outputs.version != '' && steps.cache.outputs.cache-hit != 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: bash .github/scripts/review.sh claude-setup --version "${VERSION}" --strict
+
+      - name: Save Claude Code
+        if: steps.setup.outputs.path != '' && steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/claude/versions/${{ steps.version.outputs.version }}
+          key: ${{ steps.version.outputs.key }}

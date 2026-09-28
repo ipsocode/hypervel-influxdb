@@ -1,0 +1,37 @@
+# Testbench / Workbench configuration for ipsocode/hypervel-influxdb.
+#
+# `workbench/` is the throwaway host application the package is tested against.
+# It owns the InfluxDB connection config the suite exercises, so the package
+# sees the same shape a consuming application would rather than values pushed
+# in from a PHP test hook.
+
+providers:
+  - Ipsocode\InfluxDB\InfluxDBServiceProvider
+
+env:
+  # Applied by the Testbench CLI (`composer test`, `testbench serve`) only —
+  # the TestCase path does not read this block, so nothing the suite asserts on
+  # may depend on it. The connection values live in workbench/config/influxdb.php
+  # for that reason.
+  APP_NAME: "Hypervel InfluxDB Workbench"
+  APP_ENV: testing
+
+workbench:
+  # This package is a connection manager: no models, factories, migrations,
+  # routes or views. `config` and `commands` are the Workbench surfaces it
+  # needs, and `install` would only pull in Hypervel's testing migrations.
+  install: false
+  auth: false
+  health: false
+  discovers:
+    config: true
+    factories: false
+    web: false
+    api: false
+    commands: true
+    components: false
+    views: false
+
+purge:
+  files:
+    - .env

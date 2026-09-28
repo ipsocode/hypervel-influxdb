@@ -1,0 +1,117 @@
+{
+    "name": "ipsocode/hypervel-influxdb",
+    "description": "InfluxDB connections for Hypervel, with InfluxQL for InfluxDB 1.x, 2.x and 3 through a query builder of its own or Hypervel's, and an SQL database driver for InfluxDB 3 (originally ported from ge-tracker/influxdb-laravel)",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "hypervel",
+        "influxdb",
+        "influxdb2",
+        "influxdb3",
+        "influxql",
+        "coroutine",
+        "swoole",
+        "query-builder",
+        "eloquent",
+        "sql",
+        "time-series"
+    ],
+    "homepage": "https://github.com/ipsocode/hypervel-influxdb",
+    "authors": [
+        {
+            "name": "Ipsocode",
+            "homepage": "https://github.com/ipsocode"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/ipsocode/hypervel-influxdb/issues",
+        "source": "https://github.com/ipsocode/hypervel-influxdb",
+        "security": "https://github.com/ipsocode/hypervel-influxdb/security/policy"
+    },
+    "require": {
+        "php": "^8.4",
+        "hypervel/collections": "^0.4",
+        "hypervel/conditionable": "^0.4",
+        "hypervel/console": "^0.4",
+        "hypervel/container": "^0.4",
+        "hypervel/context": "^0.4",
+        "hypervel/contracts": "^0.4",
+        "hypervel/coordinator": "^0.4",
+        "hypervel/core": "^0.4",
+        "hypervel/coroutine": "^0.4",
+        "hypervel/database": "^0.4",
+        "hypervel/foundation": "^0.4",
+        "hypervel/macroable": "^0.4",
+        "hypervel/support": "^0.4",
+        "influxdata/influxdb-client-php": "^3.9"
+    },
+    "require-dev": {
+        "brianium/paratest": "^7.24",
+        "fakerphp/faker": "^1.24",
+        "friendsofphp/php-cs-fixer": "^3.0",
+        "guzzlehttp/guzzle": "^7.9 || ^8.0",
+        "hypervel/components": "0.4.x-dev",
+        "hypervel/testbench": "^0.4",
+        "mockery/mockery": "^1.6",
+        "phpstan/phpstan": "^2.0",
+        "phpunit/phpunit": "^13.0.3",
+        "symfony/yaml": "^8.0.12"
+    },
+    "autoload": {
+        "psr-4": {
+            "Ipsocode\\InfluxDB\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Ipsocode\\InfluxDB\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "hypervel": {
+            "providers": [
+                "Ipsocode\\InfluxDB\\InfluxDBServiceProvider"
+            ],
+            "aliases": {
+                "InfluxDB": "Ipsocode\\InfluxDB\\Facades\\InfluxDB"
+            },
+            "test-state": [
+                "Ipsocode\\InfluxDB\\Testing\\TestState"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "php-http/discovery": true,
+            "tbachert/spi": false
+        },
+        "platform": {
+            "ext-swoole": "6.2.3"
+        }
+    },
+    "scripts": {
+        "lint": "@php vendor/bin/php-cs-fixer fix --diff --dry-run",
+        "lint:fix": "@php vendor/bin/php-cs-fixer fix",
+        "analyse": "@php vendor/bin/phpstan analyse --memory-limit 1G -c phpstan.neon",
+        "conventions": "@php .github/scripts/conventions.php",
+        "test": "@php vendor/bin/testbench package:test",
+        "test:phpunit": "@php vendor/bin/phpunit",
+        "test:parallel": "@php vendor/bin/testbench package:test --parallel",
+        "test:coverage": "@php vendor/bin/testbench package:test --parallel --coverage --coverage-clover tests/coverage/clover.xml --min=100",
+        "test:purge": "@php vendor/bin/testbench package:purge-skeleton"
+    },
+    "scripts-descriptions": {
+        "analyse": "Run PHPStan over src/ with the level, settings and extensions hypervel/components uses.",
+        "conventions": "Run the conventions check with this package's settings, .github/conventions.php. Plain PHP: it needs no install.",
+        "lint": "Report the coding-standard changes php-cs-fixer would make, without writing them.",
+        "lint:fix": "Apply the coding standard. Risky rules are enabled (see .php-cs-fixer.dist.php) \u2014 run `composer test` afterwards, not just before committing.",
+        "test": "Run the package suite through the Testbench CLI.",
+        "test:phpunit": "Run the package suite through PHPUnit directly, bypassing the Testbench CLI.",
+        "test:parallel": "Run the package suite through ParaTest.",
+        "test:coverage": "Run the package suite through ParaTest with PCOV coverage, failing under 100%. Needs the PCOV extension, which the CI image has.",
+        "test:purge": "Clear cached config, routes, views and runtime SQLite files from the Testbench skeleton."
+    }
+}

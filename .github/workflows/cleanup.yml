@@ -1,0 +1,46 @@
+# Imported from ipsocode/hypervel-packages github/workflows/cleanup.yml. Edit it there.
+name: cleanup
+
+# When a pull request closes, merged or not, the Actions caches its runs saved are dead weight:
+# each belongs to refs/pull/<number>/merge, which no other run can read. That is the automated
+# review's notes (claude-memory-<number>-*, see .github/actions/review-memory), the framework the
+# PHP 8.4 job saved for the review (hypervel-components-<commit>, see tests.yml), any Claude Code
+# a review installed on a miss, and the Composer and tests/.cache caches of its test runs. GitHub
+# would evict them after 7 days unused, counting them against the repository's 10 GB until then;
+# this deletes them at once, whatever their keys.
+#
+# A pull request from a fork gets a read-only token, which cannot delete; its caches are left to
+# expire.
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  actions: write
+
+jobs:
+  caches:
+    name: Delete the pull request's caches
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete the caches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REF: refs/pull/${{ github.event.pull_request.number }}/merge
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/${REPO}/actions/caches?ref=${REF}&per_page=100" \
+            --jq '.actions_caches[] | "\(.id)\t\(.key)"' > "${RUNNER_TEMP}/caches.tsv"
+          if [ ! -s "${RUNNER_TEMP}/caches.tsv" ]; then
+            echo "No caches under ${REF}."
+            exit 0
+          fi
+          while IFS=$'\t' read -r id key; do
+            if gh api -X DELETE "repos/${REPO}/actions/caches/${id}" > /dev/null 2>&1; then
+              echo "Deleted ${key}."
+            else
+              echo "::warning::Could not delete ${key} (id ${id})."
+            fi
+          done < "${RUNNER_TEMP}/caches.tsv"

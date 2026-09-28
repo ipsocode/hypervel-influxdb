@@ -1,0 +1,351 @@
+# Imported from ipsocode/hypervel-packages github/workflows/tests.yml. Edit it there.
+name: tests
+
+# The package suite on PHP 8.4 and 8.5, in `ghcr.io/ipsocode/hypervel/ci` — the same image, at the
+# same floating tag, that CONTRIBUTING.md runs locally. Not a shared base: the same image, so green
+# here is green there and green there is green here.
+#
+# Not upstream's own CI base, `ghcr.io/hypervel/components-ci`: that image carries ext-protobuf
+# and no coverage driver, this one carries PCOV and no protobuf. There, coverage would need a
+# `pecl install` step, and the OTLP exporters this repo never wants would build cleanly and then
+# spend every run failing to reach a collector that does not exist.
+#
+# Runs on pull requests, not on pushes. `main` is protected — it changes only through a pull
+# request that is up to date with it and passing these checks — so a run on the merge would test
+# the same code the pull request's last run did; only the `0.4.x-dev` snapshot could have moved
+# since. A pull_request run tests the branch merged with the current `main`, so a conflict with
+# something that already landed shows up without updating the branch first. A branch with no
+# pull request gets no run: open a draft for early feedback (the review skips drafts), or run
+# the suite locally in the same image. Tags are covered by publish.yml, which runs this workflow.
+#
+# What runs here, each job only once the one it needs has passed: initial.yml's checks, which
+# need no container or install (the conventions check); code style, static analysis and the
+# suite under the 100% coverage gate on PHP 8.4, the lowest supported version; then, side by
+# side, static analysis and the suite on PHP 8.5, and the automated review (review.yml).
+#
+# The coverage gate runs on every pull request. It used to run only for a release, on the
+# belief that it roughly doubled the run; with PCOV it costs next to nothing (on
+# hypervel-auditing, 16 s under the gate against 14-16 s without), and a change that drops below
+# 100% now fails its own pull request instead of the next release, after it has landed.
+# publish.yml runs this workflow too, so nothing is tagged unless the gate passes.
+#
+# Every third-party action is pinned to a full-length commit SHA, with its release tag in a
+# trailing comment. A tag can be moved to point at different code and a SHA cannot, and GitHub's
+# "require actions to be pinned to a full-length commit SHA" policy fails any workflow that
+# references an action by tag. To update one, move the SHA and the comment together, to the
+# commit the new tag points at.
+on:
+  # ready_for_review too: a draft gets CI but no review, so marking it ready runs the checks
+  # again and then the review (the `claude` job below).
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_call:
+    # Only for the review, which a release run never reaches; publish.yml passes none.
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  # The framework's blocking-I/O tests key off this.
+  RUN_BLOCKING_TESTS: 'true'
+
+  # Load-bearing on this image, wherever the suite runs in it (see CONTRIBUTING.md).
+  # open-telemetry/sdk 1.15 registers its exporters through tbachert/spi at boot, so
+  # hypervel/components stands the OTLP pipeline up before the first test runs and no package
+  # here opts out of it. This image carries no ext-protobuf, so left on, the metrics exporter's
+  # default http/protobuf transport aborts the run with "The protobuf PHP extension is required"
+  # and the suite never starts.
+  #
+  # On an image that does carry protobuf the run would not abort, but it would spend itself trying
+  # to POST traces, logs and metrics to http://localhost:4318 — the collector default, and there
+  # is no collector in the job — printing a retry-exhausted `cURL error 7` with a full stack trace
+  # at each flush and again at shutdown, around the one line that says whether the tests passed.
+  #
+  # Nothing here tests telemetry, so the SDK stays off rather than the image growing ext-protobuf;
+  # `OTEL_EXPORTER_OTLP_PROTOCOL: http/json` is the other way out if a suite ever needs it on. It
+  # has to be a real process variable and not an entry in testbench.yaml's `env` block: Testbench
+  # encodes a YAML boolean there as the literal string `(true)` for its own env() decoder, and
+  # OpenTelemetry's BooleanParser reads $_SERVER directly and throws on anything but true/false.
+  OTEL_SDK_DISABLED: 'true'
+
+  # Container jobs start with HOME=/github/home, not /root, so Composer's default cache dir is
+  # not the one upstream's workflow caches. Pin it to a fixed path and cache exactly that.
+  COMPOSER_CACHE_DIR: /tmp/composer-cache
+  COMPOSER_MEMORY_LIMIT: '-1'
+
+  # Composer downloads GitHub-hosted packages, hypervel/components among them, through the GitHub
+  # API (their metadata comes from Packagist). Anonymous API calls are limited to 60/hour per IP,
+  # shared across every hosted runner on that IP, so installing without a token fails on a bad
+  # day. The workflow token is a perfectly good GitHub credential for a public repository's API.
+  COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
+
+jobs:
+  # The checks that run on the bare runner, in seconds. See initial.yml. Its job reports as
+  # `initial / Conventions`, a required check of its own on main, like `PHP 8.4`: when it fails,
+  # the PHP jobs are skipped, and a skipped check counts as passed, so the failed
+  # `initial / Conventions` is what holds the merge. Renaming this job or initial.yml's renames
+  # the check, and silently detaches the requirement.
+  initial:
+    name: initial
+    uses: ./.github/workflows/initial.yml
+
+  # Every check that needs the install, on the lowest supported PHP, and only once the initial
+  # checks have passed.
+  php84:
+    name: PHP 8.4
+    needs: initial
+    runs-on: ubuntu-latest
+
+    # A green run is a few minutes: ~1 min to resolve and install, then style, analysis and a
+    # suite that runs in seconds. Backstop for a hang in place of GitHub's 6-hour default.
+    timeout-minutes: 20
+
+    # The framework commit this job installed and cached for the review (below), for the `claude`
+    # job to pass on. Empty for a release run, for a fork's or Dependabot's pull request, and when
+    # the commit cannot be read.
+    outputs:
+      components_ref: ${{ steps.components.outputs.ref }}
+
+    # One group per pull request and job, so a new push cancels the run it supersedes. Keyed on the
+    # number, not the branch name: forks made in GitHub's web editor all push a `patch-1`, and a
+    # group shared across pull requests would cancel one's run for another's, leaving it a
+    # `cancelled` required check. A release run (publish.yml calls this workflow) keys on its ref
+    # and is never cancelled on main. Each job has its own group: in a shared one, an older run's
+    # PHP 8.5 job, starting late, would cancel the newer run's PHP 8.4 job.
+    concurrency:
+      group: tests-${{ github.event.pull_request.number || github.ref }}-8.4
+      cancel-in-progress: ${{ github.ref_name != 'main' }}
+
+    container:
+      # PHP 8.4.x on Swoole 6.2.3, with PCOV, ext-intl, ext-redis, bash, git and Composer on Alpine.
+      # Public, so the job needs no registry credentials.
+      #
+      # The floating `-latest` tag, which CONTRIBUTING.md pulls too, so the two never diverge. Pinning
+      # a digest here would buy a reproducibility this workflow does not otherwise have: there is
+      # no committed lockfile either (see below), so every run already resolves dependencies fresh
+      # against a moving `0.4.x-dev`. An image roll is the smaller of the two moving parts.
+      image: ghcr.io/ipsocode/hypervel/ci:8.4-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No composer.lock is committed — it is gitignored on purpose — so there is nothing exact
+      # to key on. composer.json keys the entry and the prefix restores the newest one on a
+      # change, which is all a download cache needs.
+      #
+      # A run saves its caches under its pull request's ref, which only that pull request reads.
+      # warm.yml saves main's, which every pull request reads, so a first run starts warm too.
+      # It uses these keys and paths, for this cache and tests/.cache and for both PHPs: change
+      # one, change both.
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/composer-cache
+          key: composer-8.4-${{ hashFiles('composer.json') }}
+          restore-keys: composer-8.4-
+
+      # `update`, not `install`: with no lockfile the two do the same thing, and naming it makes
+      # the property explicit — every run resolves against the current `0.4.x-dev` snapshot of
+      # hypervel/components, so an upstream change that breaks this package shows up here
+      # before it shows up in an application that uses it.
+      - name: Install dependencies
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          composer update --prefer-dist --no-interaction --optimize-autoloader
+
+      # The tools' caches, all in tests/.cache/: PHPStan's result cache, php-cs-fixer's, and
+      # PHPUnit's, which holds php-code-coverage's static analysis of src/. PHPStan's used to go
+      # to the system temp dir and PHPUnit's to .phpunit.cache/ in the checkout, neither of which
+      # a step cached, so both died with the runner, and php-cs-fixer's was switched off: every
+      # push paid for a full analysis, a full style check and a cold coverage run. The paths are
+      # set in the package's files and NOT on the command line: `tmpDir:` in phpstan.neon (there
+      # is no --tmp-dir option, only the unrelated editor-mode --tmp-file), `cacheDirectory` in
+      # phpunit.xml and the cache file in .php-cs-fixer.dist.php, so this step and those three
+      # have to agree. The three files are in the key, with composer.json, so changing PHPStan's
+      # level or ignore list, the suite's configuration or the style rules re-keys the cache.
+      #
+      # Cache entries are immutable, so the key has to roll: a fixed key would freeze the cache
+      # at the first run's file set. The sha suffix writes a fresh entry each run and the
+      # restore-keys prefix picks up the newest one. A stale restore degrades to a slower run,
+      # never a wrong answer — PHPStan hashes the config, level and file list into its own
+      # result-cache validity and re-analyses whatever no longer matches; php-cs-fixer records
+      # the hash of each file's fixed content, so a file that breaks the style never matches and
+      # is checked again, in --dry-run too; php-code-coverage keys each entry by the file's
+      # content, with its own and php-parser's versions.
+      #
+      # Right after the install, so code style reads it too. Like the others, it is saved only
+      # when the job succeeds.
+      - name: Cache tests/.cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: tests/.cache
+          key: tests-cache-8.4-${{ hashFiles('composer.json', 'phpstan.neon', 'phpunit.xml', '.php-cs-fixer.dist.php') }}-${{ github.sha }}
+          restore-keys: tests-cache-8.4-${{ hashFiles('composer.json', 'phpstan.neon', 'phpunit.xml', '.php-cs-fixer.dist.php') }}-
+
+      # The framework, for the automated review to read: the brief sends it to the source in
+      # vendor/hypervel/components/src/*/src/ and the docs in src/docs/, packages.md among them.
+      # The review runs on a clean runner that never executes package or dependency code, so it
+      # restores this rather than installing (see .github/actions/review-setup). Only the commit
+      # Composer resolved, which `review.sh components-ref` reads from
+      # vendor/composer/installed.json (with php: this image has no jq), and only once per
+      # commit: a second run of this pull request on the same framework finds the entry and saves
+      # nothing. Only for a pull request the review will read it for, which is the `claude` job's
+      # condition less the draft: not a fork's or Dependabot's, which are never reviewed (and a
+      # fork's entry could not be deleted), but a draft's, since marking it ready runs this again
+      # on the same commit and the review then finds it. The entry lives under the pull request's
+      # ref, where only its own runs read it, and cleanup.yml deletes it on close. This image has
+      # no zstd either, so the entry is saved with gzip, which review-setup then asks for (see
+      # `review.sh gzip-only`). Before the suite, so it holds what Composer installed and nothing
+      # a test writes there: Testbench's skeleton is inside it.
+      #
+      # The path and key are review-setup's restore: change one, change both.
+      - name: Find the framework the tests installed
+        id: components
+        if: >-
+          github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository
+          && github.actor != 'dependabot[bot]'
+        run: bash .github/scripts/review.sh components-ref
+
+      - name: Look for it in the cache
+        id: components-cache
+        if: steps.components.outputs.ref != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: vendor/hypervel/components
+          key: hypervel-components-${{ steps.components.outputs.ref }}
+          lookup-only: true
+
+      - name: Cache it for the review
+        if: steps.components.outputs.ref != '' && steps.components-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: vendor/hypervel/components
+          key: hypervel-components-${{ steps.components.outputs.ref }}
+
+      - name: Check code style
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff
+
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse --memory-limit 1G -c phpstan.neon --no-progress
+
+      # The image ships PCOV, so there is nothing to install and this step only asserts the driver
+      # is loaded. Worth a step of its own regardless, because a missing driver is silent:
+      # `--coverage` would collect nothing, say nothing, and the --min gate below would pass on an
+      # empty report. Which is also why it is an assertion and not an install — the image purges
+      # gcc, make and autoconf after building its extensions, so a `pecl install` fallback here
+      # could not compile anything anyway. If this ever goes red, the image lost PCOV and that is
+      # the thing to fix — in the image, not here.
+      - name: Assert a coverage driver is loaded
+        run: php -m | grep -qx pcov
+
+      # The suite, under the gate: exactly what `composer test:coverage` runs, and on the lowest
+      # supported PHP only (PHP 8.5 runs the plain suite). The gate figure lives here rather than
+      # in the script so a package still closing its last uncovered lines can ratchet instead of
+      # staying red — never lower it to make a run pass.
+      - name: Run the suite under the coverage gate
+        id: gate
+        env:
+          MIN_COVERAGE: '100'
+        run: |
+          vendor/bin/testbench package:test --parallel \
+            --coverage --coverage-clover tests/coverage/clover.xml --min="${MIN_COVERAGE}"
+
+      # The report is written before the gate is applied, so a run that failed the gate still
+      # uploads the clover that says which lines — which is the thing needed to fix it. A release
+      # keeps it either way; a pull request only when the gate failed.
+      - name: Upload the coverage report
+        if: ${{ always() && (github.event_name != 'pull_request' || steps.gate.outcome == 'failure') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: clover-php8.4
+          path: tests/coverage/clover.xml
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # The forward-compatibility job, and only once PHP 8.4 has passed. It runs what can answer
+  # differently on a newer PHP: the install, PHPStan, which checks calls against the PHP that runs
+  # it, so a function or signature that changed in 8.5 shows up here, and the suite. The
+  # conventions check and code style read the same code the same way on either PHP, so PHP 8.4
+  # and the initial checks have already answered them. It is not a required check: it reports
+  # on the next PHP without holding a merge, and the automated review does not wait for it.
+  # When PHP 8.4 fails, it is skipped.
+  php85:
+    name: PHP 8.5
+    needs: php84
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    concurrency:
+      group: tests-${{ github.event.pull_request.number || github.ref }}-8.5
+      cancel-in-progress: ${{ github.ref_name != 'main' }}
+
+    container:
+      # The PHP 8.4 job's image, on PHP 8.5.x.
+      image: ghcr.io/ipsocode/hypervel/ci:8.5-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/composer-cache
+          key: composer-8.5-${{ hashFiles('composer.json') }}
+          restore-keys: composer-8.5-
+
+      - name: Install dependencies
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          composer update --prefer-dist --no-interaction --optimize-autoloader
+
+      # PHP 8.4's step, keyed per PHP: a result cache written under one PHP is analysed against
+      # another's functions and signatures. Right after the install, as there; this job has no
+      # code style check, so PHPStan is the first to read it.
+      - name: Cache tests/.cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: tests/.cache
+          key: tests-cache-8.5-${{ hashFiles('composer.json', 'phpstan.neon', 'phpunit.xml', '.php-cs-fixer.dist.php') }}-${{ github.sha }}
+          restore-keys: tests-cache-8.5-${{ hashFiles('composer.json', 'phpstan.neon', 'phpunit.xml', '.php-cs-fixer.dist.php') }}-
+
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse --memory-limit 1G -c phpstan.neon --no-progress
+
+      - name: Run the suite
+        run: vendor/bin/testbench package:test --parallel
+
+  # The automated review, once the required checks have passed: sequential, like PHP 8.5 and
+  # alongside it, so no runner waits on the checks, and a commit that fails them is not reviewed.
+  # Not for a release run, a draft, a fork or Dependabot; the last two are given no secrets
+  # anyway. It reports as `claude / review`, this job's name and then review.yml's job's, which
+  # is itself a required check, so renaming either job detaches the requirement. It reads the
+  # framework PHP 8.4 cached for it. See review.yml.
+  claude:
+    name: claude
+    needs: php84
+    if: >-
+      github.event_name == 'pull_request'
+      && !github.event.pull_request.draft
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+    uses: ./.github/workflows/review.yml
+    with:
+      components_ref: ${{ needs.php84.outputs.components_ref }}
+    permissions:
+      contents: read
+      pull-requests: write
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

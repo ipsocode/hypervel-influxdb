@@ -1,0 +1,20 @@
+# Imported from ipsocode/hypervel-packages github/dependabot.yml. Edit it there.
+#
+# Weekly, one grouped pull request that moves the pinned action SHAs in the workflows and the
+# local actions. Both are imported too, so once it merges, `scripts/sync-github.sh --adopt` in
+# hypervel-packages carries the new SHAs back to the shared copy.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    # / reads the workflows. The local actions in .github/actions/ pin actions too (the review's
+    # claude-code-action and actions/cache), and Dependabot reads one only when its directory is
+    # listed.
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -1,0 +1,43 @@
+# Imported from ipsocode/hypervel-packages github/release.yml. Edit it there.
+#
+# How GitHub groups merged pull requests into a release's generated notes — read by the
+# publish workflow's generate-notes call and by the "Generate release notes" button alike.
+#
+# Grouping is by the labels on the PULL REQUEST, not on the issue it closes. An unlabelled pull
+# request lands under "Other changes", so label the PR with the type it ticked in the template.
+# The label set is the one the repository already carries for issue triage; the order here is
+# the order a consumer needs to read them in.
+changelog:
+  exclude:
+    labels:
+      - duplicate
+      - invalid
+      - wontfix
+  categories:
+    - title: Breaking changes
+      labels:
+        - breaking-change
+    - title: Security
+      labels:
+        - security
+    - title: Coroutine safety
+      labels:
+        - coroutine-safety
+    - title: Bug fixes
+      labels:
+        - bug
+    - title: Performance
+      labels:
+        - performance
+    - title: Features
+      labels:
+        - enhancement
+    - title: Conformance
+      labels:
+        - conformance
+    - title: Documentation
+      labels:
+        - documentation
+    - title: Other changes
+      labels:
+        - '*'

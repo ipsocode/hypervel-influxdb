@@ -1,0 +1,367 @@
+# Imported from ipsocode/hypervel-packages github/workflows/publish.yml. Edit it there.
+name: publish
+
+# A release of this package is an annotated `vX.Y.Z` tag on main plus a GitHub Release carrying
+# the notes. Nothing is uploaded anywhere: Composer reads versions off the tags, whether an
+# application installs the package through a `vcs` entry or through Packagist, whose hook hears
+# of every tag pushed, this workflow's included.
+#
+# Two ways in, one outcome:
+#
+#   workflow_dispatch -> the normal path. Run it on main, leave the bump on `auto` (or pick one,
+#                        or type an exact version), and the workflow plans the version from the
+#                        latest v* tag, runs tests.yml on that commit (the coverage gate
+#                        included, as on every pull request), then tags the commit and
+#                        publishes the Release, with the clover report kept as an artifact.
+#                        Tick dry_run to see the plan without tagging.
+#   push of a v* tag  -> a tag made by hand gets the same treatment — suite first, Release
+#                        after — so the two paths cannot drift. A tag this workflow pushes does
+#                        not re-trigger it: events caused by the workflow token start no runs.
+#
+# A breaking change is never a patch release. The plan reads the merged pull requests since the
+# previous tag, the same way the notes generator does (.github/release.yml): one labelled
+# `breaking-change` makes `auto` a minor bump, and makes an explicit patch bump, patch version or
+# hand-made patch tag an error. Pre-1.0 the minor part is where semver puts incompatible changes,
+# and a consumer's `composer update` with a `^0.x` constraint must not pull one in as a patch.
+#
+# The notes are three parts: a requirements line derived from composer.json (the Hypervel
+# constraint consumers need to know before anything else), the `highlights` input if given,
+# and GitHub's generated notes — merged pull requests since the previous tag, grouped by label
+# according to .github/release.yml. Commits pushed straight to main without a pull request are
+# not listed by the generator; that is what `highlights` is for.
+#
+# Actions are pinned to full-length commit SHAs, as in tests.yml; see the note at the top of it.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Part of the latest v* tag to bump (ignored when `version` is given). `auto` = minor if a merged PR since the previous tag is labelled breaking-change, else patch
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+      version:
+        description: 'Exact version instead, e.g. 1.0.0 or 0.2.0-rc.1 (leading v optional)'
+        type: string
+        default: ''
+      highlights:
+        description: Markdown placed above the generated notes — what a consumer must know
+        type: string
+        default: ''
+      dry_run:
+        description: Plan and run the suite, but tag and release nothing
+        type: boolean
+        default: false
+  push:
+    tags: ['v*']
+
+# The release job raises this to contents: write for itself; everything else reads.
+permissions:
+  contents: read
+
+# Two releases planned at once would both read the same latest tag and both try to claim the
+# next one. Queue them; never cancel a release in flight.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # Decides what this run is going to do, up front and in one place, so the tests below run on a
+  # known commit and the release job has nothing left to work out. Outputs:
+  #   mode      tag-and-release | release-existing-tag | dry-run | already-released
+  #   tag       the tag to create or the tag that was pushed, e.g. v0.2.0
+  #   sha       the commit it points at
+  #   previous  the highest v* tag reachable from that commit, for the notes range (may be empty)
+  #   breaking  the breaking-change pull requests merged since `previous`, e.g. "#32 #33" (may be empty)
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      tag: ${{ steps.plan.outputs.tag }}
+      sha: ${{ steps.plan.outputs.sha }}
+      previous: ${{ steps.plan.outputs.previous }}
+      breaking: ${{ steps.plan.outputs.breaking }}
+    steps:
+      # Full history and every tag: the version is computed from the tags, and `--merged` below
+      # needs the ancestry to tell which tags this commit actually contains.
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - name: Decide the version
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          BUMP: ${{ inputs.bump }}
+          VERSION: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          # The notes baseline: the highest v* tag the commit already contains. Ancestry, not
+          # version order, so a tag on an abandoned branch cannot become the baseline. A pushed
+          # tag is itself reachable from its commit, so it is excluded.
+          baseline() {
+            git tag --list 'v*' --merged "$1" --sort=-v:refname | grep -vx "${2:-}" | head -n 1 || true
+          }
+
+          # The breaking-change pull requests merged between the baseline and the commit, read
+          # off the PR labels exactly as the notes generator reads them. This is what decides
+          # whether the next version may be a patch.
+          breaking_since() {
+            local previous="$1" sha="$2" found='' merge_sha number
+            while read -r merge_sha number; do
+              [ -n "${merge_sha}" ] || continue
+              git cat-file -e "${merge_sha}^{commit}" 2> /dev/null || continue
+              git merge-base --is-ancestor "${merge_sha}" "${sha}" || continue
+              if [ -n "${previous}" ] && git merge-base --is-ancestor "${merge_sha}" "${previous}^{commit}"; then
+                continue
+              fi
+              found="${found:+${found} }#${number}"
+            done < <(gh pr list --repo "${GITHUB_REPOSITORY}" --state merged --base main --label breaking-change \
+                       --limit 200 --json number,mergeCommit --jq '.[] | "\(.mergeCommit.oid) \(.number)"')
+            echo "${found}"
+          }
+
+          # True when two versions share MAJOR.MINOR — i.e. going from one to the other is at
+          # most a patch step. Pre-release suffixes are ignored.
+          same_minor_line() {
+            local a="${1#v}" b="${2#v}"
+            a="${a%%-*}"; b="${b%%-*}"
+            [ "${a%.*}" = "${b%.*}" ]
+          }
+
+          # The smallest version a breaking change may ship as, given the tag before it.
+          next_minor() {
+            local base="${1#v}" major minor patch
+            base="${base%%-*}"
+            IFS=. read -r major minor patch <<< "${base}"
+            echo "v${major}.$((minor + 1)).0"
+          }
+
+          if [ "${EVENT}" = "push" ]; then
+            # A hand-made tag. Release what was pushed, from the commit it points at — peeled,
+            # because for an annotated tag the ref names the tag object, not the commit.
+            tag="${GITHUB_REF_NAME}"
+            sha=$(git rev-parse "${tag}^{commit}")
+
+            # Releases come from main. A tag on a branch commit would be consumable by Composer
+            # the moment it exists, so refuse to bless it with a Release rather than tidy it up.
+            # origin/main is present: a fetch-depth of 0 fetches every branch, not only the ref.
+            git merge-base --is-ancestor "${sha}" origin/main || {
+              echo "::error::${tag} points at ${sha}, which is not on main. Releases are cut from main only."
+              exit 1
+            }
+
+            previous=$(baseline "${sha}" "${tag}")
+            breaking=$(breaking_since "${previous}" "${sha}")
+            bump='(hand-made tag)'
+
+            # The same rule as the dispatch path: a hand-made patch tag over a breaking change
+            # is refused a Release, just as a tag off main is.
+            if [ -n "${breaking}" ] && [ -n "${previous}" ] && same_minor_line "${tag}" "${previous}"; then
+              echo "::error::${tag} is only a patch above ${previous}, but pull requests merged since then are labelled breaking-change (${breaking}). A breaking change needs at least a minor bump — delete this tag and dispatch the workflow with bump=auto or minor, which gives $(next_minor "${previous}")."
+              exit 1
+            fi
+
+            if gh release view "${tag}" --json tagName > /dev/null 2>&1; then
+              echo "::notice::${tag} already has a Release; nothing to do."
+              mode='already-released'
+            else
+              mode='release-existing-tag'
+            fi
+          else
+            [ "${REF}" = "refs/heads/main" ] || {
+              echo "::error::Run this workflow on main — it was dispatched on ${REF}."
+              exit 1
+            }
+            sha="${GITHUB_SHA}"
+            previous=$(baseline "${sha}")
+            breaking=$(breaking_since "${previous}" "${sha}")
+
+            # Highest v* tag by version order, regardless of where it sits: a new version must
+            # be above every tag that exists, not only the ones on this branch.
+            latest=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+
+            if [ -n "${VERSION}" ]; then
+              version="${VERSION#v}"
+              [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || {
+                echo "::error::'${VERSION}' is not a version. Use MAJOR.MINOR.PATCH with an optional pre-release suffix, e.g. 1.0.0 or 0.2.0-rc.1."
+                exit 1
+              }
+              bump='(explicit version)'
+            else
+              # First release ever bumps from 0.0.0. A pre-release suffix on the latest tag is
+              # dropped before bumping: v0.2.0-rc.1 + patch -> v0.2.1 would be wrong, but the
+              # usual move from an rc is to type the final version explicitly anyway.
+              base="${latest#v}"; base="${base%%-*}"; base="${base:-0.0.0}"
+              IFS=. read -r major minor patch <<< "${base}"
+              bump="${BUMP}"
+              if [ "${bump}" = "auto" ]; then
+                if [ -n "${breaking}" ]; then bump='auto → minor'; else bump='auto → patch'; fi
+              fi
+              case "${bump##* }" in
+                major) version="$((major + 1)).0.0" ;;
+                minor) version="${major}.$((minor + 1)).0" ;;
+                patch) version="${major}.${minor}.$((patch + 1))" ;;
+                *) echo "::error::unknown bump '${BUMP}'"; exit 1 ;;
+              esac
+            fi
+            tag="v${version}"
+
+            if git rev-parse -q --verify "refs/tags/${tag}" > /dev/null; then
+              echo "::error::${tag} already exists (at $(git rev-parse --short "${tag}^{commit}"))."
+              exit 1
+            fi
+            if [ -n "${latest}" ] && [ "$(printf '%s\n' "${latest}" "${tag}" | sort -V | tail -n 1)" != "${tag}" ]; then
+              echo "::error::${tag} is not above the latest tag ${latest}. Releases only move forward."
+              exit 1
+            fi
+            if [ -n "${breaking}" ] && [ -n "${previous}" ] && same_minor_line "${tag}" "${previous}"; then
+              echo "::error::${tag} is only a patch above ${previous}, but pull requests merged since then are labelled breaking-change (${breaking}). A breaking change needs at least a minor bump — use bump=auto or minor (gives $(next_minor "${previous}")), or a version at least that high."
+              exit 1
+            fi
+
+            if [ "${DRY_RUN}" = "true" ]; then
+              mode='dry-run'
+            else
+              mode='tag-and-release'
+            fi
+          fi
+
+          {
+            echo "mode=${mode}"
+            echo "tag=${tag}"
+            echo "sha=${sha}"
+            echo "previous=${previous}"
+            echo "breaking=${breaking}"
+          } >> "${GITHUB_OUTPUT}"
+
+          {
+            echo "## Release plan"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Mode | \`${mode}\` |"
+            echo "| Tag | \`${tag}\` |"
+            echo "| Bump | \`${bump}\` |"
+            echo "| Commit | \`${sha}\` — $(git log -1 --format=%s "${sha}") |"
+            echo "| Notes since | \`${previous:-(first release)}\` |"
+            echo "| Breaking changes | ${breaking:-none} |"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  tests:
+    name: tests
+    needs: plan
+    if: needs.plan.outputs.mode != 'already-released'
+    uses: ./.github/workflows/tests.yml
+    # tests.yml's jobs read the code and nothing else; its review job asks for
+    # pull-requests: write, and a called workflow may ask only for what its caller grants, even
+    # for a job that never runs here (the review is for pull requests only).
+    permissions:
+      contents: read
+      pull-requests: write
+
+  release:
+    name: ${{ needs.plan.outputs.tag }}
+    needs: [plan, tests]
+    if: needs.plan.outputs.mode == 'tag-and-release' || needs.plan.outputs.mode == 'release-existing-tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MODE: ${{ needs.plan.outputs.mode }}
+      TAG: ${{ needs.plan.outputs.tag }}
+      SHA: ${{ needs.plan.outputs.sha }}
+      PREVIOUS: ${{ needs.plan.outputs.previous }}
+    steps:
+      # The planned commit, not whatever main is by now: a merge that landed while the suite ran
+      # was not tested by it. The credential persists because this checkout pushes the tag.
+      - name: Checkout the planned commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      # Annotated, and signed off by whoever pressed the button — the tag is the release, so it
+      # should say who cut it.
+      - name: Tag the commit
+        if: env.MODE == 'tag-and-release'
+        env:
+          ACTOR: ${{ github.actor }}
+          ACTOR_ID: ${{ github.actor_id }}
+        run: |
+          set -euo pipefail
+          git config user.name "${ACTOR}"
+          git config user.email "${ACTOR_ID}+${ACTOR}@users.noreply.github.com"
+          git tag --annotate "${TAG}" "${SHA}" --message "${TAG}"
+          git push origin "refs/tags/${TAG}"
+
+      - name: Write the release notes
+        env:
+          HIGHLIGHTS: ${{ inputs.highlights }}
+        run: |
+          set -euo pipefail
+
+          # The constraint consumers have to match before anything else. Read off composer.json
+          # so it cannot go stale: every hypervel/* requirement shares one constraint here, so
+          # hypervel/contracts speaks for all of them.
+          php_constraint=$(jq -r '.require.php' composer.json)
+          hypervel_constraint=$(jq -r '.require["hypervel/contracts"]' composer.json)
+          hypervel_packages=$(jq -r '.require | keys[] | select(startswith("hypervel/")) | "`\(.)`"' composer.json | paste -sd ',' - | sed 's/,/, /g')
+
+          {
+            echo "Requires PHP \`${php_constraint}\` and Hypervel \`${hypervel_constraint}\` — ${hypervel_packages}."
+            echo
+            if [ -n "${HIGHLIGHTS}" ]; then
+              printf '%s\n\n' "${HIGHLIGHTS}"
+            fi
+          } > notes.md
+
+          # GitHub's generator: merged pull requests between the previous tag and this commit,
+          # grouped by the categories in .github/release.yml. No previous tag means "since the
+          # beginning", which is right for a first release.
+          args=(-f "tag_name=${TAG}" -f "target_commitish=${SHA}")
+          if [ -n "${PREVIOUS}" ]; then
+            args+=(-f "previous_tag_name=${PREVIOUS}")
+          fi
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" "${args[@]}" --jq .body >> notes.md
+
+          echo "::group::notes.md"; cat notes.md; echo "::endgroup::"
+
+      # --verify-tag: fail rather than let gh create a lightweight tag of its own if the push
+      # above somehow did not land. A version with a pre-release suffix is marked as such, so it
+      # is never shown as the latest release and Composer's stability rules treat it accordingly.
+      - name: Publish the release
+        run: |
+          set -euo pipefail
+          flags=(--title "${TAG}" --notes-file notes.md --verify-tag)
+          case "${TAG}" in
+            *-*) flags+=(--prerelease) ;;
+          esac
+          gh release create "${TAG}" "${flags[@]}"
+
+      - name: Summarise
+        run: |
+          set -euo pipefail
+          package=$(jq -r .name composer.json)
+          url=$(gh release view "${TAG}" --json url --jq .url)
+          {
+            echo "## Released ${TAG}"
+            echo
+            echo "${url}"
+            echo
+            echo "To pick it up in an application:"
+            echo
+            echo '```sh'
+            echo "composer update ${package}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"

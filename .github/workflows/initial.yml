@@ -1,0 +1,52 @@
+# Imported from ipsocode/hypervel-packages github/workflows/initial.yml. Edit it there.
+name: initial
+
+# The checks that need neither the CI image nor an install, run first: tests.yml calls this
+# before its container jobs, so a pull request that fails one hears about it before a container
+# is pulled or a dependency resolved.
+#
+# Today that is the conventions check alone. Everything else in tests.yml needs vendor/: code
+# style runs the installed php-cs-fixer, PHPStan reads hypervel/components, and the suite also
+# needs Swoole, which only the image carries. The install is the long part of a PHP 8.4 run
+# (about 55 of its 90 seconds), and the conventions check always ran ahead of it; what moves
+# here is the container start and the checkout.
+#
+# It runs on the runner's own PHP: 8.3 on ubuntu-24.04, which the conventions script keeps to on
+# purpose. Nothing here runs the package's code, so the PHP that runs it does not have to be one
+# the package supports.
+#
+# Only ever called, never triggered on its own: tests.yml calls it, and its PHP jobs wait for it.
+# The job reports as `initial / Conventions`, a required check on main beside `PHP 8.4`. When it
+# fails, the PHP jobs are skipped, which counts as passed, so this failed check is what holds
+# the merge. See tests.yml.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  conventions:
+    name: Conventions
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    # Like tests.yml's jobs: a new push to the pull request cancels this job in the run it
+    # supersedes, and tests.yml then skips that run's PHP 8.4 and PHP 8.5.
+    concurrency:
+      group: tests-${{ github.event.pull_request.number || github.ref }}-initial
+      cancel-in-progress: ${{ github.ref_name != 'main' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The review rules a script can decide: framework conformance, the coverage gate, raw SQL,
+      # code execution, shell, sleep and exit in shipped code, and the names the package writes
+      # where the application writes too. The rules are .github/scripts/conventions.php and this
+      # package's settings and exceptions .github/conventions.php. Each violation is annotated on
+      # its line. `composer conventions` runs the same thing locally.
+      - name: Check the conventions
+        run: php .github/scripts/conventions.php

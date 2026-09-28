@@ -1,0 +1,31 @@
+# Imported from ipsocode/hypervel-packages github/actions/review-finalise/action.yml. Edit it there.
+name: review-finalise
+description: Summarizes the review session, and collapses the older review summaries.
+
+# After the review, whether it succeeded, failed or was cut short: a review that went wrong is
+# the one whose session most needs reading. Called by .github/workflows/review.yml whenever a
+# credential was there; the code is .github/scripts/review.sh.
+
+runs:
+  using: composite
+  steps:
+    # What the session did, from the action's record of it, which the log leaves out: its turns
+    # and cost, the tools it used, and every call it was refused. A refusal cost a turn and got
+    # nothing: allow the call in --allowedTools (.github/actions/review-claude), or steer the
+    # skill away from it. Tool names and the refused calls' input only, never what a tool
+    # returned. Nothing to summarize when the session never started.
+    - name: Summarize the review session
+      if: always()
+      shell: bash
+      run: bash .github/scripts/review.sh summarize
+
+    # Once the newest summary covers this head (its first line names the head it reviewed), the
+    # older ones are minimized as outdated: one current summary per pull request, with the
+    # history kept. Only then: a review that was cut short or skipped leaves the previous summary
+    # as the latest word, visible.
+    - name: Collapse older summaries
+      if: always()
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: bash .github/scripts/review.sh collapse

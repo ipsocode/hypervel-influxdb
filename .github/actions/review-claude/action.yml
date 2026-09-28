@@ -1,0 +1,128 @@
+# Imported from ipsocode/hypervel-packages github/actions/review-claude/action.yml. Edit it there.
+name: review-claude
+description: Sets up Claude Code with the review's skill and brief, and runs the review.
+
+# One Claude session running the pr-review skill, and what it needs first: Claude Code itself,
+# the skill and the brief, and the prompt. Called by .github/workflows/review.yml, which passes
+# the credentials in, since a composite action cannot read secrets; the code is
+# .github/scripts/review.sh. This file pins the action that runs the session, and review.sh reads
+# the pin here to find the Claude Code version the action installs.
+
+inputs:
+  claude_code_oauth_token:
+    description: A CLAUDE_CODE_OAUTH_TOKEN, from `claude setup-token`
+    required: false
+    default: ''
+  anthropic_api_key:
+    description: An ANTHROPIC_API_KEY, in place of the OAuth token
+    required: false
+    default: ''
+  github_token:
+    description: The job's token, which the review posts its comments with
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # Claude Code, installed once and restored after that: the action's own install took 13 s of
+    # hypervel-auditing#9's review, every run. It has to be the version the action pins, which
+    # only the action's source names; when that cannot be read, nothing is restored and the
+    # action installs Claude Code itself. The cache key comes from review.sh too, so its format
+    # lives there, for warm.yml as well.
+    - name: Find the Claude Code version the action installs
+      id: version
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: bash .github/scripts/review.sh claude-version
+
+    # From main's cache, which warm.yml fills, or from this pull request's own. The path and key
+    # are warm.yml's too. The path keeps its literal ~: it is part of the existing entries'
+    # identity.
+    - name: Restore Claude Code
+      id: cache
+      if: steps.version.outputs.version != ''
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.local/share/claude/versions/${{ steps.version.outputs.version }}
+        key: ${{ steps.version.outputs.key }}
+
+    # On a miss, the installer the action runs, for the same version. It leaves the binary at
+    # the path above, and ~/.local/bin/claude linked to it, which a restore has to recreate. A
+    # failure here leaves no path, so the action installs Claude Code itself, with retries.
+    - name: Set up Claude Code
+      id: setup
+      if: steps.version.outputs.version != ''
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+        RESTORED: ${{ steps.cache.outputs.cache-hit }}
+      shell: bash
+      run: bash .github/scripts/review.sh claude-setup --version "${VERSION}" --restored "${RESTORED:-false}"
+
+    # Under this pull request's ref: the next review of it restores it, even with nothing on main.
+    - name: Save Claude Code
+      if: steps.setup.outputs.path != '' && steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.local/share/claude/versions/${{ steps.version.outputs.version }}
+        key: ${{ steps.version.outputs.key }}
+
+    # Into ~/.claude/, where Claude Code finds the user's skills and CLAUDE.md, and where the
+    # runner discards them with everything else when the job ends. The package keeps no .claude/
+    # of its own, and a release leaves .github/ out, so neither reaches an application. The
+    # action swaps the checkout's .claude/ for the base branch's (so that a pull request cannot
+    # plant hooks or settings there), but leaves ~/.claude/ alone. The two come from this
+    # checkout, like package.md, so a pull request that changes them is reviewed under its own.
+    # That opens nothing new: a pull request from this repository runs its own workflow files
+    # anyway, and forks and Dependabot get no review.
+    - name: Install the review's skill and brief
+      shell: bash
+      run: bash .github/scripts/review.sh install
+
+    # The prompt. The skill holds the instructions; the prompt hands the review what it would
+    # otherwise spend its first turns collecting, about half of them on hypervel-auditing's
+    # reviews: the package's focus, the change's files and where each one's diff starts, what
+    # changed since the last review and its notes, and that gh is ready. Only what review.sh and
+    # the package's own files produce goes in. What the pull request's author wrote (the
+    # template, the commit messages, the diff, the comments) stays in .pr-review/, to be read as
+    # the material under review.
+    - name: Brief the review
+      id: brief
+      shell: bash
+      run: bash .github/scripts/review.sh brief
+
+    # One Claude session running the pr-review skill, installed above with the brief, without
+    # subagents. A subagent's turns do not count against --max-turns: runs that reported 2 turns
+    # took 7.6 min / $0.87 (hypervel-auditing) and 10.3 min / $4.61 (hypervel-influxdb), where a
+    # normal hypervel-auditing run is about 21 turns, 3 min and $0.46. Without them the turn limit
+    # bounds the work, and the job's timeout is only a backstop. The action always writes its
+    # record of the session to $RUNNER_TEMP/claude-execution-output.json, which review-finalise
+    # summarizes, even when this step fails.
+    - name: Review
+      id: review
+      uses: anthropics/claude-code-action@756cc22e19660d20e8cc9496b4f242475a7f7790 # v1.0.235
+      with:
+        claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
+        anthropic_api_key: ${{ inputs.anthropic_api_key }}
+        github_token: ${{ inputs.github_token }}
+        path_to_claude_code_executable: ${{ steps.setup.outputs.path }}
+        # Auto memory is for a person's sessions. Here the runner is new every time, and it only
+        # sent a review looking for a MEMORY.md that is never there.
+        settings: '{"autoMemoryEnabled": false}'
+        prompt: ${{ steps.brief.outputs.prompt }}
+        # gh --version and gh auth status as well: a review checks gh before it posts, and retries
+        # a refused check in other forms, a turn each (four on hypervel-auditing#16). Allowed, the
+        # first check answers it. gh auth status masks the token.
+        #
+        # Edit(./.pr-review/**), not Write: the session writes its notes, .pr-review/memory.md,
+        # and nothing else. A bare Write would reach anything the runner's user can, and the
+        # steps after this one run .github/actions/ and .github/scripts/review.sh from this
+        # checkout, and actions the runner downloaded, with the job's token and its caches. An
+        # Edit rule covers Write and every other tool that changes a file (a Write(path) rule is
+        # accepted and never consulted), and `./` anchors it at the checkout; a write elsewhere
+        # is refused, and review-finalise lists it. review.yml puts .github/ back from the commit
+        # after this step as well.
+        claude_args: |
+          --max-turns 60
+          --disallowedTools "Agent,Task"
+          --allowedTools "Skill,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh --version),Bash(gh auth status),Edit(./.pr-review/**)"

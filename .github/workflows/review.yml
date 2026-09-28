@@ -1,0 +1,168 @@
+# Imported from ipsocode/hypervel-packages github/workflows/review.yml. Edit it there.
+name: review
+
+# Automated code review of every pull request that is ready for it. It never approves or
+# requests changes; it comments. Its job reports as `claude / review`, a required check on main:
+# a pull request merges only once its latest commit has been reviewed, and every inline comment
+# is a conversation that has to be resolved first. The job succeeds whatever the review finds,
+# so the check fails only when the job does (an API outage, say); re-run it then.
+#
+# tests.yml calls it once `initial / Conventions` and `PHP 8.4` have passed, as a job of its run
+# beside PHP 8.5: sequential, like PHP 8.5, so no runner sits waiting for the checks, and a
+# commit that fails them, which is about to change, is never reviewed and paid for twice.
+# PHP 8.5 is not waited for: it is not required, and it answers about the next PHP, which the
+# review would not. tests.yml skips the review, which counts as passed, for drafts, forks and
+# Dependabot, and passes in the credential and the framework commit its PHP 8.4 job cached.
+#
+# The mechanical rules are not the review's job. The conventions check,
+# .github/scripts/conventions.php, enforces them in `initial / Conventions`, and
+# .github/scripts/review-scan.sh flags what the change itself adds or removes, as leads. The
+# review keeps what needs judgment: correctness, coroutine safety, privacy, and whether the tests
+# prove the change.
+#
+# Needs a CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`) or ANTHROPIC_API_KEY repository
+# secret, which tests.yml passes on. Without one, the pull request is still collected and
+# scanned, and the review, its memory and the summaries skip instead of failing. Pull requests
+# from forks and from Dependabot never get here: neither is given repository secrets.
+#
+# One job on one runner, in parts, each of which says why it does what it does:
+#
+#   .github/actions/review-setup     the review's focus, the pull request collected into
+#                                    .pr-review/, the scan, and the framework's source,
+#                                    restored from the PHP 8.4 job's cache; needs no credential
+#   .github/actions/review-memory    the notes the last review of this pull request left:
+#                                    restored before the review, kept after it
+#   .github/actions/review-claude    Claude Code, the skill and the brief, the prompt, and the
+#                                    session itself
+#   .github/actions/review-finalise  what the session did, in the job summary, and the older
+#                                    summaries collapsed
+#   .github/scripts/review.sh        the code of every step, one command each; it runs locally
+#                                    too (`review.sh --help`). All but one: the step that puts
+#                                    .github/ back after the review is inline below, and says why
+#   .github/review/                  the package's own part: package.md, what the package is and
+#                                    where in src/ to look, and the optional scan-skip
+#
+# The review's instructions are the pr-review skill, .github/claude/skills/pr-review/SKILL.md,
+# with the brief beside it, .github/claude/AGENTS.md. All of it is the same in every
+# ipsocode/hypervel-* repository, imported from ipsocode/hypervel-packages; what differs is in
+# .github/review/.
+on:
+  workflow_call:
+    inputs:
+      components_ref:
+        description: >-
+          The hypervel/components commit the PHP 8.4 job installed and cached for the review
+        type: string
+        required: false
+        default: ''
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: review
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # A new push supersedes the review of the previous one.
+    concurrency:
+      group: claude-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # First: every step after this one runs .github/scripts/review.sh or a local action, both
+      # from this checkout.
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      # Secrets cannot be tested in a step's `if`, so this turns their presence into an output.
+      - name: Check for a Claude credential
+        id: credential
+        env:
+          HAS_CREDENTIAL: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' || secrets.ANTHROPIC_API_KEY != '' }}
+        run: bash .github/scripts/review.sh credential
+
+      - name: Collect and scan the pull request
+        uses: ./.github/actions/review-setup
+        with:
+          components_ref: ${{ inputs.components_ref }}
+
+      - name: Restore the review's memory
+        if: steps.credential.outputs.present == 'true'
+        uses: ./.github/actions/review-memory
+        with:
+          mode: restore
+
+      # A composite action cannot read secrets, so they go in as inputs.
+      - name: Review
+        id: review
+        if: steps.credential.outputs.present == 'true'
+        uses: ./.github/actions/review-claude
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # The session writes into .pr-review/ only (review-claude's --allowedTools). The steps below
+      # run .github/actions/ and .github/scripts/review.sh from this checkout, which the runner
+      # reads only as each step starts, one of them with a token that can write to the pull
+      # request; so .github/ is put back from the commit first, whatever got past that rule. It
+      # has to be inline, here: the runner read this file when the job started. The files come
+      # straight out of the commit's objects (ls-tree and cat-file, at GITHUB_SHA, the commit the
+      # checkout made), not through checkout, status or clean: those run the filter drivers,
+      # hooks and fsmonitor that .git/config and .gitattributes name, and anything that could
+      # rewrite .github/ could rewrite those too. When this fails, the steps below are skipped:
+      # the notes' by the failure, the summary's by its condition.
+      - name: Put .github/ back from the commit
+        id: pristine
+        if: always() && steps.credential.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          git() { command git -c core.hooksPath=/dev/null -c core.fsmonitor=false "$@"; }
+          pristine="${RUNNER_TEMP}/pristine"
+          rm -rf "${pristine}"
+          mkdir -p "${pristine}"
+          git ls-tree -r -z "${GITHUB_SHA}" -- .github > "${RUNNER_TEMP}/github-tree"
+          while IFS= read -r -d '' entry; do
+            path=${entry#*$'\t'}
+            read -r mode _ sha <<< "${entry%%$'\t'*}"
+            mkdir -p "${pristine}/$(dirname "${path}")"
+            if [ "${mode}" = 120000 ]; then
+              ln -s "$(git cat-file blob "${sha}")" "${pristine}/${path}"
+            else
+              git cat-file blob "${sha}" > "${pristine}/${path}"
+              if [ "${mode}" = 100755 ]; then chmod +x "${pristine}/${path}"; fi
+            fi
+          done < "${RUNNER_TEMP}/github-tree"
+          changed=$(diff -rq .github "${pristine}/.github" 2> /dev/null | sed "s|${pristine}/||g" | paste -s -d ';' - | sed 's/;/; /g' || true)
+          rm -rf .github
+          mv "${pristine}/.github" .github
+          if [ -n "${changed}" ]; then
+            echo "::warning::The review changed .github/, which is put back from the commit: ${changed}"
+          fi
+
+      - name: Keep the review's notes
+        if: steps.review.outcome == 'success'
+        uses: ./.github/actions/review-memory
+        with:
+          mode: save
+
+      # Also after a failed or cancelled review: what the session did until then is what explains
+      # it.
+      - name: Summarize the session and collapse older summaries
+        if: >-
+          always() && steps.credential.outputs.present == 'true'
+          && steps.pristine.outcome == 'success'
+        uses: ./.github/actions/review-finalise

@@ -1,0 +1,19 @@
+# Imported from ipsocode/hypervel-packages github/CODEOWNERS. Edit it there.
+#
+# Setup files: CI, test and tooling config, dependencies, repository metadata and agent
+# config. A pull request that changes one needs an approving review from @ipsocode — the
+# "setup-files" ruleset on main requires code-owner review. /.github/ covers this file too,
+# the conventions check and its settings (.github/scripts/conventions.php,
+# .github/conventions.php), and the automated review's focus (.github/review/).
+/.github/            @ipsocode
+/composer.json       @ipsocode
+/phpunit.xml*        @ipsocode
+/phpstan*.neon*      @ipsocode
+/.php-cs-fixer*.php  @ipsocode
+/testbench.yaml      @ipsocode
+/.gitattributes      @ipsocode
+/.gitignore          @ipsocode
+/.mcp.json           @ipsocode
+/.claude/            @ipsocode
+/CLAUDE.md           @ipsocode
+/AGENTS.md           @ipsocode

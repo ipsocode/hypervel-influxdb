@@ -1,0 +1,67 @@
+# Imported from ipsocode/hypervel-packages github/actions/review-memory/action.yml. Edit it there.
+name: review-memory
+description: Restores the notes the last review of this pull request left, or keeps the new ones.
+
+# The notes the last review of this pull request left: the head it reviewed, then a line per
+# file of the change with what it checked and concluded. The review reads again in full what
+# changed since that head, what those changes reach, and any file the notes leave out, and trusts
+# the notes for the rest, then writes new notes. A file the new notes leave out is named in a
+# warning, and the next review reads it in full. Without notes, it reads everything.
+#
+# Before notes, every push re-read the whole change: on hypervel-auditing#9, reviews of a growing
+# change ran from 17 to 31 turns, 56 to 145 s and $0.57 to $0.81, mostly re-checking files the
+# push never touched. With them, a push there that changed one file was reviewed in 77 s for
+# $0.41, where the review before it, with no notes yet, took 148 s and $0.96.
+#
+# The notes live in an Actions cache of this pull request's own, which no other pull request can
+# read, and cleanup.yml deletes it on close: its keys, claude-memory-<number>-*, are written here
+# only. Called by .github/workflows/review.yml, with `restore` before the review and `save` after
+# a review that succeeded; the code is .github/scripts/review.sh.
+
+inputs:
+  mode:
+    description: restore (before the review) or save (after it)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # The key is unique per run, so the newest notes restore through the prefix.
+    - name: Restore the review's memory
+      if: inputs.mode == 'restore'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .pr-review/memory.md
+        key: claude-memory-${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: claude-memory-${{ github.event.pull_request.number }}-
+
+    # What the review has to read again: what changed between the head the notes reviewed and
+    # this one, with the diff of it, and any file of the change the notes leave out. A merge of
+    # main shows up here too, and the review keeps to this pull request's files. No notes, or
+    # notes whose head is gone (a force-push), mean everything.
+    - name: List what changed since the memory
+      if: inputs.mode == 'restore'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: bash .github/scripts/review.sh since-memory
+
+    # Only notes this review wrote are kept: their first line names this head. Notes it left as
+    # they were still name an older head, and the next review then reads more, never less. Notes
+    # that leave out a file of the change are kept too, with a warning naming the file, and the
+    # next review reads that file in full. The session can write into .pr-review/ only
+    # (review-claude), review.yml has put .github/ back from the commit before this action runs,
+    # and the job's token cannot push, so nothing the session wrote reaches beyond this runner
+    # but the notes.
+    - name: Check the memory
+      id: check
+      if: inputs.mode == 'save'
+      shell: bash
+      run: bash .github/scripts/review.sh check-memory
+
+    - name: Save the review's memory
+      if: inputs.mode == 'save' && steps.check.outputs.save == 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .pr-review/memory.md
+        key: claude-memory-${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_attempt }}

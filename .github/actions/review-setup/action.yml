@@ -1,0 +1,91 @@
+# Imported from ipsocode/hypervel-packages github/actions/review-setup/action.yml. Edit it there.
+name: review-setup
+description: Collects and scans the pull request, and restores the framework, for the review.
+
+# What the review reads, gathered before it starts, so that it starts there and not with a round
+# of gh calls. None of it needs a credential: a repository without one still gets .pr-review/ and
+# the scan in the job summary. Called by .github/workflows/review.yml; the code is
+# .github/scripts/review.sh.
+
+inputs:
+  components_ref:
+    description: >-
+      The hypervel/components commit the PHP 8.4 job cached for the review, or empty for none
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    # The review's instructions, and the package's own part of them. The instructions are the
+    # pr-review skill, .github/claude/skills/pr-review/SKILL.md, imported with the brief beside
+    # it, .github/claude/AGENTS.md; a review can follow the skill locally before a push too. The
+    # package's part is in .github/review/: package.md, what the package is and where in src/ to
+    # look, which goes into the prompt, and the optional scan-skip, which becomes
+    # REVIEW_SCAN_SKIP. The skill, the brief and package.md are required: without the skill the
+    # review has no instructions, and without the others it does not know what the package is.
+    - name: Read the package's review focus
+      id: focus
+      shell: bash
+      run: bash .github/scripts/review.sh focus
+
+    # .pr-review/ gets everything the review reads: the template as filled in, with the commits
+    # the history-less checkout cannot show, the whole diff (rebuilt from the files API, which
+    # also serves a change too big for `gh pr diff`), its files, and the earlier review comments.
+    - name: Collect the pull request
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: bash .github/scripts/review.sh collect
+
+    # review-scan.sh over the diff, into .pr-review/scan.md and the job summary: leads for the
+    # review to check, never verdicts.
+    - name: Scan the diff
+      env:
+        REVIEW_SCAN_SKIP: ${{ steps.focus.outputs.skip }}
+      shell: bash
+      run: bash .github/scripts/review.sh scan
+
+    # The framework, for the review to read. The brief sends it to Hypervel's source in
+    # vendor/hypervel/components/src/*/src/ and its docs in src/docs/, packages.md among them,
+    # but this job installs nothing: it runs on a clean runner that never executes package or
+    # dependency code. The PHP 8.4 job's container ran `composer update`, a Composer plugin and
+    # the suite, and anything they wrote there would still be present while the review holds the
+    # credential. So that job caches the framework it installed, only vendor/hypervel/components
+    # (92 MB of the 282 MB vendor/ on disk, and the part the brief points at), and this restores
+    # it to be read, never run. The entry lives under the pull request's ref, and cleanup.yml
+    # deletes it on close.
+    #
+    # The CI image has no zstd, so the container saved the entry with gzip, and actions/cache
+    # puts the compression method in an entry's identity: on this runner, which has zstd, a plain
+    # restore would ask for a zstd entry and miss. `review.sh gzip-only` makes a zstd that fails,
+    # and only the restore runs with it first in PATH, so it asks for the gzip entry; the Claude
+    # Code and memory caches in the same job keep zstd. Delete the two once the image ships zstd.
+    - name: Make the framework's restore ask for gzip
+      if: inputs.components_ref != ''
+      shell: bash
+      run: bash .github/scripts/review.sh gzip-only
+
+    # The path and key are the PHP 8.4 job's in tests.yml, which saves the entry: change one,
+    # change both.
+    - name: Restore the framework
+      id: framework
+      if: inputs.components_ref != ''
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      env:
+        PATH: ${{ runner.temp }}/gzip-only:/usr/bin:/bin
+      with:
+        path: vendor/hypervel/components
+        key: hypervel-components-${{ inputs.components_ref }}
+
+    # Other projects' agent instructions come with the framework (hypervel/components keeps a
+    # CLAUDE.md and an AGENTS.md at its root), and Claude Code loads a directory's CLAUDE.md when
+    # the review reads files there, so they are deleted, and so is any symlink, which could lead
+    # a read out of the tree. Without the entry, a notice says the review has no framework source
+    # this time, and the brief tells it to say what it could not check rather than assume
+    # Laravel's API.
+    - name: Strip the framework's agent files
+      env:
+        RESTORED: ${{ steps.framework.outputs.cache-hit }}
+      shell: bash
+      run: bash .github/scripts/review.sh framework --restored "${RESTORED:-false}"
