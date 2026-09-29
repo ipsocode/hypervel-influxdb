@@ -25,7 +25,7 @@ runs:
   using: composite
   steps:
     # Claude Code, installed once and restored after that: the action's own install took 13 s of
-    # hypervel-auditing#9's review, every run. It has to be the version the action pins, which
+    # auditing-old#9's review, every run. It has to be the version the action pins, which
     # only the action's source names; when that cannot be read, nothing is restored and the
     # action installs Claude Code itself. The cache key comes from review.sh too, so its format
     # lives there, for warm.yml as well.
@@ -111,7 +111,7 @@ runs:
         settings: '{"autoMemoryEnabled": false}'
         prompt: ${{ steps.brief.outputs.prompt }}
         # gh --version and gh auth status as well: a review checks gh before it posts, and retries
-        # a refused check in other forms, a turn each (four on hypervel-auditing#16). Allowed, the
+        # a refused check in other forms, a turn each (four on auditing-old#16). Allowed, the
         # first check answers it. gh auth status masks the token.
         #
         # Edit(./.pr-review/**), not Write: the session writes its notes, .pr-review/memory.md,

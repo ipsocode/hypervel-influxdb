@@ -369,7 +369,7 @@ cmd_framework() {
 # is a line per file of the change with what it checked and concluded. The review reads again
 # in full what changed since that head, what those changes reach, and any file the notes leave
 # out, and trusts the notes for the rest, then writes new notes. Without notes, it reads
-# everything. Before notes, every push re-read the whole change: on hypervel-auditing#9, reviews
+# everything. Before notes, every push re-read the whole change: on auditing-old#9, reviews
 # of a growing change ran from 17 to 31 turns, 56 to 145 s and $0.57 to $0.81, mostly
 # re-checking files the push never touched. With them, a push there that changed one file was
 # reviewed in 77 s for $0.41, where the review before it, with no notes yet, took 148 s and
@@ -398,7 +398,7 @@ cmd_since_memory() {
             echo "Changed since ${reviewed}, the head the notes reviewed:"
             while IFS= read -r file; do echo "- ${file}"; done <<< "${changed:-(nothing)}"
             # The changes themselves, which diff.patch buries in the whole pull request's diff:
-            # without them, a review on hypervel-auditing#9 spent ten turns on git fetch and
+            # without them, a review on auditing-old#9 spent ten turns on git fetch and
             # gh api, which the history-less checkout and the allowed tools refused. GitHub
             # declines a diff it finds too large; the review then reads the files.
             if compare_diff "${reviewed}" > "${dir}/since-memory.patch"; then
@@ -444,7 +444,7 @@ compare_diff() {
 # ------------------------------------------------------------------------------ claude-version
 
 # Claude Code, installed once and restored after that: the action installed it on every run,
-# which took 13 s of hypervel-auditing#9's review. It has to be the version the action pins,
+# which took 13 s of auditing-old#9's review. It has to be the version the action pins,
 # which only the action's source names: src/entrypoints/run.ts, at the SHA
 # .github/actions/review-claude/action.yml pins the action to, which installs it with
 # https://claude.ai/install.sh. When that cannot be read, nothing is restored and the action

@@ -8,7 +8,7 @@ description: Restores the notes the last review of this pull request left, or ke
 # the notes for the rest, then writes new notes. A file the new notes leave out is named in a
 # warning, and the next review reads it in full. Without notes, it reads everything.
 #
-# Before notes, every push re-read the whole change: on hypervel-auditing#9, reviews of a growing
+# Before notes, every push re-read the whole change: on auditing-old#9, reviews of a growing
 # change ran from 17 to 31 turns, 56 to 145 s and $0.57 to $0.81, mostly re-checking files the
 # push never touched. With them, a push there that changed one file was reviewed in 77 s for
 # $0.41, where the review before it, with no notes yet, took 148 s and $0.96.

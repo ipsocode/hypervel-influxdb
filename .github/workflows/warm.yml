@@ -6,7 +6,7 @@ name: warm
 # run), and the automated review's Claude Code (the last job below). tests.yml runs only on pull
 # requests, and a run saves its caches under its pull request's own ref, which no other pull
 # request reads; so without this, each pull request's first run starts cold. On
-# hypervel-auditing#15, which ran this beside tests.yml, tests.yml's PHP 8.5 install took 12 s
+# auditing-old#15, which ran this beside tests.yml, tests.yml's PHP 8.5 install took 12 s
 # from the entry this had saved, where its PHP 8.4 install, started before that, took 43 s.
 #
 # The keys and paths are tests.yml's and .github/actions/review-claude's (whose key
