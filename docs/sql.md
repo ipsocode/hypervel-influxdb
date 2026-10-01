@@ -101,9 +101,7 @@ string.
 The connection is one of Hypervel's database connections, so its query
 events, query log and `pretend()` work as they do on any other. `pretend()`
 sends nothing, and logs each statement with its values embedded, as it would
-be sent. A statement bound to a date is the exception: to log it, Hypervel
-hands the grammar the bindings as they were given, before the connection
-writes a date as a string, so `pretend()` throws a `TypeError` on the date.
+be sent, a date as the string the connection would write.
 `setDatabaseName()` sends the connection's statements to another database
 until Hypervel's pool takes the connection back and resets it.
 
