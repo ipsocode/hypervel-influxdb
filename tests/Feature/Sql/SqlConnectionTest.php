@@ -415,6 +415,19 @@ class SqlConnectionTest extends TestCase
         $this->assertSame([], $this->history);
     }
 
+    public function testPretendingLogsADateBindingAsTheStringTheConnectionWouldWrite(): void
+    {
+        $queries = DB::connection('influxdb')->pretend(function (Connection $db): void {
+            $db->table('cpu')->where('time', '>=', new DateTimeImmutable('2024-01-01T00:00:00Z'))->get();
+        });
+
+        $this->assertSame(
+            'select * from "cpu" where "time" >= \'2024-01-01T00:00:00.000000+00:00\'',
+            $queries[0]['query'],
+        );
+        $this->assertSame([], $this->history);
+    }
+
     public function testACursorYieldsTheRowsOfOneRequestOnlyOnceIteratedOver(): void
     {
         $this->responses->append(self::rows([['host' => 'web1'], ['host' => 'web2']]), self::rows([['host' => 'web3']]));

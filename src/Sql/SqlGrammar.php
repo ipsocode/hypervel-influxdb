@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ipsocode\InfluxDB\Sql;
 
+use DateTimeInterface;
 use Hypervel\Database\BinaryParameter;
 use Hypervel\Database\Query\Builder;
 use Hypervel\Database\Query\Grammars\PostgresGrammar;
@@ -82,6 +83,10 @@ class SqlGrammar extends PostgresGrammar
         $bindings = array_map(function (mixed $value): string {
             if ($value instanceof BinaryParameter) {
                 return $this->escape($value->value, true);
+            }
+
+            if ($value instanceof DateTimeInterface) {
+                $value = $value->format($this->getDateFormat());
             }
 
             if (is_resource($value) || gettype($value) === 'resource (closed)') {
