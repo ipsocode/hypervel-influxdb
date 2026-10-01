@@ -1,0 +1,113 @@
+# Imported from ipsocode/hypervel-packages github/workflows/review.yml. Edit it there.
+name: review
+
+on:
+  workflow_call:
+    inputs:
+      components_ref:
+        description: >-
+          The hypervel/components commit the PHP 8.4 job installed and cached for the review
+        type: string
+        required: false
+        default: ''
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: review
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    concurrency:
+      group: claude-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check for a Claude credential
+        id: credential
+        env:
+          HAS_CREDENTIAL: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' || secrets.ANTHROPIC_API_KEY != '' }}
+        run: bash .github/scripts/review.sh credential
+
+      - name: Collect and scan the pull request
+        id: setup
+        uses: ./.github/actions/review-setup
+        with:
+          components_ref: ${{ inputs.components_ref }}
+
+      - name: Restore the review's memory
+        if: steps.credential.outputs.present == 'true' && steps.setup.outputs.review == 'true'
+        uses: ./.github/actions/review-memory
+        with:
+          mode: restore
+
+      - name: Review
+        id: review
+        if: steps.credential.outputs.present == 'true' && steps.setup.outputs.review == 'true'
+        timeout-minutes: 10
+        continue-on-error: true
+        uses: ./.github/actions/review-claude
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Put .github/ back from the commit
+        id: pristine
+        if: >-
+          always() && steps.credential.outputs.present == 'true'
+          && steps.setup.outputs.review == 'true'
+        run: |
+          set -euo pipefail
+          git() { command git -c core.hooksPath=/dev/null -c core.fsmonitor=false "$@"; }
+          pristine="${RUNNER_TEMP}/pristine"
+          rm -rf "${pristine}"
+          mkdir -p "${pristine}"
+          git ls-tree -r -z "${GITHUB_SHA}" -- .github > "${RUNNER_TEMP}/github-tree"
+          while IFS= read -r -d '' entry; do
+            path=${entry#*$'\t'}
+            read -r mode _ sha <<< "${entry%%$'\t'*}"
+            mkdir -p "${pristine}/$(dirname "${path}")"
+            if [ "${mode}" = 120000 ]; then
+              ln -s "$(git cat-file blob "${sha}")" "${pristine}/${path}"
+            else
+              git cat-file blob "${sha}" > "${pristine}/${path}"
+              if [ "${mode}" = 100755 ]; then chmod +x "${pristine}/${path}"; fi
+            fi
+          done < "${RUNNER_TEMP}/github-tree"
+          changed=$(diff -rq .github "${pristine}/.github" 2> /dev/null | sed "s|${pristine}/||g" | paste -s -d ';' - | sed 's/;/; /g' || true)
+          rm -rf .github
+          mv "${pristine}/.github" .github
+          if [ -n "${changed}" ]; then
+            echo "::warning::The review changed .github/, which is put back from the commit: ${changed}"
+          fi
+
+      - name: Keep the review's notes
+        if: steps.review.outcome == 'success'
+        uses: ./.github/actions/review-memory
+        with:
+          mode: save
+
+      - name: Summarize the session and collapse older summaries
+        if: >-
+          always() && steps.credential.outputs.present == 'true'
+          && steps.pristine.outcome == 'success'
+        uses: ./.github/actions/review-finalise
+        with:
+          outcome: ${{ steps.review.outcome }}

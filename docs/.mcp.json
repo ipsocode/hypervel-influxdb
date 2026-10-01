@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "influxdb-docs": {
+      "type": "http",
+      "url": "https://influxdb-docs.mcp.kapa.ai"
+    }
+  }
+}

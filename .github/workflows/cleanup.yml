@@ -1,0 +1,36 @@
+# Imported from ipsocode/hypervel-packages github/workflows/cleanup.yml. Edit it there.
+name: cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  actions: write
+
+jobs:
+  caches:
+    name: Delete the pull request's caches
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete the caches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REF: refs/pull/${{ github.event.pull_request.number }}/merge
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/${REPO}/actions/caches?ref=${REF}&per_page=100" \
+            --jq '.actions_caches[] | "\(.id)\t\(.key)"' > "${RUNNER_TEMP}/caches.tsv"
+          if [ ! -s "${RUNNER_TEMP}/caches.tsv" ]; then
+            echo "No caches under ${REF}."
+            exit 0
+          fi
+          while IFS=$'\t' read -r id key; do
+            if gh api -X DELETE "repos/${REPO}/actions/caches/${id}" > /dev/null 2>&1; then
+              echo "Deleted ${key}."
+            else
+              echo "::warning::Could not delete ${key} (id ${id})."
+            fi
+          done < "${RUNNER_TEMP}/caches.tsv"

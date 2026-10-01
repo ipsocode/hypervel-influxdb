@@ -1,0 +1,13 @@
+# Imported from ipsocode/hypervel-packages github/dependabot.yml. Edit it there.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -1,0 +1,74 @@
+# Imported from ipsocode/hypervel-packages github/actions/review-claude/action.yml. Edit it there.
+name: review-claude
+description: Sets up Claude Code with the review's skill and brief, and runs the review.
+
+inputs:
+  claude_code_oauth_token:
+    description: A CLAUDE_CODE_OAUTH_TOKEN, from `claude setup-token`
+    required: false
+    default: ''
+  anthropic_api_key:
+    description: An ANTHROPIC_API_KEY, in place of the OAuth token
+    required: false
+    default: ''
+  github_token:
+    description: The job's token, which the review posts its comments with
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Find the Claude Code version the action installs
+      id: version
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: bash .github/scripts/review.sh claude-version
+
+    - name: Restore Claude Code
+      id: cache
+      if: steps.version.outputs.version != ''
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.local/share/claude/versions/${{ steps.version.outputs.version }}
+        key: ${{ steps.version.outputs.key }}
+
+    - name: Set up Claude Code
+      id: setup
+      if: steps.version.outputs.version != ''
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+        RESTORED: ${{ steps.cache.outputs.cache-hit }}
+      shell: bash
+      run: bash .github/scripts/review.sh claude-setup --version "${VERSION}" --restored "${RESTORED:-false}"
+
+    - name: Save Claude Code
+      if: steps.setup.outputs.path != '' && steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.local/share/claude/versions/${{ steps.version.outputs.version }}
+        key: ${{ steps.version.outputs.key }}
+
+    - name: Install the review's skill and brief
+      shell: bash
+      run: bash .github/scripts/review.sh install
+
+    - name: Brief the review
+      id: brief
+      shell: bash
+      run: bash .github/scripts/review.sh brief
+
+    - name: Review
+      id: review
+      uses: anthropics/claude-code-action@8ce9314fa9a404564fa7e954cd84f25bcba2b829 # v1.0.236
+      with:
+        claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
+        anthropic_api_key: ${{ inputs.anthropic_api_key }}
+        github_token: ${{ inputs.github_token }}
+        path_to_claude_code_executable: ${{ steps.setup.outputs.path }}
+        settings: '{"autoMemoryEnabled": false}'
+        prompt: ${{ steps.brief.outputs.prompt }}
+        claude_args: |
+          --max-turns 60
+          --disallowedTools "Agent,Task"
+          --allowedTools "Skill,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh --version),Bash(gh auth status),Edit(./.pr-review/**)"

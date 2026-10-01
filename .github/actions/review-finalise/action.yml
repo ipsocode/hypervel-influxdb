@@ -1,0 +1,26 @@
+# Imported from ipsocode/hypervel-packages github/actions/review-finalise/action.yml. Edit it there.
+name: review-finalise
+description: Summarizes the review session, and collapses the older review summaries.
+
+inputs:
+  outcome:
+    description: The review step's outcome, 'success' or 'failure'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Summarize the review session
+      if: always()
+      env:
+        REVIEW_OUTCOME: ${{ inputs.outcome }}
+      shell: bash
+      run: bash .github/scripts/review.sh summarize
+
+    - name: Collapse older summaries
+      if: always()
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: bash .github/scripts/review.sh collapse

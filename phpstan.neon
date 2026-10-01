@@ -1,0 +1,31 @@
+# Static analysis aligned with `hypervel/components`' phpstan.neon.dist on the 0.4 branch: the
+# same level, the same two analysis settings and extensions, without its monorepo's parallelism
+# and stubs. A finding here is one there, and a fix carried to hypervel/components lands clean.
+includes:
+    # PHPStan support for Eloquent's forwarded methods, named scopes and Hypervel's helpers. The
+    # hypervel/components monorepo installed for development does not register these through
+    # `extra.phpstan` as the split packages do, so they are included by path.
+    - vendor/hypervel/components/src/database/extension.neon
+    - vendor/hypervel/components/src/foundation/extension.neon
+
+parameters:
+    level: 5
+    inferPrivatePropertyTypeFromConstructor: true
+    treatPhpDocTypesAsCertain: false
+
+    # The result cache, in tests/.cache/ beside the other tools', so it persists across runs. The
+    # cache step in .github/workflows/tests.yml caches tests/.cache/, so the two have to agree.
+    tmpDir: tests/.cache/phpstan
+
+    # src/ only: tests/ and workbench/ are fixtures, shaped to exercise the package rather than
+    # to be type-correct.
+    paths:
+        - src
+
+    # Off in hypervel/components, whose patterns span many packages. Nothing here is shared, so
+    # an ignore whose pattern stops matching fails the run instead of being left to rot.
+    reportUnmatchedIgnoredErrors: true
+
+    # Also off in hypervel/components. Here an inline ignore names its error and says why, as
+    # `@phpstan-ignore method.notFound (the reason)`, so a reader can tell if it still applies.
+    reportIgnoresWithoutComments: true

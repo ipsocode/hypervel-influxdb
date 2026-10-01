@@ -1,0 +1,35 @@
+# Imported from ipsocode/hypervel-packages github/release.yml. Edit it there.
+changelog:
+  exclude:
+    labels:
+      - duplicate
+      - invalid
+      - wontfix
+  categories:
+    - title: Breaking changes
+      labels:
+        - breaking-change
+    - title: Security
+      labels:
+        - security
+    - title: Coroutine safety
+      labels:
+        - coroutine-safety
+    - title: Bug fixes
+      labels:
+        - bug
+    - title: Performance
+      labels:
+        - performance
+    - title: Features
+      labels:
+        - enhancement
+    - title: Conformance
+      labels:
+        - conformance
+    - title: Documentation
+      labels:
+        - documentation
+    - title: Other changes
+      labels:
+        - '*'

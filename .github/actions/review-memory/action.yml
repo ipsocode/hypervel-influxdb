@@ -1,0 +1,39 @@
+# Imported from ipsocode/hypervel-packages github/actions/review-memory/action.yml. Edit it there.
+name: review-memory
+description: Restores the notes the last review of this pull request left, or keeps the new ones.
+
+inputs:
+  mode:
+    description: restore (before the review) or save (after it)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Restore the review's memory
+      if: inputs.mode == 'restore'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .pr-review/memory.md
+        key: claude-memory-${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: claude-memory-${{ github.event.pull_request.number }}-
+
+    - name: List what changed since the memory
+      if: inputs.mode == 'restore'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: bash .github/scripts/review.sh since-memory
+
+    - name: Check the memory
+      id: check
+      if: inputs.mode == 'save'
+      shell: bash
+      run: bash .github/scripts/review.sh check-memory
+
+    - name: Save the review's memory
+      if: inputs.mode == 'save' && steps.check.outputs.save == 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .pr-review/memory.md
+        key: claude-memory-${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_attempt }}

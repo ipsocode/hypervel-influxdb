@@ -1,0 +1,13 @@
+# Imported from ipsocode/hypervel-packages github/CODEOWNERS. Edit it there.
+/.github/            @ipsocode
+/composer.json       @ipsocode
+/phpunit.xml*        @ipsocode
+/phpstan*.neon*      @ipsocode
+/.php-cs-fixer*.php  @ipsocode
+/testbench.yaml      @ipsocode
+/.gitattributes      @ipsocode
+/.gitignore          @ipsocode
+/.mcp.json           @ipsocode
+/.claude/            @ipsocode
+/CLAUDE.md           @ipsocode
+/AGENTS.md           @ipsocode

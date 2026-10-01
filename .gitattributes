@@ -1,0 +1,17 @@
+# Composer installs a tagged release from Packagist as GitHub's archive of the
+# tag, which leaves out every path marked export-ignore: what only developing,
+# testing and releasing this package needs, the files shared in .github/
+# included. An application gets src/, config/, docs/, composer.json, README.md
+# and LICENSE.
+/.github export-ignore
+/.claude export-ignore
+/tests export-ignore
+/workbench export-ignore
+/docs/.mcp.json export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/.php-cs-fixer.dist.php export-ignore
+/CONTRIBUTING.md export-ignore
+/phpstan.neon export-ignore
+/phpunit.xml export-ignore
+/testbench.yaml export-ignore

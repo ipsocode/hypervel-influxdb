@@ -1,0 +1,10 @@
+/.DS_Store
+# Claude Code's local state; the automated review's skill and brief are in .github/claude/.
+/.claude
+# A local copy of docs/.mcp.json: Claude Code reads MCP servers only from the root.
+/.mcp.json
+/vendor
+composer.lock
+# The caches of PHPUnit, php-cs-fixer and PHPStan, and `composer test:coverage`'s report.
+/tests/.cache/
+/tests/coverage/

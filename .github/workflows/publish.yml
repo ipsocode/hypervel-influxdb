@@ -1,0 +1,288 @@
+# Imported from ipsocode/hypervel-packages github/workflows/publish.yml. Edit it there.
+name: publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Part of the latest v* tag to bump (ignored when `version` is given). `auto` = minor if a merged PR since the previous tag is labelled breaking-change, else patch
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+      version:
+        description: 'Exact version instead, e.g. 1.0.0 or 0.2.0-rc.1 (leading v optional)'
+        type: string
+        default: ''
+      highlights:
+        description: Markdown placed above the generated notes — what a consumer must know
+        type: string
+        default: ''
+      dry_run:
+        description: Plan and run the suite, but tag and release nothing
+        type: boolean
+        default: false
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      tag: ${{ steps.plan.outputs.tag }}
+      sha: ${{ steps.plan.outputs.sha }}
+      previous: ${{ steps.plan.outputs.previous }}
+      breaking: ${{ steps.plan.outputs.breaking }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - name: Decide the version
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          BUMP: ${{ inputs.bump }}
+          VERSION: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          baseline() {
+            git tag --list 'v*' --merged "$1" --sort=-v:refname | grep -vx "${2:-}" | head -n 1 || true
+          }
+
+          breaking_since() {
+            local previous="$1" sha="$2" found='' merge_sha number
+            while read -r merge_sha number; do
+              [ -n "${merge_sha}" ] || continue
+              git cat-file -e "${merge_sha}^{commit}" 2> /dev/null || continue
+              git merge-base --is-ancestor "${merge_sha}" "${sha}" || continue
+              if [ -n "${previous}" ] && git merge-base --is-ancestor "${merge_sha}" "${previous}^{commit}"; then
+                continue
+              fi
+              found="${found:+${found} }#${number}"
+            done < <(gh pr list --repo "${GITHUB_REPOSITORY}" --state merged --base main --label breaking-change \
+                       --limit 200 --json number,mergeCommit --jq '.[] | "\(.mergeCommit.oid) \(.number)"')
+            echo "${found}"
+          }
+
+          same_minor_line() {
+            local a="${1#v}" b="${2#v}"
+            a="${a%%-*}"; b="${b%%-*}"
+            [ "${a%.*}" = "${b%.*}" ]
+          }
+
+          next_minor() {
+            local base="${1#v}" major minor patch
+            base="${base%%-*}"
+            IFS=. read -r major minor patch <<< "${base}"
+            echo "v${major}.$((minor + 1)).0"
+          }
+
+          if [ "${EVENT}" = "push" ]; then
+            tag="${GITHUB_REF_NAME}"
+            sha=$(git rev-parse "${tag}^{commit}")
+
+            git merge-base --is-ancestor "${sha}" origin/main || {
+              echo "::error::${tag} points at ${sha}, which is not on main. Releases are cut from main only."
+              exit 1
+            }
+
+            previous=$(baseline "${sha}" "${tag}")
+            breaking=$(breaking_since "${previous}" "${sha}")
+            bump='(hand-made tag)'
+
+            if [ -n "${breaking}" ] && [ -n "${previous}" ] && same_minor_line "${tag}" "${previous}"; then
+              echo "::error::${tag} is only a patch above ${previous}, but pull requests merged since then are labelled breaking-change (${breaking}). A breaking change needs at least a minor bump — delete this tag and dispatch the workflow with bump=auto or minor, which gives $(next_minor "${previous}")."
+              exit 1
+            fi
+
+            if gh release view "${tag}" --json tagName > /dev/null 2>&1; then
+              echo "::notice::${tag} already has a Release; nothing to do."
+              mode='already-released'
+            else
+              mode='release-existing-tag'
+            fi
+          else
+            [ "${REF}" = "refs/heads/main" ] || {
+              echo "::error::Run this workflow on main — it was dispatched on ${REF}."
+              exit 1
+            }
+            sha="${GITHUB_SHA}"
+            previous=$(baseline "${sha}")
+            breaking=$(breaking_since "${previous}" "${sha}")
+
+            latest=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+
+            if [ -n "${VERSION}" ]; then
+              version="${VERSION#v}"
+              [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || {
+                echo "::error::'${VERSION}' is not a version. Use MAJOR.MINOR.PATCH with an optional pre-release suffix, e.g. 1.0.0 or 0.2.0-rc.1."
+                exit 1
+              }
+              bump='(explicit version)'
+            else
+              base="${latest#v}"; base="${base%%-*}"; base="${base:-0.0.0}"
+              IFS=. read -r major minor patch <<< "${base}"
+              bump="${BUMP}"
+              if [ "${bump}" = "auto" ]; then
+                if [ -n "${breaking}" ]; then bump='auto → minor'; else bump='auto → patch'; fi
+              fi
+              case "${bump##* }" in
+                major) version="$((major + 1)).0.0" ;;
+                minor) version="${major}.$((minor + 1)).0" ;;
+                patch) version="${major}.${minor}.$((patch + 1))" ;;
+                *) echo "::error::unknown bump '${BUMP}'"; exit 1 ;;
+              esac
+            fi
+            tag="v${version}"
+
+            if git rev-parse -q --verify "refs/tags/${tag}" > /dev/null; then
+              echo "::error::${tag} already exists (at $(git rev-parse --short "${tag}^{commit}"))."
+              exit 1
+            fi
+            if [ -n "${latest}" ] && [ "$(printf '%s\n' "${latest}" "${tag}" | sort -V | tail -n 1)" != "${tag}" ]; then
+              echo "::error::${tag} is not above the latest tag ${latest}. Releases only move forward."
+              exit 1
+            fi
+            if [ -n "${breaking}" ] && [ -n "${previous}" ] && same_minor_line "${tag}" "${previous}"; then
+              echo "::error::${tag} is only a patch above ${previous}, but pull requests merged since then are labelled breaking-change (${breaking}). A breaking change needs at least a minor bump — use bump=auto or minor (gives $(next_minor "${previous}")), or a version at least that high."
+              exit 1
+            fi
+
+            if [ "${DRY_RUN}" = "true" ]; then
+              mode='dry-run'
+            else
+              mode='tag-and-release'
+            fi
+          fi
+
+          {
+            echo "mode=${mode}"
+            echo "tag=${tag}"
+            echo "sha=${sha}"
+            echo "previous=${previous}"
+            echo "breaking=${breaking}"
+          } >> "${GITHUB_OUTPUT}"
+
+          {
+            echo "## Release plan"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Mode | \`${mode}\` |"
+            echo "| Tag | \`${tag}\` |"
+            echo "| Bump | \`${bump}\` |"
+            echo "| Commit | \`${sha}\` — $(git log -1 --format=%s "${sha}") |"
+            echo "| Notes since | \`${previous:-(first release)}\` |"
+            echo "| Breaking changes | ${breaking:-none} |"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  tests:
+    name: tests
+    needs: plan
+    if: needs.plan.outputs.mode != 'already-released'
+    uses: ./.github/workflows/tests.yml
+    permissions:
+      contents: read
+      pull-requests: write
+
+  release:
+    name: ${{ needs.plan.outputs.tag }}
+    needs: [plan, tests]
+    if: needs.plan.outputs.mode == 'tag-and-release' || needs.plan.outputs.mode == 'release-existing-tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MODE: ${{ needs.plan.outputs.mode }}
+      TAG: ${{ needs.plan.outputs.tag }}
+      SHA: ${{ needs.plan.outputs.sha }}
+      PREVIOUS: ${{ needs.plan.outputs.previous }}
+    steps:
+      - name: Checkout the planned commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Tag the commit
+        if: env.MODE == 'tag-and-release'
+        env:
+          ACTOR: ${{ github.actor }}
+          ACTOR_ID: ${{ github.actor_id }}
+        run: |
+          set -euo pipefail
+          git config user.name "${ACTOR}"
+          git config user.email "${ACTOR_ID}+${ACTOR}@users.noreply.github.com"
+          git tag --annotate "${TAG}" "${SHA}" --message "${TAG}"
+          git push origin "refs/tags/${TAG}"
+
+      - name: Write the release notes
+        env:
+          HIGHLIGHTS: ${{ inputs.highlights }}
+        run: |
+          set -euo pipefail
+
+          php_constraint=$(jq -r '.require.php' composer.json)
+          hypervel_constraint=$(jq -r '.require["hypervel/contracts"]' composer.json)
+          hypervel_packages=$(jq -r '.require | keys[] | select(startswith("hypervel/")) | "`\(.)`"' composer.json | paste -sd ',' - | sed 's/,/, /g')
+
+          {
+            echo "Requires PHP \`${php_constraint}\` and Hypervel \`${hypervel_constraint}\` — ${hypervel_packages}."
+            echo
+            if [ -n "${HIGHLIGHTS}" ]; then
+              printf '%s\n\n' "${HIGHLIGHTS}"
+            fi
+          } > notes.md
+
+          args=(-f "tag_name=${TAG}" -f "target_commitish=${SHA}")
+          if [ -n "${PREVIOUS}" ]; then
+            args+=(-f "previous_tag_name=${PREVIOUS}")
+          fi
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" "${args[@]}" --jq .body >> notes.md
+
+          echo "::group::notes.md"; cat notes.md; echo "::endgroup::"
+
+      - name: Publish the release
+        run: |
+          set -euo pipefail
+          flags=(--title "${TAG}" --notes-file notes.md --verify-tag)
+          case "${TAG}" in
+            *-*) flags+=(--prerelease) ;;
+          esac
+          gh release create "${TAG}" "${flags[@]}"
+
+      - name: Summarise
+        run: |
+          set -euo pipefail
+          package=$(jq -r .name composer.json)
+          url=$(gh release view "${TAG}" --json url --jq .url)
+          {
+            echo "## Released ${TAG}"
+            echo
+            echo "${url}"
+            echo
+            echo "To pick it up in an application:"
+            echo
+            echo '```sh'
+            echo "composer update ${package}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"

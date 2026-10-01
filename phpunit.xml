@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+    bootstrap="vendor/autoload.php"
+    cacheDirectory="tests/.cache/phpunit"
+    colors="true"
+    failOnWarning="true"
+    failOnRisky="true"
+>
+    <extensions>
+        <bootstrap class="Hypervel\Testing\PHPUnit\AfterEachTestExtension"/>
+    </extensions>
+    <testsuites>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory suffix=".php">./src</directory>
+        </include>
+    </source>
+</phpunit>

@@ -1,0 +1,61 @@
+# Imported from ipsocode/hypervel-packages github/actions/review-setup/action.yml. Edit it there.
+name: review-setup
+description: Collects and scans the pull request, and restores the framework, for the review.
+
+inputs:
+  components_ref:
+    description: >-
+      The hypervel/components commit the PHP 8.4 job cached for the review, or empty for none
+    required: false
+    default: ''
+
+outputs:
+  review:
+    description: Whether Claude reviews the pull request, 'true' or 'false'
+    value: ${{ steps.scope.outputs.review }}
+
+runs:
+  using: composite
+  steps:
+    - name: Read the package's review focus
+      id: focus
+      shell: bash
+      run: bash .github/scripts/review.sh focus
+
+    - name: Collect the pull request
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: bash .github/scripts/review.sh collect
+
+    - name: Scan the diff
+      env:
+        REVIEW_SCAN_SKIP: ${{ steps.focus.outputs.skip }}
+      shell: bash
+      run: bash .github/scripts/review.sh scan
+
+    - name: Decide whether Claude reviews it
+      id: scope
+      shell: bash
+      run: bash .github/scripts/review.sh scope
+
+    - name: Make the framework's restore ask for gzip
+      if: inputs.components_ref != ''
+      shell: bash
+      run: bash .github/scripts/review.sh gzip-only
+
+    - name: Restore the framework
+      id: framework
+      if: inputs.components_ref != ''
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      env:
+        PATH: ${{ runner.temp }}/gzip-only:/usr/bin:/bin
+      with:
+        path: vendor/hypervel/components
+        key: hypervel-components-${{ inputs.components_ref }}
+
+    - name: Strip the framework's agent files
+      env:
+        RESTORED: ${{ steps.framework.outputs.cache-hit }}
+      shell: bash
+      run: bash .github/scripts/review.sh framework --restored "${RESTORED:-false}"
