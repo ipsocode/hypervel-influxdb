@@ -246,6 +246,15 @@ class BuilderTest extends TestCase
     }
 
     #[UnitTest]
+    public function testARegularExpressionInTheOperatorSlotWithAnExplicitNullValueStillMatches(): void
+    {
+        $this->assertSame(
+            'select * from "cpu" where "host" = \'web1\' or "host" =~ /^web/',
+            $this->table()->where('host', 'web1')->where('host', new Regex('^web'), null, 'or')->toRawSql(),
+        );
+    }
+
+    #[UnitTest]
     public function testARegularExpressionWithAnotherOperatorIsRefused(): void
     {
         $this->expectException(InvalidArgumentException::class);

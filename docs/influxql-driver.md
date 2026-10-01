@@ -227,10 +227,9 @@ sent, as it is for the builder's statements. That differs from
   `chunkById()` and `lazyById()` are refused.
 - **`delete()`** deletes as [`InfluxDB::table()`'s does](influxql.md#deleting-points)
   on each version. It takes no id, and returns 0, since InfluxQL reports no
-  count. A join, a limit or an offset would narrow which points it deletes,
-  which InfluxQL's `DELETE` cannot, so they throw a `RuntimeException`.
-  `slimit()` and `soffset()` are left out, though, so it deletes from every
-  series the where clause matches.
+  count. A join, a limit, an offset, a slimit or a soffset would narrow which
+  points or series it deletes, which InfluxQL's `DELETE` cannot, so they throw
+  a `RuntimeException`.
 - **The values are embedded in the statement**, as `InfluxDB::table()` embeds
   them, so what is sent is what `toRawSql()` shows, and what `pretend()`
   logs; `pretend()` sends nothing, not even the version check. A date is

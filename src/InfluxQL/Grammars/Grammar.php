@@ -76,11 +76,11 @@ abstract class Grammar
     /**
      * Compile a delete statement into InfluxQL: the measurement and the where clause.
      *
-     * A version that cannot run the DELETE refuses it first, whatever the measurement;
-     * the builder's other clauses are ignored.
+     * A version that cannot run the DELETE refuses it first, whatever the measurement.
+     * A limit, offset, slimit or soffset is refused too: InfluxQL cannot narrow a DELETE by one.
      *
      * @throws InvalidArgumentException when the builder has no measurement, or a qualified one
-     * @throws RuntimeException on InfluxDB 3, and on 2.x when the connection addresses a retention policy
+     * @throws RuntimeException on InfluxDB 3, on 2.x when the connection addresses a retention policy, or when the query limits, offsets, slimits or soffsets
      *
      * @see docs/influxql.md#deleting-points
      */
@@ -89,6 +89,10 @@ abstract class Grammar
         $this->ensureVersionCompilesDelete($this->version(), $query->getConnection()->getRetentionPolicy());
 
         $this->ensureDeleteTakesABareMeasurement($query->from);
+
+        $this->ensureDeleteTakesNoLimitOrOffset(
+            isset($query->limit) || isset($query->offset) || isset($query->slimit) || isset($query->soffset),
+        );
 
         return trim('DELETE FROM ' . $this->wrapMeasurement($query->from) . ' ' . $this->compileWheres($query));
     }

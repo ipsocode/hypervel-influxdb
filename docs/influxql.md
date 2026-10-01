@@ -238,6 +238,11 @@ retention policy, which InfluxDB refuses in a `DELETE`: a dotted measurement,
 or none at all, throws an `InvalidArgumentException` before anything is sent.
 A measurement whose own name holds a dot is passed as an `Expression`.
 
+A `limit()`, `offset()`, `slimit()` or `soffset()` would narrow which points
+or series it deletes, which InfluxQL's `DELETE` cannot do, so each throws a
+`RuntimeException` before anything is sent rather than deleting every
+matching point. Narrow a delete with `where()` instead.
+
 InfluxQL's `DELETE` takes no `LIMIT`, `OFFSET`, `SLIMIT`, `SOFFSET` or
 `ORDER BY`, and the server refuses a statement that has one. `delete()`
 leaves out the query's `limit()`, `offset()`, `slimit()`, `soffset()` and

@@ -223,7 +223,7 @@ class Builder extends QueryBuilder
      */
     public function where(Closure|QueryBuilder|EloquentBuilder|Relation|ExpressionContract|array|string $column, mixed $operator = null, mixed $value = null, string $boolean = 'and'): static
     {
-        if ($column instanceof ConditionExpression || is_array($column)) {
+        if ($column instanceof ConditionExpression || is_array($column) || $column instanceof Closure) {
             return parent::where($column, $operator, $value, $boolean);
         }
 
@@ -231,9 +231,11 @@ class Builder extends QueryBuilder
 
         if ($this->invalidOperator($operator)) {
             $this->refuseUnsupportedOperator($operator, $value);
-        } else {
-            [$value, $operator] = $this->prepareRegex($value, $operator);
+
+            [$value, $operator] = [$operator, '='];
         }
+
+        [$value, $operator] = $this->prepareRegex($value, $operator);
 
         return parent::where($this->unqualifyColumn($column), $operator, $value, $boolean);
     }
@@ -506,7 +508,7 @@ class Builder extends QueryBuilder
      * The where takes time and tags only, and InfluxQL reports no count, so 0 comes back.
      *
      * @throws InvalidArgumentException for an id, which a point does not have
-     * @throws RuntimeException on InfluxDB 3, on 2.x when the connection addresses a retention policy, or for a join, limit or offset
+     * @throws RuntimeException on InfluxDB 3, on 2.x when the connection addresses a retention policy, or for a join, limit, offset, slimit or soffset
      *
      * @see docs/influxql.md#deleting-points
      */
