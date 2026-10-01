@@ -829,14 +829,14 @@ class GrammarTest extends TestCase
     }
 
     /**
-     * InfluxQL's DELETE has no JOIN, LIMIT or OFFSET, and dropping one would delete more points than the query selects.
+     * InfluxQL's DELETE has no JOIN, LIMIT, OFFSET, SLIMIT or SOFFSET, and dropping one would delete more points than the query selects.
      */
     #[UnitTest]
     #[DataProvider('narrowedDeletes')]
     public function testDeleteRefusesAJoinALimitOrAnOffset(Closure $narrow): void
     {
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessageIs('An InfluxQL DELETE takes no join, limit or offset; narrow it with where() instead.');
+        $this->expectExceptionMessageIs('An InfluxQL DELETE takes no join, limit, offset, slimit or soffset; narrow it with where() instead.');
 
         $this->grammar()->compileDelete($narrow($this->table()->where('host', 'web1')));
     }
@@ -851,6 +851,12 @@ class GrammarTest extends TestCase
             'a limit' => [static fn (Builder $query): Builder => $query->limit(5)],
             'a limit of zero' => [static fn (Builder $query): Builder => $query->limit(0)],
             'an offset' => [static fn (Builder $query): Builder => $query->offset(5)],
+            'a slimit' => [static fn (Builder $query): Builder => tap($query, static function (Builder $query): void {
+                $query->slimit = 2;
+            })],
+            'a soffset' => [static fn (Builder $query): Builder => tap($query, static function (Builder $query): void {
+                $query->soffset = 1;
+            })],
         ];
     }
 

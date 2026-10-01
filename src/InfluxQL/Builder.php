@@ -1430,7 +1430,7 @@ class Builder
      * The where takes time and tags only, and InfluxQL reports no count: true means the server accepted it.
      *
      * @throws InvalidArgumentException when the measurement is missing or qualified
-     * @throws RuntimeException on InfluxDB 3, and on 2.x when the connection addresses a retention policy
+     * @throws RuntimeException on InfluxDB 3, on 2.x when the connection addresses a retention policy, or when the query limits, offsets, slimits or soffsets
      * @throws QueryException
      *
      * @see docs/influxql.md#deleting-points

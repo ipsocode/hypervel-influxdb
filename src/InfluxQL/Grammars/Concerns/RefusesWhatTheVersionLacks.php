@@ -77,6 +77,25 @@ trait RefusesWhatTheVersionLacks
     }
 
     /**
+     * Refuse a DELETE narrowed with a limit, offset, slimit or soffset.
+     *
+     * InfluxQL's DELETE accepts only a FROM and a WHERE clause; none of these can be
+     * emulated, since InfluxDB points have no row id or subquery to narrow a delete by.
+     *
+     * @throws RuntimeException
+     */
+    protected function ensureDeleteTakesNoLimitOrOffset(bool $narrowed, bool $withJoins = false): void
+    {
+        if (! $narrowed) {
+            return;
+        }
+
+        throw new RuntimeException($withJoins
+            ? 'An InfluxQL DELETE takes no join, limit, offset, slimit or soffset; narrow it with where() instead.'
+            : 'An InfluxQL DELETE takes no limit, offset, slimit or soffset; narrow it with where() instead.');
+    }
+
+    /**
      * Refuse a DELETE that names no measurement, or a qualified one.
      *
      * InfluxDB's parser refuses a database or retention policy in a DELETE.

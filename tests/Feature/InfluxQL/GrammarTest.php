@@ -755,10 +755,37 @@ class GrammarTest extends TestCase
         $this->assertSame('DELETE FROM "cpu"', $grammar->compileDelete($this->table()));
         $this->assertSame(
             'DELETE FROM "cpu" WHERE "host" = ? AND "time" < ?',
-            $grammar->compileDelete($this->table()->select('value')->where('host', 'web1')->where('time', '<', new DateTimeImmutable)->limit(5)->orderByDesc()),
+            $grammar->compileDelete($this->table()->select('value')->where('host', 'web1')->where('time', '<', new DateTimeImmutable)->orderByDesc()),
         );
         $this->assertSame('DELETE FROM ?', $grammar->compileDelete($this->builder()->from(new Regex('^cpu'))));
         $this->assertSame('DELETE FROM "disk.io"', $grammar->compileDelete($this->builder()->from(new Expression('"disk.io"'))));
+    }
+
+    /**
+     * InfluxQL's DELETE has no LIMIT, OFFSET, SLIMIT or SOFFSET, and dropping one would delete more points than the query selects.
+     */
+    #[UnitTest]
+    #[DataProvider('narrowedDeletes')]
+    public function testDeleteRefusesALimitOffsetSlimitOrSoffset(Closure $narrow): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageIs('An InfluxQL DELETE takes no limit, offset, slimit or soffset; narrow it with where() instead.');
+
+        (new V1Grammar)->compileDelete($narrow($this->table()->where('host', 'web1')));
+    }
+
+    /**
+     * @return array<string, array{Closure(Builder): Builder}>
+     */
+    public static function narrowedDeletes(): array
+    {
+        return [
+            'a limit' => [static fn (Builder $query): Builder => $query->limit(5)],
+            'a limit of zero' => [static fn (Builder $query): Builder => $query->limit(0)],
+            'an offset' => [static fn (Builder $query): Builder => $query->offset(5)],
+            'a slimit' => [static fn (Builder $query): Builder => $query->slimit(2)],
+            'a soffset' => [static fn (Builder $query): Builder => $query->soffset(1)],
+        ];
     }
 
     #[UnitTest]

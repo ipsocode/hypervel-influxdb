@@ -547,10 +547,11 @@ class Grammar extends QueryGrammar
      * Compile a delete statement into InfluxQL: the measurement and the where clause.
      *
      * A version that cannot run the DELETE refuses it first, whatever the measurement.
-     * A join, a limit or an offset is refused too: InfluxQL cannot narrow a DELETE by one.
+     * A join, a limit, an offset, a slimit or a soffset is refused too: InfluxQL cannot
+     * narrow a DELETE by one.
      *
      * @throws InvalidArgumentException when the query has no measurement, or a qualified or aliased one
-     * @throws RuntimeException on InfluxDB 3, on 2.x when the connection addresses a retention policy, or when the query joins, limits or offsets
+     * @throws RuntimeException on InfluxDB 3, on 2.x when the connection addresses a retention policy, or when the query joins, limits, offsets, slimits or soffsets
      *
      * @see docs/influxql.md#deleting-points
      */
@@ -560,9 +561,10 @@ class Grammar extends QueryGrammar
 
         $this->ensureDeleteTakesABareMeasurement($query->from);
 
-        if ($query->joins || isset($query->limit) || isset($query->offset)) {
-            throw new RuntimeException('An InfluxQL DELETE takes no join, limit or offset; narrow it with where() instead.');
-        }
+        $this->ensureDeleteTakesNoLimitOrOffset(
+            (bool) $query->joins || isset($query->limit) || isset($query->offset) || isset($query->slimit) || isset($query->soffset),
+            withJoins: true,
+        );
 
         return trim('delete from ' . $this->wrapTable($query->from) . ' ' . $this->compileWheres($query));
     }
