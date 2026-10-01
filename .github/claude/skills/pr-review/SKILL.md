@@ -88,7 +88,11 @@ Look first for what package.md focuses on, then for these:
   - a renamed job behind a required check (`initial / Conventions`, `PHP 8.4`,
     `claude / review`);
   - a behaviour change listed as "None";
-  - a breaking change without the `breaking-change` label.
+  - a breaking change without the `breaking-change` label;
+  - a commit message, the pull request's title or description, a comment or a doc that names
+    another repository: another ipsocode/hypervel-* package, its issues or pull requests, or
+    ipsocode/hypervel-packages. The package stands alone. Its dependencies may be named, and
+    the import marker on a shared file is the one exception.
 
 Skip what the change does not touch.
 

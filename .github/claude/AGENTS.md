@@ -76,3 +76,11 @@ installs this brief and the skill on its runner, for the review only.
   a branch before you push it, follow `.github/claude/skills/pr-review/SKILL.md`.
 - Fill in the pull request template. Label a breaking change `breaking-change`: the label, not
   the diff, decides the next version.
+- This repository stands alone. Commit messages, pull request titles and descriptions, code
+  comments and docs name no other repository:
+  - no other ipsocode/hypervel-* package, and none of its issues or pull requests;
+  - not ipsocode/hypervel-packages, which only coordinates the packages.
+
+  Explain a change by what it does here, and refer to this repository's issues and pull requests
+  as `#<n>`. The dependencies in `composer.json`, Hypervel's included, may be named. The import
+  marker on a shared file is the tooling's, and the one exception.
