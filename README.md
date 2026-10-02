@@ -57,12 +57,7 @@ InfluxDB::writeApi()->write(
 
 - PHP 8.4 or newer (CI runs 8.4 and 8.5)
 - Hypervel 0.4, which today means `hypervel/components` at `0.4.x-dev`. The
-  package requires `hypervel/collections`, `hypervel/conditionable`,
-  `hypervel/console`, `hypervel/container`, `hypervel/context`,
-  `hypervel/contracts`, `hypervel/coordinator`, `hypervel/core`,
-  `hypervel/coroutine`, `hypervel/database`, `hypervel/foundation`,
-  `hypervel/macroable` and `hypervel/support` `^0.4`; `hypervel/components`
-  provides them all.
+  package requires `hypervel/components` itself rather than its split packages.
 - `influxdata/influxdb-client-php` `^3.9`, and a server it can talk to:
   InfluxDB 2.x, or InfluxDB 1.8+ or InfluxDB 3 Core or Enterprise through
   their 2.x compatibility API. The

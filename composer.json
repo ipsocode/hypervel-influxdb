@@ -30,19 +30,7 @@
     },
     "require": {
         "php": "^8.4",
-        "hypervel/collections": "^0.4",
-        "hypervel/conditionable": "^0.4",
-        "hypervel/console": "^0.4",
-        "hypervel/container": "^0.4",
-        "hypervel/context": "^0.4",
-        "hypervel/contracts": "^0.4",
-        "hypervel/coordinator": "^0.4",
-        "hypervel/core": "^0.4",
-        "hypervel/coroutine": "^0.4",
-        "hypervel/database": "^0.4",
-        "hypervel/foundation": "^0.4",
-        "hypervel/macroable": "^0.4",
-        "hypervel/support": "^0.4",
+        "hypervel/components": "0.4.x-dev",
         "influxdata/influxdb-client-php": "^3.9"
     },
     "require-dev": {
@@ -50,7 +38,6 @@
         "fakerphp/faker": "^1.24",
         "friendsofphp/php-cs-fixer": "^3.0",
         "guzzlehttp/guzzle": "^7.9 || ^8.0",
-        "hypervel/components": "0.4.x-dev",
         "hypervel/testbench": "^0.4",
         "mockery/mockery": "^1.6",
         "phpstan/phpstan": "^2.0",
