@@ -19,7 +19,7 @@ final class FailedBatch
      * @param string $org the org it was going to
      * @param string $precision the precision of its timestamps
      * @param string $payload its line protocol, one point per line
-     * @param int $attempts the times it was sent: the first try and each retry the client made
+     * @param int $attempts the times it was sent through its own connection: the first try and each retry the client made
      * @param DateTimeImmutable $failedAt when its last attempt failed
      * @param string $exception the class and message of the failure
      */
