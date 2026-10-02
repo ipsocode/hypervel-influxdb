@@ -40,7 +40,7 @@
         "hypervel/testbench": "^0.4",
         "mockery/mockery": "^1.6",
         "phpstan/phpstan": "^2.0",
-        "phpunit/phpunit": "^13.0.3",
+        "phpunit/phpunit": ">=13.0.3 <13.4",
         "symfony/yaml": "^8.0.12"
     },
     "autoload": {
