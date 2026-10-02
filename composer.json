@@ -29,32 +29,18 @@
         "security": "https://github.com/ipsocode/hypervel-influxdb/security/policy"
     },
     "require": {
-        "php": "^8.4",
-        "hypervel/collections": "^0.4",
-        "hypervel/conditionable": "^0.4",
-        "hypervel/console": "^0.4",
-        "hypervel/container": "^0.4",
-        "hypervel/context": "^0.4",
-        "hypervel/contracts": "^0.4",
-        "hypervel/coordinator": "^0.4",
-        "hypervel/core": "^0.4",
-        "hypervel/coroutine": "^0.4",
-        "hypervel/database": "^0.4",
-        "hypervel/foundation": "^0.4",
-        "hypervel/macroable": "^0.4",
-        "hypervel/support": "^0.4",
+        "hypervel/components": "0.4.x-dev",
         "influxdata/influxdb-client-php": "^3.9"
     },
     "require-dev": {
         "brianium/paratest": "^7.24",
         "fakerphp/faker": "^1.24",
-        "friendsofphp/php-cs-fixer": "^3.0",
+        "friendsofphp/php-cs-fixer": "^3.57.2",
         "guzzlehttp/guzzle": "^7.9 || ^8.0",
-        "hypervel/components": "0.4.x-dev",
         "hypervel/testbench": "^0.4",
         "mockery/mockery": "^1.6",
-        "phpstan/phpstan": "^2.0",
-        "phpunit/phpunit": "^13.0.3",
+        "phpstan/phpstan": "^2.2.15",
+        "phpunit/phpunit": ">=13.0.3 <13.4",
         "symfony/yaml": "^8.0.12"
     },
     "autoload": {
