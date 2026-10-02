@@ -5,6 +5,7 @@
 # and LICENSE.
 /.github export-ignore
 /.claude export-ignore
+/CLAUDE.md export-ignore
 /tests export-ignore
 /workbench export-ignore
 /docs/.mcp.json export-ignore
