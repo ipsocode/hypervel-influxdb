@@ -99,6 +99,11 @@ manager, or on the facade, goes to the default connection's client:
 the default connection's name, and `getConfigName()` the config key the
 connections are under, `influxdb`.
 
+`availability()` returns the worker's one `Write\Availability`: which
+connections failed to take a write and are skipped for their `cooldown`,
+shared by every writer that [falls back to other connections](writing.md#falling-back-to-other-connections).
+It is not kept by connection name, and is built on its first call.
+
 `getDetectedServerVersion($name)` returns the version the connection's server
 named when the Hypervel server started, which `influxql()` hands its InfluxQL
 connection, or `null` when there is none. The provider reads the versions with
@@ -122,6 +127,9 @@ Each of these changes state that every coroutine on the worker reads:
 - `setDefaultConnection($name)` writes the config repository, which every
   coroutine on the worker shares, so the new default applies to all of them.
   To use another connection for one call, pass its name instead.
+- `availability()->markUnavailable($name, $seconds)` and `markAvailable($name)`
+  change the [cooldowns](writing.md#cooldowns) every writer on the worker
+  reads before it picks the connection to write through.
 
 The container's `InfluxDB2\Client` binding (`influxdb.connection`) is a
 singleton too: once resolved, it keeps the client it got, and follows neither

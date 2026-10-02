@@ -40,7 +40,10 @@ InfluxDB::writeApi()->write(
   `WriteApi` per connection per worker, and
   [batching](docs/writing.md#batching-writes) built for long-lived workers:
   size, megabyte and time limits, a drain when the worker exits, and failures
-  reported rather than thrown.
+  reported rather than thrown. A connection can name
+  [fallback connections](docs/writing.md#falling-back-to-other-connections)
+  to write through when it cannot take a write, skipping a connection that
+  failed for a cooldown.
 - **[An InfluxQL query builder](docs/influxql.md#the-query-builder)** shaped
   like Hypervel's `Query\Builder`, compiled for the InfluxDB version the
   connection names.
@@ -161,7 +164,7 @@ through `writeApi()` rather than the client's `createWriteApi()`, and how to
 ## Documentation
 
 - [Configuration](docs/configuration.md): connections, the server version and what it changes, connecting to InfluxDB 1.x, 2.x and 3, and the options passed to the client.
-- [Writing points](docs/writing.md): `writeApi()`, `RefPoint`, and batching writes in a long-lived worker.
+- [Writing points](docs/writing.md): `writeApi()`, `RefPoint`, falling back to other connections, and batching writes in a long-lived worker.
 - [Querying with InfluxQL](docs/influxql.md): the package's query builder, running statements, deleting points and configuring InfluxQL.
 - [Hypervel's query builder over InfluxQL](docs/influxql-driver.md): the `influxql` database driver, on any InfluxDB version.
 - [Querying InfluxDB 3 with SQL](docs/sql.md): the read-only `influxdb` database driver.

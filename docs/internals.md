@@ -13,10 +13,14 @@ The namespace `Ipsocode\InfluxDB` is rooted at `src/`.
 | Path | What it holds | Described in |
 |---|---|---|
 | `InfluxDBServiceProvider.php` | Registers the factory, the manager, the `InfluxDB2\Client` binding and both database drivers; merges a published config's `connections` with the package's by name; listens for `BeforeServerFork`, `AfterExecute` and `Terminating` | [The connection manager](hypervel.md#the-connection-manager) |
-| `InfluxDBManager.php`, `Facades/InfluxDB.php` | The container singleton behind the `InfluxDB` facade: resolves named connections, memoises a client, a `WriteApi` and an InfluxQL connection for each, and detects the servers' versions | [The connection manager](hypervel.md#the-connection-manager) |
+| `InfluxDBManager.php`, `Facades/InfluxDB.php` | The container singleton behind the `InfluxDB` facade: resolves named connections, memoises a client, a `WriteApi` and an InfluxQL connection for each, keeps the worker's cooldowns, and detects the servers' versions | [The connection manager](hypervel.md#the-connection-manager) |
 | `InfluxDBFactory.php` | Builds an `InfluxDB2\Client` from a connection's config | [Passing options to the client](configuration.md#passing-options-to-the-client) |
 | `Write/BatchingWriter.php` | The `WriteApi` of a connection whose `writeType` is `WriteType::BATCHING` | [Batching writes](writing.md#batching-writes), [below](#the-batching-writer) |
 | `Write/BatchOptions.php` | The batching options, checked, with the size defaults of each version | [Batching writes](writing.md#batching-writes), [When a batch is sent](writing.md#when-a-batch-is-sent) |
+| `Write/FailoverWriter.php` | The synchronous `WriteApi` of a connection whose `write` block names a `fallback` | [Falling back to other connections](writing.md#falling-back-to-other-connections), [below](#falling-back) |
+| `Write/Failover.php`, `Write/FailoverOptions.php`, `Write/Availability.php` | Writes line protocol through the first connection that takes it; the failover options, checked; the cooldowns of the connections that failed, one set per worker | [Falling back to other connections](writing.md#falling-back-to-other-connections), [below](#falling-back) |
+| `Write/FailoverException.php` | A write a connection failed to take, and what became of it | [What is reported, and what is thrown](writing.md#what-is-reported-and-what-is-thrown) |
+| `Write/Concerns/ReportsFailures.php` | Reporting through the exception handler, and running what may fail without throwing, shared by `BatchingWriter` and `Failover` | [Below](#failures) |
 | `Write/Batch.php`, `Write/BatchWriteException.php`, `Write/BufferFullException.php` | One request's line protocol; a batch dropped after its retries; a write refused past `maxBuffered` | [When a batch cannot be written](writing.md#when-a-batch-cannot-be-written), [How much a worker holds](writing.md#how-much-a-worker-holds) |
 | `InfluxQL/Connection.php`, `V1Connection.php`, `V2Connection.php`, `V3Connection.php` | Run InfluxQL on `/query`, addressed to a database and retention policy; one subclass per version, picked by `Connection::make()` | [Running statements](influxql.md#running-statements); connecting to [1.x](configuration.md#connecting-to-influxdb-1x), [2.x](configuration.md#connecting-to-influxdb-2x) and [3](configuration.md#connecting-to-influxdb-3) |
 | `InfluxQL/Version.php` | The InfluxDB major versions, and the statements each runs | [Choosing the server version](configuration.md#choosing-the-server-version) |
@@ -69,6 +73,13 @@ package keeps state, shared by every coroutine of a worker, in these places:
   ends: give its transport a response for them. The provider flushes every
   writer when a console command finishes (`AfterExecute`) and when the console
   application terminates outside a coroutine (`Terminating`).
+- **Cooldowns and fallback transports.** The manager's `availability()` holds
+  the worker's one `Write\Availability`: which connections failed to take a
+  write, and until when, by `hrtime()`, read and set by every writer that
+  falls back to other connections. An instance property of the manager, it
+  goes with it. Each such writer's `Write\Failover` keeps a synchronous
+  `WriteApi` per fallback it has written to, built on first use, which goes
+  with the writer on `disconnect()` ([Falling back](#falling-back)).
 - **SQL connections.** Not the package's: the provider registers the
   `influxdb` database driver on Hypervel's `DatabaseManager`, which makes a
   `Sql\SqlConnection` for each slot of the connection's pool, and the pool
@@ -281,12 +292,45 @@ batches are sent by the provider when it finishes
 `attempt()` runs a callback and returns what it throws rather than throwing
 it, except Swoole's `CanceledException`, which it throws on: a cancelled
 coroutine has to unwind, as Hypervel expects, not be taken for a failed batch.
-`send()` runs the post through it, and hands a failure to `fail()`, which wraps
-it in a `BatchWriteException`, reports that, and calls `onFailure`, a callable
-or a class name resolved from the container, through `attempt()` again,
-reporting what that throws. `report()` goes through the container's
-`ExceptionHandler`, and falls back to `error_log()` when that throws, as it
-does when no handler is bound. No failed batch is thrown at a `write()`.
+`send()` runs `deliver()`, the post, through it, and hands a failure to
+`fail()`, which wraps it in a `BatchWriteException`, reports that, and calls
+`onFailure`, a callable or a class name resolved from the container, through
+`attempt()` again, reporting what that throws. `report()` goes through the
+container's `ExceptionHandler`, and falls back to `error_log()` when that
+throws, as it does when no handler is bound. Both live in the
+`Write\Concerns\ReportsFailures` trait, which `Failover` shares. No failed
+batch is thrown at a `write()`.
+
+### Falling back
+
+`InfluxDBManager::makeFailover()` reads `FailoverOptions::fromConfig()` from a
+connection's write options and, when they name a `fallback`, builds each
+fallback's client there and then, so a missing or misconfigured fallback fails
+when `writeApi()` first builds the writer, and hands a `Write\Failover` to the
+writer: the `BatchingWriter`, or, without batching, a `FailoverWriter`, a
+synchronous `WriteApi` whose `writeRaw()` the parent's `write()` reaches as it
+does the batching writer's. Each writer takes a copy of the failover through
+`withWriteOptions()`, with its own write options, so a fallback is retried as
+the writer itself is.
+
+`Failover::write()` is handed the line protocol, its precision, bucket and org,
+and a closure that posts through the connection itself. It tries the
+connection, then each fallback in order, skipping those the shared
+`Availability` says are cooling down, and stops at the first that takes the
+write. A failure `isConnectionFailure()` recognises, an `ApiException` with no
+status, the server unreached, or one of `429` or above, which is what the
+client's `WriteRetry` retries, puts the connection on cooldown for
+`FailoverOptions::$cooldown` seconds. The connection's own failure that is not
+one, a `4xx` for the write itself, is thrown as it is, so no fallback is tried
+for a write the server refused; such a failure on a fallback only passes to
+the next. A fallback is written through a `WriteApi` built on its client
+options with the writer's write options, `writeType` forced to `SYNCHRONOUS`,
+memoised per fallback; a write for the connection's default bucket or org goes
+to the fallback's defaults, since two servers may name them differently. When
+a fallback takes the write after a connection failed, the `FailoverException`
+naming each outcome, with `takenBy` set, is reported; when none does, it is
+thrown, and `BatchWriteException` writes its `reasons()` into its own message
+rather than nesting the two.
 
 ## The InfluxQL dialect
 

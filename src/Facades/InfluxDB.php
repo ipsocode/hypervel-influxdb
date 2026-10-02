@@ -21,6 +21,7 @@ use Hypervel\Support\Facades\Facade;
  * @method static \InfluxDB2\WriteApi writeApi(?string $connection = null, ?array $writeOptions = null)
  * @method static void flush(?string $name = null)
  * @method static void flushAll()
+ * @method static \Ipsocode\InfluxDB\Write\Availability availability()
  * @method static \InfluxDB2\WriteApi createWriteApi(?array $writeOptions = null, ?array $pointSettings = null)
  * @method static \InfluxDB2\QueryApi createQueryApi()
  * @method static \Ipsocode\InfluxDB\InfluxQL\Connection influxql(?string $name = null)

@@ -16,8 +16,12 @@ use Ipsocode\InfluxDB\InfluxQL\Expression;
 use Ipsocode\InfluxDB\InfluxQL\QueryApi;
 use Ipsocode\InfluxDB\InfluxQL\Regex;
 use Ipsocode\InfluxDB\InfluxQL\Version;
+use Ipsocode\InfluxDB\Write\Availability;
 use Ipsocode\InfluxDB\Write\BatchingWriter;
 use Ipsocode\InfluxDB\Write\BatchOptions;
+use Ipsocode\InfluxDB\Write\Failover;
+use Ipsocode\InfluxDB\Write\FailoverOptions;
+use Ipsocode\InfluxDB\Write\FailoverWriter;
 
 /**
  * Resolves and caches named InfluxDB connections.
@@ -57,6 +61,11 @@ class InfluxDBManager
      */
     protected array $influxql = [];
 
+    /**
+     * Which connections are skipped for a while after failing, shared by every writer that falls back to others.
+     */
+    protected ?Availability $availability = null;
+
     public function __construct(
         protected Repository $config,
         protected InfluxDBFactory $factory,
@@ -80,11 +89,12 @@ class InfluxDBManager
      *
      * InfluxDB2\Client keeps every WriteApi it creates, so createWriteApi() on each request
      * leaks one, with its HTTP client, for the worker's life: write through this instead.
-     * With `'writeType' => WriteType::BATCHING` it is a BatchingWriter.
+     * With `'writeType' => WriteType::BATCHING` it is a BatchingWriter, and with a `fallback` it
+     * falls back to the connections named when this one cannot take a write.
      *
      * @param null|array<string, mixed> $writeOptions the options to create it with on first use, instead of the connection's `write` block
      *
-     * @throws InvalidArgumentException when the connection is not configured, or its batching options are out of range
+     * @throws InvalidArgumentException when the connection is not configured, its batching or failover options are out of range, or a fallback is not configured
      */
     public function writeApi(?string $connection = null, ?array $writeOptions = null): WriteApi
     {
@@ -121,6 +131,16 @@ class InfluxDBManager
                 $writeApi->flush();
             }
         }
+    }
+
+    /**
+     * Get which connections are skipped for a while after they failed to take a write.
+     *
+     * One per worker, shared by every writer that falls back to other connections.
+     */
+    public function availability(): Availability
+    {
+        return $this->availability ??= new Availability;
     }
 
     /**
@@ -241,21 +261,25 @@ class InfluxDBManager
     }
 
     /**
-     * Build the WriteApi for a connection: a BatchingWriter when its options ask for batching.
+     * Build the WriteApi for a connection: a BatchingWriter when its options ask for batching, and
+     * otherwise a FailoverWriter when they name a fallback.
      *
-     * A BatchingWriter is built on the client's options, not through createWriteApi(),
-     * which would keep it for Client::close(); disconnect() closes it instead.
+     * Both are built on the client's options, not through createWriteApi(), which would keep
+     * them for Client::close(); disconnect() closes a BatchingWriter instead.
      *
      * @param null|array<string, mixed> $writeOptions
      *
-     * @throws InvalidArgumentException when the batching options are out of range, or the connection names a version this package does not implement
+     * @throws InvalidArgumentException when the batching or failover options are out of range, a fallback is not configured, or the connection names a version this package does not implement
      */
     protected function makeWriteApi(string $name, ?array $writeOptions): WriteApi
     {
         $client = $this->connection($name);
+        $failover = $this->makeFailover($name, $writeOptions);
 
         if (! BatchOptions::batching($writeOptions)) {
-            return $client->createWriteApi($writeOptions);
+            return $failover === null
+                ? $client->createWriteApi($writeOptions)
+                : new FailoverWriter($client->options, $failover, $writeOptions);
         }
 
         return new BatchingWriter(
@@ -267,7 +291,44 @@ class InfluxDBManager
                 $name,
             ),
             $writeOptions,
+            failover: $failover,
         );
+    }
+
+    /**
+     * Build the failover of a connection's writes from its write options, or null when they name no fallback.
+     *
+     * Each fallback's client is built now, so a fallback that is missing or misconfigured
+     * fails here, as the other write options do, rather than at the first failed write.
+     *
+     * @param null|array<string, mixed> $writeOptions
+     *
+     * @throws InvalidArgumentException when the failover options are out of range, or a fallback is not configured
+     */
+    protected function makeFailover(string $name, ?array $writeOptions): ?Failover
+    {
+        $options = FailoverOptions::fromConfig((array) $writeOptions, $name);
+
+        if ($options === null) {
+            return null;
+        }
+
+        $fallbacks = [];
+
+        foreach ($options->fallbacks as $fallback) {
+            try {
+                $fallbacks[$fallback] = $this->connection($fallback)->options;
+            } catch (InvalidArgumentException $exception) {
+                throw new InvalidArgumentException(sprintf(
+                    'InfluxDB connection [%s] has an invalid write.fallback [%s]; expected the name of a configured connection: %s',
+                    $name,
+                    $fallback,
+                    $exception->getMessage(),
+                ), 0, $exception);
+            }
+        }
+
+        return new Failover($name, $this->connection($name)->options, $options, $this->availability(), $fallbacks);
     }
 
     /**

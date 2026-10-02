@@ -1,8 +1,9 @@
 # Writing points
 
 This page covers writing points through the manager's `writeApi()`, reading a
-built point back with `RefPoint`, and the batching writer a connection can
-turn on to buffer its points in the worker and send them in batches.
+built point back with `RefPoint`, falling back to other connections when one
+cannot take a write, and the batching writer a connection can turn on to
+buffer its points in the worker and send them in batches.
 
 ## Writing through `writeApi()`
 
@@ -37,7 +38,8 @@ points and send them in batches instead, see [Batching writes](#batching-writes)
 
 A synchronous write, the default, is retried by the client on a status of
 `429` or above or a network error, up to its `maxRetries`, 5 by default, and
-throws an `InfluxDB2\ApiException` when it still fails.
+throws an `InfluxDB2\ApiException` when it still fails, unless the connection
+names [fallbacks](#falling-back-to-other-connections) to write through instead.
 
 `writeApi()` builds the `WriteApi` from the connection's `write` block (see
 [Passing options to the client](configuration.md#passing-options-to-the-client)).
@@ -80,6 +82,117 @@ $ref->getTags(); // ['host' => 'web1']
 reflection is cached in a static, which tests reset as
 [Testing an application that uses it](hypervel.md#testing-an-application-that-uses-it)
 describes.
+
+## Falling back to other connections
+
+A connection can name other connections to write through when it cannot take
+a write itself, such as a second server kept for when the first is down:
+
+```php
+'connections' => [
+    'main' => [
+        // url, token, bucket, org, ...
+        'write' => [
+            'fallback' => ['backup'], // or 'backup', or 'backup,archive' as env() reads it
+            'cooldown' => 30,         // seconds a connection that failed is skipped
+        ],
+    ],
+    'backup' => [
+        // url, token, bucket, org, ... of the server the points go to meanwhile
+    ],
+],
+```
+
+The package's config reads `INFLUXDB_FALLBACK`, connection names separated by
+commas, and `INFLUXDB_COOLDOWN` into `main`'s `write` block. `writeApi()` then
+returns an `Ipsocode\InfluxDB\Write\FailoverWriter`, a synchronous `WriteApi`
+whose writes fall back, or, with [batching](#batching-writes) on, a
+`BatchingWriter` whose batches do. Either writes through the connection first,
+with the client's retries, and only when the connection cannot take the write
+tries each fallback in order, with the same retries, until one takes it. The
+`write` options given to `writeApi()` may name a `fallback` too.
+
+### What is failed over
+
+A connection fails to take a write when its server cannot be reached, or
+answers `429` or a `5xx` once the client's retries are spent: the failures
+the client retries. A write the server refuses for the write's own fault,
+with any other `4xx`, such as a `400` for a line it cannot parse, is not
+failed over: it is refused as it would be without fallbacks, since a fallback
+would refuse it too, and the connection is not taken for down. A fallback
+that refuses a write is passed over, and the next one tried.
+
+A write for the connection's own `bucket` and `org` goes to the fallback's
+own `bucket` and `org`, so the two servers may name them differently. A write
+addressed to another bucket or org, through the arguments of `write()` or
+`writeRaw()`, keeps them on every connection, and the precision is kept
+everywhere.
+
+### Cooldowns
+
+A connection that failed to take a write is skipped for `cooldown` seconds,
+30 unless set, so the writes made meanwhile go straight to the next connection
+rather than wait out the client's retries on each. Once the cooldown is over
+it is tried again. Zero turns cooldowns off: every write tries every
+connection in order. The cooldowns are one set per worker, shared by every
+connection's writer, so a connection one writer finds down is skipped by the
+others, and the manager's `availability()` reads them:
+
+```php
+InfluxDB::availability()->isAvailable('main');    // false while it is cooling down
+InfluxDB::availability()->unavailableFor('main'); // the seconds left, or null
+InfluxDB::availability()->unavailable();          // every connection cooling down, with its seconds left
+```
+
+`markUnavailable($name, $seconds)` and `markAvailable($name)` set them, for a
+health check or a test; like `disconnect()`, they change what every coroutine
+on the worker sees.
+
+### What is reported, and what is thrown
+
+When a fallback takes a write after a connection failed, the failure is
+reported through the application's exception handler as an
+`Ipsocode\InfluxDB\Write\FailoverException` naming what each connection did
+and which took the write:
+`InfluxDB connection [main] failed to write 500 points (41234 bytes) for bucket [metrics], which connection [backup] took: [main] [503] Error connecting to the API (…)(service unavailable).`
+Its previous exception is the connection's own failure, the client's
+`InfluxDB2\ApiException`, its `takenBy` property names the fallback, and its
+`failures()` and `skipped()` return the failure of each connection tried and
+the seconds left of each skipped. A write that only skipped connections
+cooling down, with no new failure, is not reported.
+
+When no connection takes a write, a synchronous write throws the
+`FailoverException`, a `RuntimeException` rather than the client's
+`ApiException`, whose message ends
+`…, and none of its fallbacks took them: [main] [503] … (…); [backup] skipped for another 12.3 seconds.`,
+and a batch is dropped as [one that cannot be written](#when-a-batch-cannot-be-written):
+reported, and handed to `onFailure`, as a `BatchWriteException` whose
+previous exception is the `FailoverException`. A write made while every
+connection is cooling down is refused or dropped the same way, without a
+request.
+
+### What to expect
+
+- A fallback is written through a synchronous `WriteApi` of its own, built on
+  that connection's client options when first needed and kept for the
+  worker's life, with the write options of the writer it serves, `maxRetries`
+  and the other retry options included. The fallback connection's own `write`
+  block, its batching or its fallbacks, does not apply to a write that falls
+  back to it, so a failover never chains from one connection to the next.
+- Each fallback's client is built when `writeApi()` first builds the writer,
+  so a fallback that is not configured, or missing a required key, throws an
+  `InvalidArgumentException` then, naming both connections, such as
+  `InfluxDB connection [main] has an invalid write.fallback [backup]; expected the name of a configured connection: InfluxDB connection [backup] is not configured.`
+  A connection falling back to itself, and a `fallback` or `cooldown` of the
+  wrong kind, throw one too.
+- A write that falls back takes longer: the connection's retries, then each
+  fallback's. A batching connection sends from coroutines of its own, so a
+  request or job waits for none of it; a synchronous `write()` waits for all
+  of it.
+- Points written to a fallback are on that server, not the connection's own:
+  a query of the connection does not see them. Fallbacks suit writes that must
+  land somewhere, such as metrics and events, with the servers reconciled
+  afterwards or read together.
 
 ## Batching writes
 
@@ -126,6 +239,8 @@ The `write` block takes these options for batching:
 | `overflow` | `'flush'` | What a write past `maxBuffered` does: `'flush'` or `'refuse'` (`BatchOptions::FLUSH`, `BatchOptions::REFUSE`) |
 | `onFailure` | None | A callable, or the name of an invokable class, handed each batch that [cannot be written](#when-a-batch-cannot-be-written) |
 | `maxRetries` | `3` | The client's option: the retries a batch gets |
+| `fallback` | None | The connections a batch this one cannot take [falls back to](#falling-back-to-other-connections), in order |
+| `cooldown` | `30` | The seconds a connection that failed to take a batch is skipped |
 
 The client's other retry options, `retryInterval`, `maxRetryDelay`,
 `maxRetryTime`, `exponentialBase` and `jitterInterval`, apply to each batch as
@@ -193,14 +308,18 @@ limit whichever way the server counts. InfluxData's docs set no time limit;
 
 A batch is retried as a synchronous write is, on a status of `429` or above or
 a network error, with the client's backoff, except that `maxRetries` defaults
-to 3 where the client's default for a synchronous write is 5. A batch that
-still fails is dropped, and never thrown at a `write()`, since the write that
+to 3 where the client's default for a synchronous write is 5. On a connection
+with [fallbacks](#falling-back-to-other-connections), a batch the connection
+still cannot take goes to the first fallback that can. A batch that still
+fails is dropped, and never thrown at a `write()`, since the write that
 filled it carries mostly other writes' points. Instead it is:
 
 - reported through the application's exception handler as an
   `Ipsocode\InfluxDB\Write\BatchWriteException`, which names the connection,
   the batch's size and bucket, and the server's error, and whose previous
-  exception is the failure, usually the client's `InfluxDB2\ApiException`;
+  exception is the failure: usually the client's `InfluxDB2\ApiException`, or
+  the `FailoverException` naming what each connection did when fallbacks
+  were tried;
 - handed to `onFailure`, when the connection sets one, with that exception.
   The `Batch` carries its `payload` of line protocol and the `bucket`, `org`
   and `precision` it was going to, so it can be written again later.
