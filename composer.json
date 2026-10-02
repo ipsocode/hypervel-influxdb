@@ -29,7 +29,6 @@
         "security": "https://github.com/ipsocode/hypervel-influxdb/security/policy"
     },
     "require": {
-        "php": "^8.4",
         "hypervel/components": "0.4.x-dev",
         "influxdata/influxdb-client-php": "^3.9"
     },
