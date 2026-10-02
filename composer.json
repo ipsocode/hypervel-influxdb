@@ -35,11 +35,11 @@
     "require-dev": {
         "brianium/paratest": "^7.24",
         "fakerphp/faker": "^1.24",
-        "friendsofphp/php-cs-fixer": "^3.0",
+        "friendsofphp/php-cs-fixer": "^3.57.2",
         "guzzlehttp/guzzle": "^7.9 || ^8.0",
         "hypervel/testbench": "^0.4",
         "mockery/mockery": "^1.6",
-        "phpstan/phpstan": "^2.0",
+        "phpstan/phpstan": "^2.2.15",
         "phpunit/phpunit": ">=13.0.3 <13.4",
         "symfony/yaml": "^8.0.12"
     },
