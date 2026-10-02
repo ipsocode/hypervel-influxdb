@@ -241,12 +241,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          php_constraint=$(jq -r '.require.php' composer.json)
-          hypervel_constraint=$(jq -r '.require["hypervel/contracts"]' composer.json)
-          hypervel_packages=$(jq -r '.require | keys[] | select(startswith("hypervel/")) | "`\(.)`"' composer.json | paste -sd ',' - | sed 's/,/, /g')
+          hypervel_constraint=$(jq -r '.require["hypervel/components"]' composer.json)
 
           {
-            echo "Requires PHP \`${php_constraint}\` and Hypervel \`${hypervel_constraint}\` — ${hypervel_packages}."
+            echo "Requires \`hypervel/components\` \`${hypervel_constraint}\`, which also sets the PHP version."
             echo
             if [ -n "${HIGHLIGHTS}" ]; then
               printf '%s\n\n' "${HIGHLIGHTS}"
