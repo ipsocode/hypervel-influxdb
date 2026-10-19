@@ -98,6 +98,21 @@ class SqlGrammarTest extends TestCase
     }
 
     /**
+     * The connection prepares the bindings before it substitutes them; a caller that hands them over unprepared
+     * gets the same literal.
+     */
+    #[UnitTest]
+    public function testAnUnpreparedDateIsEmbeddedInTheDateFormat(): void
+    {
+        $this->assertSame(
+            "select '2024-01-01T02:00:00.500000+02:00'",
+            $this->connection()->getQueryGrammar()->substituteBindingsIntoRawSql('select ?', [
+                new DateTimeImmutable('2024-01-01 02:00:00.5', new DateTimeZone('+02:00')),
+            ]),
+        );
+    }
+
+    /**
      * Hypervel casts a boolean to 0 or 1 for PDO; DataFusion does not compare a boolean column with a number.
      */
     #[UnitTest]
