@@ -44,7 +44,7 @@ root: copy it there (`.gitignore` keeps that copy out of commits), then run
 |---|---|
 | `composer conventions` | The conventions check (below), in plain PHP: no install needed |
 | `composer lint` | php-cs-fixer in dry-run mode; `composer lint:fix` applies the fixes |
-| `composer analyse` | PHPStan at level 5 over `src/` |
+| `composer analyse` | PHPStan at level 6 over `src/` |
 | `composer test` | The suite through the Testbench CLI |
 | `composer test:phpunit` | The suite through PHPUnit directly, bypassing the Testbench CLI |
 | `composer test:parallel` | The suite through ParaTest |
