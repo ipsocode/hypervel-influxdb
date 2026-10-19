@@ -17,6 +17,7 @@ use Ipsocode\InfluxDB\InfluxQL\Dialect;
 use Ipsocode\InfluxDB\InfluxQL\QueryException as InfluxQLQueryException;
 use Ipsocode\InfluxDB\InfluxQL\Series;
 use Ipsocode\InfluxDB\InfluxQL\Version;
+use Ipsocode\InfluxDB\Support\DetectsLostTransport;
 use LogicException;
 use RuntimeException;
 use stdClass;
@@ -36,6 +37,8 @@ use Throwable;
  */
 class Connection extends DatabaseConnection
 {
+    use DetectsLostTransport;
+
     /**
      * Create a new InfluxQL database connection instance.
      *
