@@ -90,7 +90,7 @@
         "test:purge": "@php vendor/bin/testbench package:purge-skeleton"
     },
     "scripts-descriptions": {
-        "analyse": "Run PHPStan over src/ with the level, settings and extensions hypervel/components uses.",
+        "analyse": "Run PHPStan over src/ with this package's phpstan.neon: the settings and extensions hypervel/components uses, at a stricter level.",
         "conventions": "Run the conventions check with this package's settings, .github/conventions.php. Plain PHP: it needs no install.",
         "lint": "Report the coding-standard changes php-cs-fixer would make, without writing them.",
         "lint:fix": "Apply the coding standard. Risky rules are enabled (see .php-cs-fixer.dist.php) \u2014 run `composer test` afterwards, not just before committing.",

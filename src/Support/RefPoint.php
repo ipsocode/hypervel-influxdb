@@ -16,8 +16,10 @@ use ReflectionClass;
  */
 class RefPoint extends Point
 {
+    /** @var ReflectionClass<Point>|null */
     private static ?ReflectionClass $pointReflection = null;
 
+    /** @var ReflectionClass<Point> */
     private ReflectionClass $reflection;
 
     private Point $refPoint;

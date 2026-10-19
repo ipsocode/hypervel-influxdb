@@ -1,7 +1,8 @@
-# Static analysis aligned with `hypervel/components`' phpstan.neon.dist on the 0.4 branch: the
-# same level, the same two analysis settings and extensions, without its monorepo's parallelism
-# and stubs. A finding here is one there, and a fix carried to hypervel/components lands clean.
+# Static analysis using `hypervel/components`' phpstan.neon.dist (0.4 branch) analysis settings
+# and extensions, without its monorepo's parallelism and stubs, at a stricter level: the package
+# goes beyond the level components runs on its own source, one level at a time.
 includes:
+    - phpstan-baseline.neon
     # PHPStan support for Eloquent's forwarded methods, named scopes and Hypervel's helpers. The
     # hypervel/components monorepo installed for development does not register these through
     # `extra.phpstan` as the split packages do, so they are included by path.
@@ -9,7 +10,7 @@ includes:
     - vendor/hypervel/components/src/foundation/extension.neon
 
 parameters:
-    level: 5
+    level: 6
     inferPrivatePropertyTypeFromConstructor: true
     treatPhpDocTypesAsCertain: false
 
