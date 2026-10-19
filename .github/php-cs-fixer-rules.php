@@ -76,9 +76,7 @@ return [
     'phpdoc_to_comment' => [
         'ignored_tags' => ['var'],
     ],
-    'return_assignment' => [
-        'skip_named_var_tags' => true,
-    ],
+    'return_assignment' => false,
     'php_unit_method_casing' => [
         'case' => 'camel_case',
     ],
