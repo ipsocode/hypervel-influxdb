@@ -46,7 +46,7 @@ Hypervel 0.4 is released.
 
 | Pin | Since | Why | It goes when |
 |---|---|---|---|
-| `"phpunit/phpunit": ">=13.0.3 <13.4"` | 2026-10-02 | PHPUnit 13.4's `PhpHandler` takes an `Emitter`, and the parallel runner in `hypervel/components` still constructs it without one, so `--parallel`, and with it `composer test:coverage`, fails before any test runs. | `hypervel/components` passes the emitter. Dependabot keeps a pull request open for the newer PHPUnit, which fails until then: the week it passes, the cap can go. |
+| `"phpunit/phpunit": ">=13.0.3 <13.4"` | 2026-10-02 | PHPUnit 13.4's `PhpHandler` takes an `Emitter`, and the parallel runner in `hypervel/components` still constructs it without one, so `--parallel`, and with it `composer test:coverage`, fails before any test runs. | `hypervel/components` passes the emitter, in `src/testing/src/Concerns/RunsInParallel.php` on its `0.4` branch. Dependabot is told to leave PHPUnit alone, so the cap comes off by hand. |
 | `"config": {"platform": {"ext-swoole": "6.3.0RC1"}}` | 2026-10-19 | `hypervel/components` `0.4.x-dev` requires `ext-swoole` `^6.3.0RC1`, and the CI image runs 6.3.0RC1. The pin makes every install resolve for that Swoole, whatever the machine running Composer has; a pin below what components requires fails resolution. | Swoole 6.3.0 is released and the CI image carries it: move the pin to it. Dependabot never reads `config.platform`, so this one is moved by hand. |
 | `"hypervel/components": "0.4.x-dev"`, with `"minimum-stability": "dev"` and `"prefer-stable": true` | the first release | Hypervel 0.4 exists only as the `0.4.x-dev` branch. | Hypervel 0.4 is released: require `^0.4` and drop both stability keys (#19). |
 
