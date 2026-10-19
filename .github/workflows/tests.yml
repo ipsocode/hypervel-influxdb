@@ -106,7 +106,7 @@ jobs:
           MIN_COVERAGE: '100'
         run: |
           vendor/bin/testbench package:test --parallel \
-            --coverage --coverage-clover tests/coverage/clover.xml --min="${MIN_COVERAGE}"
+            --coverage --min="${MIN_COVERAGE}" --coverage-clover tests/coverage/clover.xml
 
       - name: Upload the coverage report
         if: ${{ always() && (github.event_name != 'pull_request' || steps.gate.outcome == 'failure') }}
