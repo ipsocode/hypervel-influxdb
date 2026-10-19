@@ -35,7 +35,7 @@ jobs:
   plan:
     name: plan
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     outputs:
       mode: ${{ steps.plan.outputs.mode }}
       tag: ${{ steps.plan.outputs.tag }}
@@ -206,7 +206,7 @@ jobs:
     needs: [plan, tests]
     if: needs.plan.outputs.mode == 'tag-and-release' || needs.plan.outputs.mode == 'release-existing-tag'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 3
     permissions:
       contents: write
     env:

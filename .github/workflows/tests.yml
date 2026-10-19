@@ -30,7 +30,7 @@ jobs:
     name: PHP 8.4
     needs: initial
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
 
     outputs:
       components_ref: ${{ steps.components.outputs.ref }}
@@ -121,7 +121,7 @@ jobs:
     name: PHP 8.5
     needs: php84
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 7
 
     concurrency:
       group: tests-${{ github.event.pull_request.number || github.ref }}-8.5

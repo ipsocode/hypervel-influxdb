@@ -23,7 +23,7 @@ jobs:
   review:
     name: review
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 8
 
     concurrency:
       group: claude-review-${{ github.event.pull_request.number }}
@@ -60,7 +60,7 @@ jobs:
       - name: Review
         id: review
         if: steps.credential.outputs.present == 'true' && steps.setup.outputs.review == 'true'
-        timeout-minutes: 10
+        timeout-minutes: 6
         continue-on-error: true
         uses: ./.github/actions/review-claude
         with:
