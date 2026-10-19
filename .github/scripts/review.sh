@@ -256,7 +256,7 @@ cmd_scan() {
 
 imported() {
     case "$1" in
-        .github/PULL_REQUEST_TEMPLATE.md) return 0 ;;
+        .github/PULL_REQUEST_TEMPLATE.md | .github/imported.sha256) return 0 ;;
         .github/conventions.php | .github/review/*) return 1 ;;
     esac
     if [ -L "$1" ]; then
