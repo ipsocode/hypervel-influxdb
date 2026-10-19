@@ -11,6 +11,7 @@ use InfluxDB2\ApiException;
 use InvalidArgumentException;
 use Ipsocode\InfluxDB\InfluxDBManager;
 use Ipsocode\InfluxDB\InfluxQL\Version;
+use Ipsocode\InfluxDB\Support\DetectsLostTransport;
 use LogicException;
 use stdClass;
 use Swoole\Coroutine\CanceledException;
@@ -29,6 +30,8 @@ use Throwable;
  */
 class SqlConnection extends Connection
 {
+    use DetectsLostTransport;
+
     /**
      * Create a new InfluxDB 3 SQL connection instance.
      *
