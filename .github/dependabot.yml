@@ -19,3 +19,4 @@ updates:
     open-pull-requests-limit: 5
     ignore:
       - dependency-name: hypervel/*
+      - dependency-name: phpunit/phpunit
