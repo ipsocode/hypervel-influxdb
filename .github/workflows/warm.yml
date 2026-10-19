@@ -19,7 +19,7 @@ jobs:
   caches:
     name: PHP ${{ matrix.php }} caches
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 6
 
     strategy:
       fail-fast: false
@@ -70,7 +70,7 @@ jobs:
   claude-code:
     name: Claude Code
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 3
 
     concurrency:
       group: warm-${{ github.ref }}-claude-code
