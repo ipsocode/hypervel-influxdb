@@ -86,7 +86,7 @@
         "test": "@php vendor/bin/testbench package:test",
         "test:phpunit": "@php vendor/bin/phpunit",
         "test:parallel": "@php vendor/bin/testbench package:test --parallel",
-        "test:coverage": "@php vendor/bin/testbench package:test --parallel --coverage --coverage-clover tests/coverage/clover.xml --min=100",
+        "test:coverage": "@php vendor/bin/testbench package:test --parallel --coverage --min=100 --coverage-clover tests/coverage/clover.xml",
         "test:purge": "@php vendor/bin/testbench package:purge-skeleton"
     },
     "scripts-descriptions": {
