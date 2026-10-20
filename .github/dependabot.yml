@@ -7,6 +7,8 @@ updates:
       - /.github/actions/*
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: anthropics/claude-code-action
     groups:
       github-actions:
         patterns:
@@ -19,3 +21,4 @@ updates:
     open-pull-requests-limit: 5
     ignore:
       - dependency-name: hypervel/*
+      - dependency-name: phpunit/phpunit
