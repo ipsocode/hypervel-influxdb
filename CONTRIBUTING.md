@@ -61,6 +61,7 @@ Hypervel 0.4 is released.
 | `composer test:phpunit` | The suite through PHPUnit directly, bypassing the Testbench CLI |
 | `composer test:parallel` | The suite through ParaTest |
 | `composer test:coverage` | The suite under PCOV, failing below 100% line coverage |
+| `composer test:integration` | The tests under `tests/Integration` against real InfluxDB servers (below) |
 | `composer test:purge` | Clears the Testbench skeleton's cached config, routes, views and SQLite files |
 
 Arguments after `--` reach PHPUnit or ParaTest, e.g.
@@ -71,7 +72,32 @@ connection config the tests resolve (`workbench/config/influxdb.php`) and a
 few console commands that drive the manager the way an application would
 (`workbench/routes/console.php`). `testbench.yaml` declares what it discovers.
 The suite never reaches a live InfluxDB: a URL in it is only config, and the
-HTTP layer underneath is a Guzzle mock (`tests/Concerns`).
+HTTP layer underneath is a Guzzle mock (`tests/Concerns`). Only `tests/Integration` does.
+
+### Integration tests
+
+`tests/Integration` runs the package against real InfluxDB servers, outside the default suite:
+`composer test` and `composer test:coverage` start no server and keep their 100% gate. Each test class
+reads its server's URL from an environment variable and skips when it is unset, so the suite reports
+skips, not failures, without a server. A class creates a database of its own and drops it afterwards,
+so the suite can run again against the same server.
+
+| Variable | Server | Tests |
+|---|---|---|
+| `INFLUXDB_V1_URL` | InfluxDB 1.x | `InfluxDBV1Test`, `InfluxDBV1VersionDetectionTest` |
+
+Start InfluxDB 1.x and run the suite in the CI image, on the same Docker network so the image
+reaches the server by name:
+
+```sh
+docker network create influx
+docker run -d --rm --name influxdb --network influx influxdb:1.11
+docker run --rm -v "$PWD":/app -w /app --network influx -e OTEL_SDK_DISABLED=true \
+    -e INFLUXDB_V1_URL=http://influxdb:8086 \
+    ghcr.io/ipsocode/hypervel/ci:8.4-latest composer test:integration
+```
+
+`.github/workflows/integration.yml` runs the same on pull requests, with the server as a service container.
 
 php-cs-fixer and PHPStan are configured like `hypervel/components`:
 `.php-cs-fixer.dist.php` loads its rules, verbatim, from
