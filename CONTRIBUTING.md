@@ -86,6 +86,7 @@ so the suite can run again against the same server.
 |---|---|---|
 | `INFLUXDB_V1_URL` | InfluxDB 1.x | `InfluxDBV1Test`, `InfluxDBV1VersionDetectionTest` |
 | `INFLUXDB_V2_URL` | InfluxDB 2.x | `InfluxDBV2Test`, `InfluxDBV2VersionDetectionTest` |
+| `INFLUXDB_V3_URL` | InfluxDB 3 Core | `InfluxDBV3Test`, `InfluxDBV3VersionDetectionTest` |
 
 The 2.x classes also read `INFLUXDB_V2_TOKEN` and `INFLUXDB_V2_ORG`, which default to the `it-token` and
 `it-org` the server below is started with. 2.x has no `CREATE DATABASE`, so a class makes its database as a
@@ -112,6 +113,19 @@ docker run -d --rm --name influxdb2 --network influx \
     influxdb:2.7
 docker run --rm -v "$PWD":/app -w /app --network influx -e OTEL_SDK_DISABLED=true \
     -e INFLUXDB_V2_URL=http://influxdb2:8086 \
+    ghcr.io/ipsocode/hypervel/ci:8.4-latest composer test:integration
+```
+
+InfluxDB 3 Core needs no setup: it creates a database on its first write, and the 3 classes make and drop their
+own through the configure API. Start it without authentication, or set `INFLUXDB_V3_TOKEN` to the admin token
+of a server that has it:
+
+```sh
+docker run -d --rm --name influxdb3 --network influx \
+    -e INFLUXDB3_NODE_IDENTIFIER_PREFIX=it-node -e INFLUXDB3_OBJECT_STORE=memory \
+    -e INFLUXDB3_START_WITHOUT_AUTH=true influxdb:3-core
+docker run --rm -v "$PWD":/app -w /app --network influx -e OTEL_SDK_DISABLED=true \
+    -e INFLUXDB_V3_URL=http://influxdb3:8181 \
     ghcr.io/ipsocode/hypervel/ci:8.4-latest composer test:integration
 ```
 
