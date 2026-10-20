@@ -383,8 +383,10 @@ An aggregate is aliased `aggregate`, as Hypervel reads it back, except over
 that is an error. `DISTINCT` is a function around each column, not a keyword
 on the clause, and `Driver\Grammar` writes Hypervel's `avg` as InfluxQL's
 `mean`, which `InfluxDB::table()`'s builder asks for itself.
-`Grammars\Grammar` writes keywords in upper case and `Driver\Grammar` in lower
-case, as Hypervel does; InfluxQL reads either.
+Both grammars write keywords and function names in lower case, as Hypervel's own
+grammars do, so `toSql()`, `toRawSql()` and the query log read the same whichever
+entry point built the statement; InfluxQL reads either case. Text you pass in
+raw, such as `selectRaw()` or `orderByRaw()`, is sent as written.
 
 ### Refusing what the version lacks
 

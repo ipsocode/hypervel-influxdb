@@ -91,7 +91,7 @@ URL.
 A statement the server refuses, or one that never reaches it, throws an
 `Ipsocode\InfluxDB\InfluxQL\QueryException`, whose message names the
 connection and carries the statement exactly as it was sent:
-`<error> (Connection: main, InfluxQL: SELECT ...)`. `getConnectionName()` and
+`<error> (Connection: main, InfluxQL: select ...)`. `getConnectionName()` and
 `getSql()` return those parts, `getBindings()` the values before they were
 embedded, `getError()` the server's or the transport's message alone, and
 `getPrevious()` the transport's exception, when there is one. When several
