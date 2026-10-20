@@ -1,0 +1,32 @@
+# Imported from ipsocode/hypervel-packages github/workflows/owners.yml. Edit it there.
+name: owners
+
+on:
+  pull_request:
+    branches-ignore: [main]
+    types: [review_requested]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  withdraw:
+    name: Withdraw the code-owner review request
+    if: >-
+      github.event.requested_reviewer.login == github.repository_owner
+      && github.event.sender.login != github.repository_owner
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Withdraw the request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          OWNER: ${{ github.repository_owner }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          gh api -X DELETE "repos/${REPO}/pulls/${NUMBER}/requested_reviewers" -f "reviewers[]=${OWNER}" > /dev/null
+          echo "Withdrew the review request for ${OWNER}: this pull request targets ${BASE}, and the code-owner review applies to pull requests into main only."
