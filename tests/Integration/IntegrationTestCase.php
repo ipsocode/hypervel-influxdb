@@ -41,14 +41,14 @@ abstract class IntegrationTestCase extends TestCase
 
         parent::setUp();
 
-        $this->admin("CREATE DATABASE \"{$this->database}\"");
+        $this->createDatabase();
     }
 
     protected function tearDown(): void
     {
         if (isset($this->app, $this->database)) {
             try {
-                $this->admin("DROP DATABASE \"{$this->database}\"");
+                $this->dropDatabase();
             } catch (Throwable) {
                 // The server is gone or the database never existed; there is nothing to drop.
             }
@@ -70,7 +70,23 @@ abstract class IntegrationTestCase extends TestCase
 
         $config = $app->get('config');
 
-        $connection = [
+        $connection = $this->connectionConfig($url);
+
+        $config->set('influxdb.connections.integration', $connection);
+        $config->set('influxdb.connections.integration-batch', $connection + [
+            'write' => ['writeType' => WriteType::BATCHING, 'flushInterval' => 0.2],
+        ]);
+        $config->set('database.connections.influxql', ['driver' => 'influxql', 'connection' => 'integration']);
+    }
+
+    /**
+     * The `integration` connection's settings, for a server at the given URL.
+     *
+     * @return array<string, mixed>
+     */
+    protected function connectionConfig(string $url): array
+    {
+        return [
             'version' => static::VERSION,
             'url' => $url,
             'token' => 'unused',
@@ -79,12 +95,22 @@ abstract class IntegrationTestCase extends TestCase
             'precision' => 'ns',
             'logFile' => '/dev/null',
         ];
+    }
 
-        $config->set('influxdb.connections.integration', $connection);
-        $config->set('influxdb.connections.integration-batch', $connection + [
-            'write' => ['writeType' => WriteType::BATCHING, 'flushInterval' => 0.2],
-        ]);
-        $config->set('database.connections.influxql', ['driver' => 'influxql', 'connection' => 'integration']);
+    /**
+     * Create the class's database on the server.
+     */
+    protected function createDatabase(): void
+    {
+        $this->admin("CREATE DATABASE \"{$this->database}\"");
+    }
+
+    /**
+     * Drop the class's database from the server.
+     */
+    protected function dropDatabase(): void
+    {
+        $this->admin("DROP DATABASE \"{$this->database}\"");
     }
 
     /**
