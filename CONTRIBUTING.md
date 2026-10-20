@@ -46,7 +46,7 @@ Hypervel 0.4 is released.
 
 | Pin | Since | Why | It goes when |
 |---|---|---|---|
-| `"phpunit/phpunit": "13.3.*"` | 2026-10-20 (`>=13.0.3 <13.4` from 2026-10-02) | The pin `hypervel/components` keeps in its own `require-dev`. PHPUnit 13.4's `PhpHandler` takes an `Emitter`, and components' parallel runner still constructs it without one, so `--parallel`, and with it `composer test:coverage`, fails before any test runs. | `hypervel/components` moves its own pin, once `src/testing/src/Concerns/RunsInParallel.php` on its `0.4` branch passes the emitter: move this one to match. Composer never reads a dependency's `require-dev`, and Dependabot is told to leave PHPUnit alone, so this is done by hand. |
+| `"phpunit/phpunit": "~13.4.3"` | 2026-10-20 (`13.3.*` earlier that day, `>=13.0.3 <13.4` from 2026-10-02) | The constraint `hypervel/components` keeps in its own `require-dev`, with ParaTest `^7.27.2`, its floor for PHPUnit 13.4. Components' parallel runner builds PHPUnit's internal `PhpHandler`, whose constructor changed in 13.4.0, so an untested minor release can break `--parallel`, and with it `composer test:coverage`, before any test runs; Testbench conflicts with 13.5. | `hypervel/components` lifts its own constraint, once Testbench is verified on PHPUnit 13.5: move this one to match. Composer never reads a dependency's `require-dev`, and Dependabot is told to leave PHPUnit alone, so this is done by hand. |
 | `"config": {"platform": {"ext-swoole": "6.3.0RC1"}}` | 2026-10-19 | `hypervel/components` `0.4.x-dev` requires `ext-swoole` `^6.3.0RC1`, and the CI image runs 6.3.0RC1. The pin makes every install resolve for that Swoole, whatever the machine running Composer has; a pin below what components requires fails resolution. | Swoole 6.3.0 is released and the CI image carries it: move the pin to it. Dependabot never reads `config.platform`, so this one is moved by hand. |
 | `"hypervel/components": "0.4.x-dev"`, with `"minimum-stability": "dev"` and `"prefer-stable": true` | the first release | Hypervel 0.4 exists only as the `0.4.x-dev` branch. | Hypervel 0.4 is released: require `^0.4` and drop both stability keys (#19). |
 
@@ -107,20 +107,23 @@ review's instructions are the `pr-review` skill,
 `.github/claude/skills/pr-review/SKILL.md`: ask Claude Code to follow it on your
 branch to get the same review before you push.
 
-CI (`.github/workflows/tests.yml`) runs for every pull request, each job once
-the one it needs has passed: the conventions check, on the bare runner in
-seconds (`.github/workflows/initial.yml`); code style, PHPStan and the suite
+CI (`.github/workflows/tests.yml`) runs for every pull request into `main`, each
+job once the one it needs has passed: the conventions check, on the bare runner
+in seconds (`.github/workflows/initial.yml`); code style, PHPStan and the suite
 under the 100% coverage gate on PHP 8.4; then, side by side, PHPStan and the
 suite on PHP 8.5, and the automated review. A push to a branch without a pull
 request runs nothing, so open a draft pull request to get CI early; the
 automated review runs once the pull request is marked ready, on each commit that
 passes the conventions check and PHP 8.4. It keeps notes between pushes, so a
 push is reviewed for what it changed, and for whatever else in the pull request
-that reaches. `main` is protected: it changes only through a pull request that
-is up to date with it, passes those checks, and has every review conversation
-resolved; a change that leaves a line of `src/` uncovered fails its own pull
-request. The review never blocks on what it finds; it comments, and each comment
-is a conversation to resolve.
+that reaches. A pull request into any other branch, such as an umbrella issue's
+feature branch, runs nothing: CI and the automated review run on that branch's
+own pull request into `main`, so run the checks locally before opening one.
+`main` is protected: it changes only through a pull request that is up to date
+with it, passes those checks, and has every review conversation resolved; a
+change that leaves a line of `src/` uncovered fails its own pull request. The
+review never blocks on what it finds; it comments, and each comment is a
+conversation to resolve.
 
 Most of `.github/` is shared by the ipsocode/hypervel-* packages and imported
 from one copy: the workflows, the scripts, the php-cs-fixer rules, the issue and
