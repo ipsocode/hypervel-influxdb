@@ -96,6 +96,8 @@ class SqlConnection extends Connection
      *
      * `$useReadPdo` and `$fetchUsing` configure PDO, which the connection does not use.
      *
+     * @param list<mixed> $bindings
+     * @param array<mixed> $fetchUsing
      * @return list<stdClass>
      */
     public function select(string $query, array $bindings = [], bool $useReadPdo = true, array $fetchUsing = []): array
@@ -117,6 +119,8 @@ class SqlConnection extends Connection
      *
      * The server answers with the whole result at once, so this yields the rows select() reads.
      *
+     * @param list<mixed> $bindings
+     * @param array<mixed> $fetchUsing
      * @return Generator<int, stdClass>
      */
     public function cursor(string $query, array $bindings = [], bool $useReadPdo = true, array $fetchUsing = []): Generator
@@ -127,6 +131,7 @@ class SqlConnection extends Connection
     /**
      * Refuse a statement, which could only write to InfluxDB 3.
      *
+     * @param list<mixed> $bindings
      * @throws LogicException
      */
     public function statement(string $query, array $bindings = []): bool
@@ -137,6 +142,7 @@ class SqlConnection extends Connection
     /**
      * Refuse an affecting statement, which could only write to InfluxDB 3.
      *
+     * @param list<mixed> $bindings
      * @throws LogicException
      */
     public function affectingStatement(string $query, array $bindings = []): int
@@ -159,6 +165,9 @@ class SqlConnection extends Connection
      *
      * A boolean stays a boolean, where Hypervel casts it to 0 or 1 for PDO:
      * DataFusion does not compare a boolean column with a number.
+     *
+     * @param array<int|string, mixed> $bindings
+     * @return array<int|string, mixed>
      */
     public function prepareBindings(array $bindings): array
     {

@@ -219,6 +219,7 @@ class Builder extends QueryBuilder
      * A string value with `=~` or `!~` is taken as a regular expression; a
      * Regex value turns `=` and `!=` into their regex forms.
      *
+     * @param Closure|QueryBuilder|EloquentBuilder<*>|Relation<*, *, *>|ExpressionContract|array<int|string, mixed>|string $column
      * @throws InvalidArgumentException for an operator InfluxQL does not have, or one that cannot take a regular expression
      */
     public function where(Closure|QueryBuilder|EloquentBuilder|Relation|ExpressionContract|array|string $column, mixed $operator = null, mixed $value = null, string $boolean = 'and'): static
@@ -243,6 +244,7 @@ class Builder extends QueryBuilder
     /**
      * Add a "where" clause comparing two columns to the query.
      *
+     * @param array<int|string, mixed>|ExpressionContract|string $first
      * @throws InvalidArgumentException for an operator InfluxQL does not have
      */
     public function whereColumn(ExpressionContract|string|array $first, ExpressionContract|string|null $operator = null, ExpressionContract|string|null $second = null, string $boolean = 'and'): static
@@ -293,6 +295,8 @@ class Builder extends QueryBuilder
      * InfluxQL has no BETWEEN: the grammar compiles two inclusive comparisons of the
      * first two bounds. A DatePeriod, such as a CarbonPeriod, gives its start and end.
      *
+     * @param Closure|QueryBuilder|EloquentBuilder<*>|Relation<*, *, *>|ExpressionContract|string $column
+     * @param iterable<mixed> $values
      * @throws InvalidArgumentException for a sub-select, or fewer than two bounds
      */
     public function whereBetween(Closure|QueryBuilder|EloquentBuilder|Relation|ExpressionContract|string $column, iterable $values, string $boolean = 'and', bool $not = false): static
@@ -320,6 +324,8 @@ class Builder extends QueryBuilder
      * An Eloquent relation adds `fk is not null`, which InfluxQL cannot write, beside
      * `fk = key`. A point matching the `=` has the value, so a not-null check on columns
      * the query compares with `=`, both ANDed, is dropped; the grammar refuses any other.
+     *
+     * @param array<int|string, string>|ExpressionContract|string $columns
      */
     public function whereNull(string|array|ExpressionContract $columns, string $boolean = 'and', bool $not = false): static
     {
@@ -353,6 +359,8 @@ class Builder extends QueryBuilder
 
     /**
      * Add an "order by" clause for the newest points first.
+     *
+     * @param Closure|QueryBuilder|EloquentBuilder<*>|Relation<*, *, *>|ExpressionContract|string $column
      */
     public function latest(Closure|QueryBuilder|EloquentBuilder|Relation|ExpressionContract|string $column = 'time'): static
     {
@@ -361,6 +369,8 @@ class Builder extends QueryBuilder
 
     /**
      * Add an "order by" clause for the oldest points first.
+     *
+     * @param Closure|QueryBuilder|EloquentBuilder<*>|Relation<*, *, *>|ExpressionContract|string $column
      */
     public function oldest(Closure|QueryBuilder|EloquentBuilder|Relation|ExpressionContract|string $column = 'time'): static
     {
@@ -387,6 +397,8 @@ class Builder extends QueryBuilder
 
     /**
      * Get a single expression value from the first result of a query: the first field after the time.
+     *
+     * @param list<mixed> $bindings
      */
     public function rawValue(string $expression, array $bindings = []): mixed
     {
