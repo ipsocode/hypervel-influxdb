@@ -113,3 +113,53 @@ jobs:
 
       - name: Run the integration suite against InfluxDB 2.x
         run: composer test:integration
+
+  influxdb3:
+    name: InfluxDB 3 Core
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    concurrency:
+      group: integration-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.ref_name != 'main' }}
+
+    container:
+      image: ghcr.io/ipsocode/hypervel/ci:8.4-latest
+
+    services:
+      influxdb:
+        image: influxdb:3-core
+        # A service container takes no command, so the server is configured by environment.
+        env:
+          INFLUXDB3_NODE_IDENTIFIER_PREFIX: it-node
+          INFLUXDB3_OBJECT_STORE: memory
+          INFLUXDB3_START_WITHOUT_AUTH: 'true'
+        options: >-
+          --health-cmd "curl -sf http://localhost:8181/health"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      INFLUXDB_V3_URL: http://influxdb:8181
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/composer-cache
+          key: composer-8.4-${{ hashFiles('composer.json') }}
+          restore-keys: composer-8.4-
+
+      - name: Install dependencies
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          composer update --prefer-dist --no-interaction --optimize-autoloader
+
+      - name: Run the integration suite against InfluxDB 3 Core
+        run: composer test:integration
