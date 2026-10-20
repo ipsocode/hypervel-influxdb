@@ -85,6 +85,11 @@ so the suite can run again against the same server.
 | Variable | Server | Tests |
 |---|---|---|
 | `INFLUXDB_V1_URL` | InfluxDB 1.x | `InfluxDBV1Test`, `InfluxDBV1VersionDetectionTest` |
+| `INFLUXDB_V2_URL` | InfluxDB 2.x | `InfluxDBV2Test`, `InfluxDBV2VersionDetectionTest` |
+
+The 2.x classes also read `INFLUXDB_V2_TOKEN` and `INFLUXDB_V2_ORG`, which default to the `it-token` and
+`it-org` the server below is started with. 2.x has no `CREATE DATABASE`, so a class makes its database as a
+bucket through the API; a bucket named without a slash has a virtual DBRP mapping, which is all InfluxQL needs.
 
 Start InfluxDB 1.x and run the suite in the CI image, on the same Docker network so the image
 reaches the server by name:
@@ -94,6 +99,19 @@ docker network create influx
 docker run -d --rm --name influxdb --network influx influxdb:1.11
 docker run --rm -v "$PWD":/app -w /app --network influx -e OTEL_SDK_DISABLED=true \
     -e INFLUXDB_V1_URL=http://influxdb:8086 \
+    ghcr.io/ipsocode/hypervel/ci:8.4-latest composer test:integration
+```
+
+InfluxDB 2.x runs the same way, with the setup variables that create its organization, bucket and token:
+
+```sh
+docker run -d --rm --name influxdb2 --network influx \
+    -e DOCKER_INFLUXDB_INIT_MODE=setup -e DOCKER_INFLUXDB_INIT_USERNAME=admin \
+    -e DOCKER_INFLUXDB_INIT_PASSWORD=adminpassword -e DOCKER_INFLUXDB_INIT_ORG=it-org \
+    -e DOCKER_INFLUXDB_INIT_BUCKET=it-bucket -e DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=it-token \
+    influxdb:2.7
+docker run --rm -v "$PWD":/app -w /app --network influx -e OTEL_SDK_DISABLED=true \
+    -e INFLUXDB_V2_URL=http://influxdb2:8086 \
     ghcr.io/ipsocode/hypervel/ci:8.4-latest composer test:integration
 ```
 

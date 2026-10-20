@@ -61,3 +61,55 @@ jobs:
 
       - name: Run the integration suite against InfluxDB 1.x
         run: composer test:integration
+
+  influxdb2:
+    name: InfluxDB 2.x
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    concurrency:
+      group: integration-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.ref_name != 'main' }}
+
+    container:
+      image: ghcr.io/ipsocode/hypervel/ci:8.4-latest
+
+    services:
+      influxdb:
+        image: influxdb:2.7
+        env:
+          DOCKER_INFLUXDB_INIT_MODE: setup
+          DOCKER_INFLUXDB_INIT_USERNAME: admin
+          DOCKER_INFLUXDB_INIT_PASSWORD: adminpassword
+          DOCKER_INFLUXDB_INIT_ORG: it-org
+          DOCKER_INFLUXDB_INIT_BUCKET: it-bucket
+          DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: it-token
+        options: >-
+          --health-cmd "influx ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      INFLUXDB_V2_URL: http://influxdb:8086
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/composer-cache
+          key: composer-8.4-${{ hashFiles('composer.json') }}
+          restore-keys: composer-8.4-
+
+      - name: Install dependencies
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          composer update --prefer-dist --no-interaction --optimize-autoloader
+
+      - name: Run the integration suite against InfluxDB 2.x
+        run: composer test:integration
