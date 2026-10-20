@@ -44,6 +44,11 @@ driver. The grammars share `Dialect` and `RefusesWhatTheVersionLacks`, so a
 statement is written, and refused, the same way whichever compiles it.
 `InfluxQL\Driver\Connection` and `Sql\SqlConnection` are built alike too. Keep
 each pair in step: a change to one usually needs the same change to its twin.
+`tests/Feature/InfluxQL/ParityTest.php` is where that is held: it runs the same
+builder calls through both InfluxQL stacks, for every version, and fails when
+one sends a different statement or refuses differently. Add a case there for
+any builder method you add or change, and list an intended difference in the
+test with its reason.
 
 ## Where the package keeps state
 
