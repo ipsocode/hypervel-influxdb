@@ -17,7 +17,7 @@ use RuntimeException;
 /**
  * The package against a real InfluxDB 2.x: `INFLUXDB_V2_URL` names the server.
  *
- * InfluxQL reaches 2.x through the `/query` v1 compatibility API, which reads the class's
+ * InfluxQL reaches 2.x through the `/query` v1 compatibility API, which reads the test's
  * bucket as a database through its virtual DBRP mapping.
  *
  * @see docs/influxql.md

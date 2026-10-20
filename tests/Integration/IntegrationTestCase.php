@@ -14,7 +14,7 @@ use Throwable;
 /**
  * A test against a real InfluxDB server, whose URL the environment names.
  *
- * Each class gets a database of its own, created before its tests and dropped after, so classes
+ * Each test gets a database of its own, created before it and dropped after, so tests
  * are independent and can run again against the same server. Without the variable the tests skip.
  */
 abstract class IntegrationTestCase extends TestCase
@@ -98,7 +98,7 @@ abstract class IntegrationTestCase extends TestCase
     }
 
     /**
-     * Create the class's database on the server.
+     * Create the test's database on the server.
      */
     protected function createDatabase(): void
     {
@@ -106,7 +106,7 @@ abstract class IntegrationTestCase extends TestCase
     }
 
     /**
-     * Drop the class's database from the server.
+     * Drop the test's database from the server.
      */
     protected function dropDatabase(): void
     {

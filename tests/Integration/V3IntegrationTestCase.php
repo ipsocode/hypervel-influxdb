@@ -10,7 +10,7 @@ use Hypervel\Contracts\Foundation\Application as ApplicationContract;
 /**
  * A test against a real InfluxDB 3 Core, whose URL the environment names.
  *
- * InfluxDB 3 has no retention policies and creates a database on its first write, so the class's
+ * InfluxDB 3 has no retention policies and creates a database on its first write, so the test's
  * database is made and dropped through the configure API, and the bucket names it whole. The server
  * may run with authentication (`INFLUXDB_V3_TOKEN`) or without it, as CONTRIBUTING.md starts it.
  */

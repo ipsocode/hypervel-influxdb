@@ -79,7 +79,7 @@ HTTP layer underneath is a Guzzle mock (`tests/Concerns`). Only `tests/Integrati
 `tests/Integration` runs the package against real InfluxDB servers, outside the default suite:
 `composer test` and `composer test:coverage` start no server and keep their 100% gate. Each test class
 reads its server's URL from an environment variable and skips when it is unset, so the suite reports
-skips, not failures, without a server. A class creates a database of its own and drops it afterwards,
+skips, not failures, without a server. Each test creates a database of its own and drops it afterwards,
 so the suite can run again against the same server.
 
 | Variable | Server | Tests |
@@ -116,7 +116,7 @@ docker run --rm -v "$PWD":/app -w /app --network influx -e OTEL_SDK_DISABLED=tru
     ghcr.io/ipsocode/hypervel/ci:8.4-latest composer test:integration
 ```
 
-InfluxDB 3 Core needs no setup: it creates a database on its first write, and the 3 classes make and drop their
+InfluxDB 3 Core needs no setup: it creates a database on its first write, and the 3 tests make and drop their
 own through the configure API. Start it without authentication, or set `INFLUXDB_V3_TOKEN` to the admin token
 of a server that has it:
 

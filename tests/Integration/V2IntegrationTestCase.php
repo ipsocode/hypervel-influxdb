@@ -13,7 +13,7 @@ use RuntimeException;
 /**
  * A test against a real InfluxDB 2.x, whose URL, token and organization the environment names.
  *
- * InfluxDB 2.x has no `CREATE DATABASE`, so the class's database is a bucket made through
+ * InfluxDB 2.x has no `CREATE DATABASE`, so the test's database is a bucket made through
  * the API. A bucket named without a slash has a virtual DBRP mapping, the database of that
  * name on its default retention policy, so InfluxQL reaches it with no mapping of its own.
  */
