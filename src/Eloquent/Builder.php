@@ -16,6 +16,10 @@ use LogicException;
  *
  * A builder a measurement names with #[UseEloquentBuilder] must extend this one.
  *
+ * @template TModel of Measurement
+ *
+ * @extends EloquentBuilder<TModel>
+ *
  * @see docs/eloquent.md#custom-builders
  */
 class Builder extends EloquentBuilder
