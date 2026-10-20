@@ -75,6 +75,11 @@ class BatchingWriter extends WriteApi
     protected Timer $timer;
 
     /**
+     * The retries each batch gets after its first attempt.
+     */
+    protected int $maxRetries;
+
+    /**
      * @param array<string, mixed> $options the connection's client options
      * @param string $connection the connection's name, for its batches and messages
      * @param BatchOptions $batching when a batch is sent, and what happens when it cannot be
@@ -92,6 +97,8 @@ class BatchingWriter extends WriteApi
         $writeOptions['maxRetries'] ??= BatchOptions::DEFAULT_MAX_RETRIES;
 
         parent::__construct($options, $writeOptions);
+
+        $this->maxRetries = (int) $writeOptions['maxRetries'];
 
         $this->timer = $timer ?? new Timer;
     }
@@ -317,15 +324,23 @@ class BatchingWriter extends WriteApi
 
         $onFailure = $this->batching->onFailure;
 
-        if ($onFailure === null) {
-            return;
-        }
-
-        $failure = self::attempt(fn () => (is_callable($onFailure) ? $onFailure : Container::getInstance()->make($onFailure))($batch, $exception));
+        $failure = self::attempt(fn () => match (true) {
+            $onFailure === null => (new LogFailureStore)->store($this->failed($exception)),
+            $onFailure instanceof FailureStore => $onFailure->store($this->failed($exception)),
+            default => (is_callable($onFailure) ? $onFailure : Container::getInstance()->make($onFailure))($batch, $exception),
+        });
 
         if ($failure !== null) {
             $this->report($failure);
         }
+    }
+
+    /**
+     * Describe a failed batch for a FailureStore.
+     */
+    protected function failed(BatchWriteException $exception): FailedBatch
+    {
+        return FailedBatch::from($exception, $this->maxRetries);
     }
 
     /**
