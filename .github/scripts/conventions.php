@@ -23,6 +23,7 @@ final class Conventions
         'namespace',
         'dependency',
         'container-array-access',
+        'strict-types',
         'coverage-ignore',
         'phpstan-ignore',
         'raw-sql',
@@ -66,6 +67,7 @@ final class Conventions
             $this->checkNamespaces();
             $this->checkDependencies();
             $this->checkContainerAccess();
+            $this->checkStrictTypes();
             $this->checkCoverageIgnores();
             $this->checkPhpstanIgnores();
             $this->checkCoverageGate();
@@ -204,6 +206,25 @@ final class Conventions
             'container-array-access',
             $this->tokenHits($this->packageFiles(), fn (array $tokens, int $i) => $this->isContainerArrayAccess($tokens, $i)),
             fn () => "Reads the container as an array. Use its methods: \$app->get('config').",
+        );
+    }
+
+    private function checkStrictTypes(): void
+    {
+        $hits = [];
+
+        foreach ($this->packageFiles() as $path) {
+            if (str_ends_with($path, '.blade.php') || $this->declaresStrictTypes($this->tokens($path))) {
+                continue;
+            }
+
+            $hits[$path][] = [1, ''];
+        }
+
+        $this->conform(
+            'strict-types',
+            $hits,
+            fn () => "Does not declare strict types. Every PHP file starts `declare(strict_types=1);` after the opening tag, as the framework's do.",
         );
     }
 
@@ -608,6 +629,20 @@ final class Conventions
         return $this->calledFunction($tokens, $i) === 'app'
             && $this->isChar($tokens, $i + 2, ')')
             && $this->isChar($tokens, $i + 3, '[');
+    }
+
+    /** @param list<array{?int, string, int}> $tokens */
+    private function declaresStrictTypes(array $tokens): bool
+    {
+        return isset($tokens[0])
+            && $tokens[0][0] === T_OPEN_TAG
+            && $this->isToken($tokens, 1, T_DECLARE)
+            && $this->isChar($tokens, 2, '(')
+            && $this->isToken($tokens, 3, T_STRING, 'strict_types')
+            && $this->isChar($tokens, 4, '=')
+            && $this->isToken($tokens, 5, T_LNUMBER, '1')
+            && $this->isChar($tokens, 6, ')')
+            && $this->isChar($tokens, 7, ';');
     }
 
     /** @param list<array{?int, string, int}> $tokens */

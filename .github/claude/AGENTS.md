@@ -24,6 +24,18 @@ checked rather than assume Laravel's API.
   conventions check.
 - Read config with `$app->get('config')`, never through container array-access.
 
+## Coding style
+
+The framework's standard, `vendor/hypervel/components/src/docs/contributions.md` under "Coding
+Style", applies here. CI enforces its layout and strict types; look for the rest:
+
+- Parameters, return values, properties, class constants and closure signatures natively typed
+  wherever PHP and an inherited signature permit, and `: void` on test methods.
+- PHPDoc for what native types cannot say, such as `@return array<int, Foo>`, and no `@param` or
+  `@return` that repeats a native type.
+- `===` and `!==`, with a loose comparison kept only where its coercion is the point.
+- Imported short class names, in PHPDoc too.
+
 ## Coroutine safety
 
 What would be per-request under PHP-FPM is shared by every request a worker serves:
@@ -42,7 +54,7 @@ A change is done when all four of these pass. CI runs them on every pull request
 |---|---|
 | `composer conventions` | The conventions check. It is plain PHP and needs no install. |
 | `composer lint` | Code style |
-| `composer analyse` | PHPStan at level 5 |
+| `composer analyse` | PHPStan, at the level `phpstan.neon` sets |
 | `composer test:coverage` | The suite, failing below 100% line coverage |
 
 Run them in CI's image, `ghcr.io/ipsocode/hypervel/ci:8.4-latest` (or `8.5-latest`), not on the

@@ -60,14 +60,15 @@ These are CI's required checks, and in CI they pass before the review starts:
 - the conventions check, `.github/scripts/conventions.php`, with this package's settings and
   exceptions in `.github/conventions.php`;
 - code style;
-- PHPStan at level 5;
+- PHPStan, at the level the package's `phpstan.neon` sets;
 - the suite, under the 100% coverage gate on PHP 8.4.
 
-The conventions check bans `Illuminate\` and `Laravel\` references, container array-access,
-`@codeCoverageIgnore`, bare `@phpstan-ignore`, raw SQL, `eval`/`unserialize`, shell, `sleep`/`exit`,
-a coverage gate below 100%, and context keys, cache keys, commands, publish tags, env vars and
-config names outside the package's own. Say nothing about what these checks enforce. Locally,
-`composer conventions`, `composer lint`, `composer analyse` and `composer test:coverage` run them.
+The conventions check bans `Illuminate\` and `Laravel\` references, container array-access, a
+PHP file without `declare(strict_types=1)`, `@codeCoverageIgnore`, bare `@phpstan-ignore`, raw SQL,
+`eval`/`unserialize`, shell, `sleep`/`exit`, a coverage gate below 100%, and context keys, cache
+keys, commands, publish tags, env vars and config names outside the package's own. Say nothing
+about what these checks enforce. Locally, `composer conventions`, `composer lint`,
+`composer analyse` and `composer test:coverage` run them.
 
 Files imported from ipsocode/hypervel-packages, whose first lines say so, are written and checked
 there. A pull request that changes only those is not reviewed at all (`review.sh scope`). In one
