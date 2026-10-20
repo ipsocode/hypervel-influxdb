@@ -78,6 +78,8 @@ class ParityTest extends TestCase
         return [
             'select' => fn (object $q) => $q->select('usage_user', 'host'),
             'addSelect' => fn (object $q) => $q->select('usage_user')->addSelect('host'),
+            'distinct' => fn (object $q) => $q->select('usage_user')->distinct(),
+            'distinct with an alias' => fn (object $q) => $q->select('usage_user as u')->distinct(),
             'where' => fn (object $q) => $q->where('host', 'web1')->where('usage_user', '>', 5),
             'orWhere' => fn (object $q) => $q->where('host', 'web1')->orWhere('host', 'web2'),
             'where regex' => fn (object $q) => $q->where('host', '=~', '^web')->where('region', '!~', '^eu'),

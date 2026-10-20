@@ -101,7 +101,7 @@ class GrammarTest extends TestCase
     public function testDistinctWrapsEachColumnInTheDistinctFunctionAndKeepsTheAliasOutside(): void
     {
         $this->assertSame('select distinct("host") from "cpu"', $this->table()->select('host')->distinct()->toSql());
-        $this->assertSame('select distinct("value") AS "v" from "cpu"', $this->table()->select('value as v')->distinct()->toSql());
+        $this->assertSame('select distinct("value") as "v" from "cpu"', $this->table()->select('value as v')->distinct()->toSql());
         $this->assertSame('select distinct(*) from "cpu"', $this->table()->distinct()->toSql());
         $this->assertSame('select distinct("value"::field) from "cpu"', $this->table()->select(new Expression('"value"::field'))->distinct()->toSql());
     }
