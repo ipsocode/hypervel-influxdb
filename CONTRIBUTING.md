@@ -107,20 +107,23 @@ review's instructions are the `pr-review` skill,
 `.github/claude/skills/pr-review/SKILL.md`: ask Claude Code to follow it on your
 branch to get the same review before you push.
 
-CI (`.github/workflows/tests.yml`) runs for every pull request, each job once
-the one it needs has passed: the conventions check, on the bare runner in
-seconds (`.github/workflows/initial.yml`); code style, PHPStan and the suite
+CI (`.github/workflows/tests.yml`) runs for every pull request into `main`, each
+job once the one it needs has passed: the conventions check, on the bare runner
+in seconds (`.github/workflows/initial.yml`); code style, PHPStan and the suite
 under the 100% coverage gate on PHP 8.4; then, side by side, PHPStan and the
 suite on PHP 8.5, and the automated review. A push to a branch without a pull
 request runs nothing, so open a draft pull request to get CI early; the
 automated review runs once the pull request is marked ready, on each commit that
 passes the conventions check and PHP 8.4. It keeps notes between pushes, so a
 push is reviewed for what it changed, and for whatever else in the pull request
-that reaches. `main` is protected: it changes only through a pull request that
-is up to date with it, passes those checks, and has every review conversation
-resolved; a change that leaves a line of `src/` uncovered fails its own pull
-request. The review never blocks on what it finds; it comments, and each comment
-is a conversation to resolve.
+that reaches. A pull request into any other branch, such as an umbrella issue's
+feature branch, runs nothing: CI and the automated review run on that branch's
+own pull request into `main`, so run the checks locally before opening one.
+`main` is protected: it changes only through a pull request that is up to date
+with it, passes those checks, and has every review conversation resolved; a
+change that leaves a line of `src/` uncovered fails its own pull request. The
+review never blocks on what it finds; it comments, and each comment is a
+conversation to resolve.
 
 Most of `.github/` is shared by the ipsocode/hypervel-* packages and imported
 from one copy: the workflows, the scripts, the php-cs-fixer rules, the issue and
