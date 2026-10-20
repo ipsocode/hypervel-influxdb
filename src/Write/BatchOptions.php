@@ -49,7 +49,7 @@ final class BatchOptions
      * @param float $flushInterval the seconds after its first point a batch is sent at the latest
      * @param int $maxBuffered the points held at most, buffered or being sent, before `overflow` applies
      * @param string $overflow what write() does past `maxBuffered`: FLUSH or REFUSE
-     * @param null|callable|class-string $onFailure called with the Batch and the BatchWriteException of each batch that could not be written
+     * @param null|callable|class-string|FailureStore $onFailure called with the Batch and the BatchWriteException of each batch that could not be written, or the store handed its FailedBatch; null logs it
      */
     public function __construct(
         public readonly int $batchSize,
@@ -103,7 +103,11 @@ final class BatchOptions
             throw self::invalid($connection, 'overflow', $overflow, sprintf('%s or %s', self::FLUSH, self::REFUSE));
         }
 
-        if ($onFailure !== null && ! is_callable($onFailure) && ! (is_string($onFailure) && method_exists($onFailure, '__invoke'))) {
+        if ($onFailure === LogFailureStore::DRIVER || (is_array($onFailure) && array_key_exists('driver', $onFailure))) {
+            $onFailure = self::store($onFailure, $connection);
+        }
+
+        if ($onFailure !== null && ! $onFailure instanceof FailureStore && ! is_callable($onFailure) && ! (is_string($onFailure) && method_exists($onFailure, '__invoke'))) {
             throw self::invalid($connection, 'onFailure', $onFailure, 'a callable or the name of an invokable class');
         }
 
@@ -115,6 +119,24 @@ final class BatchOptions
             $overflow,
             $onFailure,
         );
+    }
+
+    /**
+     * Resolve a failure store from its driver name or driver array.
+     *
+     * @param array<array-key, mixed>|string $driver
+     *
+     * @throws InvalidArgumentException when the driver is unknown
+     */
+    private static function store(array|string $driver, string $connection): FailureStore
+    {
+        $name = is_array($driver) ? $driver['driver'] : $driver;
+
+        if ($name === LogFailureStore::DRIVER) {
+            return new LogFailureStore;
+        }
+
+        throw self::invalid($connection, 'onFailure', $name, sprintf('a callable, the name of an invokable class, or the driver %s', LogFailureStore::DRIVER));
     }
 
     /**

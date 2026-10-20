@@ -1,0 +1,56 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Ipsocode\InfluxDB\Write;
+
+use DateTimeImmutable;
+
+/**
+ * A Batch that could not be written, with what a FailureStore needs to keep it and write it again.
+ *
+ * @see docs/writing.md#when-a-batch-cannot-be-written
+ */
+final class FailedBatch
+{
+    /**
+     * @param string $connection the name of the connection that buffered it
+     * @param string $bucket the bucket it was going to
+     * @param string $org the org it was going to
+     * @param string $precision the precision of its timestamps
+     * @param string $payload its line protocol, one point per line
+     * @param int $attempts the times it was sent: the first try and each retry
+     * @param DateTimeImmutable $failedAt when its last attempt failed
+     * @param string $exception the class and message of the failure
+     */
+    public function __construct(
+        public readonly string $connection,
+        public readonly string $bucket,
+        public readonly string $org,
+        public readonly string $precision,
+        public readonly string $payload,
+        public readonly int $attempts,
+        public readonly DateTimeImmutable $failedAt,
+        public readonly string $exception,
+    ) {
+    }
+
+    /**
+     * Describe a batch that failed with the given exception after the given number of retries.
+     */
+    public static function from(BatchWriteException $exception, int $retries): self
+    {
+        $cause = $exception->getPrevious() ?? $exception;
+
+        return new self(
+            $exception->batch->connection,
+            $exception->batch->bucket,
+            $exception->batch->org,
+            $exception->batch->precision,
+            $exception->batch->payload,
+            $retries + 1,
+            new DateTimeImmutable,
+            sprintf('%s: %s', $cause::class, $cause->getMessage()),
+        );
+    }
+}

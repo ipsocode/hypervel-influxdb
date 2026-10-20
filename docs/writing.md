@@ -124,7 +124,7 @@ The `write` block takes these options for batching:
 | `flushInterval` | `1` | The seconds after the buffer's first point that it is sent at the latest |
 | `maxBuffered` | 10 × `batchSize` | The points a writer [holds](#how-much-a-worker-holds), buffered or being sent |
 | `overflow` | `'flush'` | What a write past `maxBuffered` does: `'flush'` or `'refuse'` (`BatchOptions::FLUSH`, `BatchOptions::REFUSE`) |
-| `onFailure` | None | A callable, or the name of an invokable class, handed each batch that [cannot be written](#when-a-batch-cannot-be-written) |
+| `onFailure` | `'log'` | `'log'`, `['driver' => 'log']`, a callable, or the name of an invokable class, handed each batch that [cannot be written](#when-a-batch-cannot-be-written) |
 | `maxRetries` | `3` | The client's option: the retries a batch gets |
 
 The client's other retry options, `retryInterval`, `maxRetryDelay`,
@@ -201,7 +201,10 @@ filled it carries mostly other writes' points. Instead it is:
   `Ipsocode\InfluxDB\Write\BatchWriteException`, which names the connection,
   the batch's size and bucket, and the server's error, and whose previous
   exception is the failure, usually the client's `InfluxDB2\ApiException`;
-- handed to `onFailure`, when the connection sets one, with that exception.
+- handed to `onFailure`: a callable or invokable class is called with the
+  `Batch` and that exception, and the `log` driver, the default, logs the
+  batch's connection, bucket, org, precision, size, attempts and failure
+  through the application's logger and drops it, without its payload.
   The `Batch` carries its `payload` of line protocol and the `bucket`, `org`
   and `precision` it was going to, so it can be written again later.
 
@@ -226,6 +229,13 @@ class SpillFailedBatch
     }
 }
 ```
+
+Name the driver as `'onFailure' => 'log'` or `['driver' => 'log']`; an
+unknown driver throws an `InvalidArgumentException` when the connection is
+resolved. A driver is a `FailureStore`, handed a `FailedBatch` that carries the
+`connection`, `bucket`, `org`, `precision` and `payload` of the batch, its
+`attempts` (the first try and each retry), when it `failedAt`, and the
+`exception` that failed it. Durable drivers are to follow.
 
 A class name is resolved from the container, and keeps the config cacheable,
 which a closure does not. A batch the server refuses may still have been
