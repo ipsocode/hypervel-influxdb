@@ -87,7 +87,7 @@ class WorkbenchConsoleTest extends TestCase
             '--where' => ['host=web1', 'usage_user=0.5'],
             '--limit' => '10',
         ])
-            ->expectsOutput('SELECT "usage_user", "host" FROM "cpu" WHERE "host" = \'web1\' AND "usage_user" = 0.5 LIMIT 10')
+            ->expectsOutput('select "usage_user", "host" from "cpu" where "host" = \'web1\' and "usage_user" = 0.5 limit 10')
             ->assertExitCode(0);
     }
 
@@ -98,7 +98,7 @@ class WorkbenchConsoleTest extends TestCase
             '--connection' => 'analytics',
             '--group-by-time' => '1h',
         ])
-            ->expectsOutput('SELECT * FROM "telegraf"."autogen"."cpu" GROUP BY time(1h)')
+            ->expectsOutput('select * from "telegraf"."autogen"."cpu" group by time(1h)')
             ->assertExitCode(0);
 
         $this->assertArrayHasKey(

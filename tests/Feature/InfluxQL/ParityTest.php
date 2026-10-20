@@ -21,9 +21,7 @@ use Throwable;
  * calls to a builder from either stack, for every Version, and both must send the same statement
  * or refuse it with the same exception. A change made to one stack alone fails here.
  *
- * Intended differences, none of which a case below may rely on:
- * - Keyword case: the table stack writes `SELECT`, the driver `select`, so statements are compared
- *   case-insensitively until the two agree.
+ * Intended differences, none of which a case below may rely on (keywords are not one: both stacks write them in lower case):
  * - Joins exist only on the driver's builder, so its `delete()` also refuses them, and its message says so.
  *   No shared case joins; the test drops "join, " from that message.
  * - `delete()` returns a bool on the table stack and the number of rows on the driver; only the statement is compared.
@@ -53,7 +51,7 @@ class ParityTest extends TestCase
         $driverRefusal = str_replace('takes no join, limit', 'takes no limit', (string) $driver['refusal']);
 
         $this->assertSame((string) $table['refusal'], $driverRefusal, 'The stacks refuse differently.');
-        $this->assertSame(strtolower($table['statement'] ?? ''), strtolower($driver['statement'] ?? ''), 'The stacks send different statements.');
+        $this->assertSame($table['statement'] ?? '', $driver['statement'] ?? '', 'The stacks send different statements.');
     }
 
     /**

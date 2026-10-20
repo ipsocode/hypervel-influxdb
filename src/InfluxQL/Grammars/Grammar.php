@@ -94,7 +94,7 @@ abstract class Grammar
             isset($query->limit) || isset($query->offset) || isset($query->slimit) || isset($query->soffset),
         );
 
-        return trim('DELETE FROM ' . $this->wrapMeasurement($query->from) . ' ' . $this->compileWheres($query));
+        return trim('delete from ' . $this->wrapMeasurement($query->from) . ' ' . $this->compileWheres($query));
     }
 
     /**
@@ -130,12 +130,12 @@ abstract class Grammar
         $column = $this->columnize($aggregate['columns']);
 
         if ($query->distinct && $column !== '*') {
-            $column = 'DISTINCT(' . $column . ')';
+            $column = 'distinct(' . $column . ')';
         }
 
-        $call = strtoupper($aggregate['function']) . '(' . $column . ')';
+        $call = strtolower($aggregate['function']) . '(' . $column . ')';
 
-        return 'SELECT ' . ($column === '*' ? $call : $call . ' AS ' . $this->wrap('aggregate'));
+        return 'select ' . ($column === '*' ? $call : $call . ' as ' . $this->wrap('aggregate'));
     }
 
     /**
@@ -157,7 +157,7 @@ abstract class Grammar
             $columns,
         );
 
-        return 'SELECT ' . implode(', ', $columns);
+        return 'select ' . implode(', ', $columns);
     }
 
     /**
@@ -169,7 +169,7 @@ abstract class Grammar
     {
         $this->ensureVersionCompilesInto($this->version());
 
-        return 'INTO ' . $this->wrapMeasurement($into);
+        return 'into ' . $this->wrapMeasurement($into);
     }
 
     /**
@@ -177,7 +177,7 @@ abstract class Grammar
      */
     protected function compileFrom(Builder $query, Expression|Regex|string $from): string
     {
-        return 'FROM ' . $this->wrapMeasurement($from);
+        return 'from ' . $this->wrapMeasurement($from);
     }
 
     /**
@@ -189,7 +189,7 @@ abstract class Grammar
             return '';
         }
 
-        return 'WHERE ' . $this->removeLeadingBoolean(implode(' ', $this->compileWheresToArray($query)));
+        return 'where ' . $this->removeLeadingBoolean(implode(' ', $this->compileWheresToArray($query)));
     }
 
     /**
@@ -200,7 +200,7 @@ abstract class Grammar
     protected function compileWheresToArray(Builder $query): array
     {
         return array_map(
-            fn (array $where): string => strtoupper($where['boolean']) . ' ' . $this->{"where{$where['type']}"}($query, $where),
+            fn (array $where): string => strtolower($where['boolean']) . ' ' . $this->{"where{$where['type']}"}($query, $where),
             $query->wheres,
         );
     }
@@ -251,7 +251,7 @@ abstract class Grammar
 
         $column = $this->wrap($where['column']);
 
-        return '(' . implode(' OR ', array_map(
+        return '(' . implode(' or ', array_map(
             fn ($value): string => $column . ' = ' . $this->parameter($value),
             $where['values'],
         )) . ')';
@@ -272,7 +272,7 @@ abstract class Grammar
 
         $column = $this->wrap($where['column']);
 
-        return '(' . implode(' AND ', array_map(
+        return '(' . implode(' and ', array_map(
             fn ($value): string => $column . ' != ' . $this->parameter($value),
             $where['values'],
         )) . ')';
@@ -295,8 +295,8 @@ abstract class Grammar
         $max = $this->parameter($where['values'][1]);
 
         return $where['not']
-            ? '(' . $column . ' < ' . $min . ' OR ' . $column . ' > ' . $max . ')'
-            : '(' . $column . ' >= ' . $min . ' AND ' . $column . ' <= ' . $max . ')';
+            ? '(' . $column . ' < ' . $min . ' or ' . $column . ' > ' . $max . ')'
+            : '(' . $column . ' >= ' . $min . ' and ' . $column . ' <= ' . $max . ')';
     }
 
     /**
@@ -318,7 +318,7 @@ abstract class Grammar
      */
     protected function compileGroups(Builder $query, array $groups): string
     {
-        return 'GROUP BY ' . $this->columnize($groups);
+        return 'group by ' . $this->columnize($groups);
     }
 
     /**
@@ -343,12 +343,12 @@ abstract class Grammar
             return '';
         }
 
-        return 'ORDER BY ' . implode(', ', array_map(function (array $order): string {
+        return 'order by ' . implode(', ', array_map(function (array $order): string {
             if (isset($order['sql'])) {
                 return $order['sql'] instanceof Expression ? (string) $order['sql']->getValue($this) : $order['sql'];
             }
 
-            return $this->wrap($order['column']) . ' ' . strtoupper($order['direction']);
+            return $this->wrap($order['column']) . ' ' . strtolower($order['direction']);
         }, $orders));
     }
 
@@ -357,7 +357,7 @@ abstract class Grammar
      */
     protected function compileLimit(Builder $query, int $limit): string
     {
-        return 'LIMIT ' . $limit;
+        return 'limit ' . $limit;
     }
 
     /**
@@ -365,7 +365,7 @@ abstract class Grammar
      */
     protected function compileOffset(Builder $query, int $offset): string
     {
-        return 'OFFSET ' . $offset;
+        return 'offset ' . $offset;
     }
 
     /**
@@ -375,7 +375,7 @@ abstract class Grammar
      */
     protected function compileSlimit(Builder $query, int $slimit): string
     {
-        return $this->compileSeriesLimit($this->version(), 'SLIMIT', $slimit);
+        return $this->compileSeriesLimit($this->version(), 'slimit', $slimit);
     }
 
     /**
@@ -385,7 +385,7 @@ abstract class Grammar
      */
     protected function compileSoffset(Builder $query, int $soffset): string
     {
-        return $this->compileSeriesLimit($this->version(), 'SOFFSET', $soffset);
+        return $this->compileSeriesLimit($this->version(), 'soffset', $soffset);
     }
 
     /**
@@ -411,7 +411,7 @@ abstract class Grammar
      */
     protected function removeLeadingBoolean(string $value): string
     {
-        return (string) preg_replace('/^(?:AND|OR) /', '', $value, 1);
+        return (string) preg_replace('/^(?:and|or) /', '', $value, 1);
     }
 
     /**
@@ -475,10 +475,10 @@ abstract class Grammar
         if (is_string($value) && stripos($value, ' as ') !== false) {
             $segments = preg_split('/\s+as\s+/i', $value, 2);
 
-            return 'DISTINCT(' . $this->wrap($segments[0]) . ') AS ' . $this->wrapValue($segments[1]);
+            return 'distinct(' . $this->wrap($segments[0]) . ') AS ' . $this->wrapValue($segments[1]);
         }
 
-        return 'DISTINCT(' . $this->wrap($value) . ')';
+        return 'distinct(' . $this->wrap($value) . ')';
     }
 
     /**
@@ -488,7 +488,7 @@ abstract class Grammar
     {
         $segments = preg_split('/\s+as\s+/i', $value, 2);
 
-        return $this->wrap($segments[0]) . ' AS ' . $this->wrapValue($segments[1]);
+        return $this->wrap($segments[0]) . ' as ' . $this->wrapValue($segments[1]);
     }
 
     /**
