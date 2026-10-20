@@ -1,0 +1,817 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Class Ipsocode\\InfluxDB\\Eloquent\\Builder extends generic class Hypervel\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Eloquent/Builder.php
+
+		-
+			message: '#^PHPDoc tag @method for method Ipsocode\\InfluxDB\\Facades\\InfluxDB\:\:table\(\) parameter \#1 \$measurement contains generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Facades/InfluxDB.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxDBManager\:\:table\(\) has parameter \$measurement with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxDBManager.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:addSelect\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:aggregate\(\) has parameter \$columns with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:average\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:avg\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:count\(\) has parameter \$columns with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:first\(\) has parameter \$columns with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:from\(\) has parameter \$measurement with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:fromRaw\(\) has parameter \$expression with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:get\(\) has parameter \$columns with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:groupBy\(\) has parameter \$groups with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:into\(\) has parameter \$measurement with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:latest\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:max\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:min\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:numericAggregate\(\) has parameter \$columns with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:oldest\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:onceWithColumns\(\) has parameter \$columns with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:orWhere\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:orWhereBetween\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:orWhereColumn\(\) has parameter \$first with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:orWhereColumn\(\) has parameter \$operator with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:orWhereColumn\(\) has parameter \$second with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:orWhereIn\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:orWhereNotBetween\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:orWhereNotIn\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:orWhereRaw\(\) has parameter \$sql with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:orderBy\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:orderByDesc\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:pluck\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:raw\(\) return type with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:reorder\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:resolveDatePeriodBounds\(\) has parameter \$period with generic class DatePeriod but does not specify its types\: TDate, TEnd, TRecurrences$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:resolvePluckColumn\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:select\(\) has parameter \$columns with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:setAggregate\(\) has parameter \$columns with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:sum\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:value\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:where\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:whereBetween\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:whereColumn\(\) has parameter \$first with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:whereColumn\(\) has parameter \$operator with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:whereColumn\(\) has parameter \$second with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:whereIn\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:whereNotBetween\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:whereNotIn\(\) has parameter \$column with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:whereRaw\(\) has parameter \$sql with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Property Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:\$aggregate with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Property Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:\$columns with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Property Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:\$from with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Property Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:\$groups with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Property Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:\$into with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Connection\:\:raw\(\) return type with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Connection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Connection\:\:table\(\) has parameter \$measurement with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Connection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Builder\:\:latest\(\) has parameter \$column with generic class Hypervel\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Driver/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Builder\:\:latest\(\) has parameter \$column with generic class Hypervel\\Database\\Eloquent\\Relations\\Relation but does not specify its types\: TRelatedModel, TDeclaringModel, TResult$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Driver/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Builder\:\:oldest\(\) has parameter \$column with generic class Hypervel\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Driver/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Builder\:\:oldest\(\) has parameter \$column with generic class Hypervel\\Database\\Eloquent\\Relations\\Relation but does not specify its types\: TRelatedModel, TDeclaringModel, TResult$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Driver/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Builder\:\:rawValue\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Builder\:\:where\(\) has parameter \$column with generic class Hypervel\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Driver/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Builder\:\:where\(\) has parameter \$column with generic class Hypervel\\Database\\Eloquent\\Relations\\Relation but does not specify its types\: TRelatedModel, TDeclaringModel, TResult$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Driver/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Builder\:\:where\(\) has parameter \$column with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Builder\:\:whereBetween\(\) has parameter \$values with no value type specified in iterable type iterable\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Builder\:\:whereColumn\(\) has parameter \$first with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Builder\:\:whereNull\(\) has parameter \$columns with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Connection\:\:affectingStatement\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Connection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Connection\:\:cursor\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Connection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Connection\:\:cursor\(\) has parameter \$fetchUsing with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Connection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Connection\:\:insert\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Connection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Connection\:\:prepareBindings\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Connection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Connection\:\:prepareBindings\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Connection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Connection\:\:select\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Connection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Connection\:\:select\(\) has parameter \$fetchUsing with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Connection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Connection\:\:statement\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Connection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Connection\:\:update\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Connection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileInsert\(\) has parameter \$values with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileInsertGetId\(\) has parameter \$values with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileInsertOrIgnore\(\) has parameter \$values with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileInsertOrIgnoreReturning\(\) has parameter \$returning with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileInsertOrIgnoreReturning\(\) has parameter \$uniqueBy with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileInsertOrIgnoreReturning\(\) has parameter \$values with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileInsertOrIgnoreUsing\(\) has parameter \$columns with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileInsertUsing\(\) has parameter \$columns with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileJoins\(\) has parameter \$joins with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileTruncate\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileUpdate\(\) has parameter \$values with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileUpsert\(\) has parameter \$uniqueBy with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileUpsert\(\) has parameter \$update with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileUpsert\(\) has parameter \$values with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileWheresToArray\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:dateBasedWhere\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereBetween\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereBetweenColumns\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereBinary\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereBitwise\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereExists\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereIn\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereInRaw\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereLike\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereNotExists\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereNotIn\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereNotInRaw\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereNotNull\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereNull\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereNullSafeEquals\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereRowValues\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereSub\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:whereValueBetween\(\) has parameter \$where with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:columnize\(\) has parameter \$columns with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:compileAggregate\(\) has parameter \$aggregate with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:compileColumns\(\) has parameter \$columns with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:compileFrom\(\) has parameter \$from with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:compileGroups\(\) has parameter \$groups with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:compileInto\(\) has parameter \$into with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:compileOrders\(\) has parameter \$orders with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:getValue\(\) has parameter \$expression with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:whereBasic\(\) has parameter \$where with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:whereBetween\(\) has parameter \$where with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:whereColumn\(\) has parameter \$where with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:whereIn\(\) has parameter \$where with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:whereNotIn\(\) has parameter \$where with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:whereRaw\(\) has parameter \$where with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:wrap\(\) has parameter \$value with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:wrapArray\(\) has parameter \$values with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:wrapDistinct\(\) has parameter \$value with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Grammars\\Grammar\:\:wrapMeasurement\(\) has parameter \$measurement with generic class Ipsocode\\InfluxDB\\InfluxQL\\Expression but does not specify its types\: TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\Sql\\SqlConnection\:\:affectingStatement\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Sql/SqlConnection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\Sql\\SqlConnection\:\:cursor\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Sql/SqlConnection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\Sql\\SqlConnection\:\:cursor\(\) has parameter \$fetchUsing with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Sql/SqlConnection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\Sql\\SqlConnection\:\:prepareBindings\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Sql/SqlConnection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\Sql\\SqlConnection\:\:prepareBindings\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Sql/SqlConnection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\Sql\\SqlConnection\:\:select\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Sql/SqlConnection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\Sql\\SqlConnection\:\:select\(\) has parameter \$fetchUsing with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Sql/SqlConnection.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\Sql\\SqlConnection\:\:statement\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Sql/SqlConnection.php

@@ -234,6 +234,8 @@ class InfluxDBManager
 
     /**
      * Build a fresh client from the given connection config.
+     *
+     * @param array<string, mixed> $config
      */
     protected function createConnection(array $config): Client
     {
@@ -272,6 +274,8 @@ class InfluxDBManager
 
     /**
      * Resolve the config for a named connection.
+     *
+     * @return array<string, mixed>
      *
      * @throws InvalidArgumentException when the connection is not configured
      */
