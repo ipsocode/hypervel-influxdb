@@ -73,7 +73,7 @@ class BuilderTest extends TestCase
             ['time' => '2024-01-01T00:00:00Z', 'usage_user' => 0.64, 'host' => 'web1'],
             ['time' => '2024-01-01T00:10:00Z', 'usage_user' => 0.42, 'host' => 'web1'],
         ], $this->arrays($rows));
-        $this->assertSame('SELECT "usage_user", "host" FROM "cpu" WHERE "host" = \'web1\'', $this->lastStatement());
+        $this->assertSame('select "usage_user", "host" from "cpu" where "host" = \'web1\'', $this->lastStatement());
         $this->assertSame(['db' => 'main-bucket'], $this->lastQueryParameters());
     }
 
@@ -91,7 +91,7 @@ class BuilderTest extends TestCase
             ['time' => '2024-01-01T00:00:00Z', 'mean' => 0.5, 'host' => 'web1'],
             ['time' => '2024-01-01T00:00:00Z', 'mean' => 0.7, 'host' => 'web2'],
         ], $this->arrays($rows));
-        $this->assertSame('SELECT MEAN("usage_user") AS "mean" FROM "cpu" GROUP BY "host"', $this->lastStatement());
+        $this->assertSame('select MEAN("usage_user") AS "mean" from "cpu" group by "host"', $this->lastStatement());
     }
 
     #[UnitTest]
@@ -104,9 +104,9 @@ class BuilderTest extends TestCase
         $query->get();
 
         $this->assertSame([
-            'SELECT "usage_user", "host" FROM "cpu"',
-            'SELECT "usage_system" FROM "cpu"',
-            'SELECT * FROM "cpu"',
+            'select "usage_user", "host" from "cpu"',
+            'select "usage_system" from "cpu"',
+            'select * from "cpu"',
         ], $this->statements());
         $this->assertNull($query->columns);
     }
@@ -116,7 +116,7 @@ class BuilderTest extends TestCase
     {
         $this->connection([self::emptyResponse()])->table('cpu')->select('usage_user')->get(['ignored']);
 
-        $this->assertSame('SELECT "usage_user" FROM "cpu"', $this->lastStatement());
+        $this->assertSame('select "usage_user" from "cpu"', $this->lastStatement());
     }
 
     #[UnitTest]
@@ -142,7 +142,7 @@ class BuilderTest extends TestCase
         $this->assertContainsOnlyInstancesOf(Series::class, $series);
         $this->assertSame(['host' => 'web2'], $series[1]->tags);
         $this->assertSame([['2024-01-01T00:00:00Z', 0.7]], $series[1]->values);
-        $this->assertSame('SELECT MEAN("usage_user") AS "mean" FROM "cpu" GROUP BY "host"', $this->lastStatement());
+        $this->assertSame('select MEAN("usage_user") AS "mean" from "cpu" group by "host"', $this->lastStatement());
     }
 
     #[UnitTest]
@@ -160,7 +160,7 @@ class BuilderTest extends TestCase
         ]);
 
         $this->assertSame(['time' => '2024-01-01T00:10:00Z', 'usage_user' => 0.42], (array) $connection->table('cpu')->latest()->first(['usage_user']));
-        $this->assertSame('SELECT "usage_user" FROM "cpu" ORDER BY "time" DESC LIMIT 1', $this->lastStatement());
+        $this->assertSame('select "usage_user" from "cpu" order by "time" desc limit 1', $this->lastStatement());
         $this->assertNull($connection->table('cpu')->first());
     }
 
@@ -170,7 +170,7 @@ class BuilderTest extends TestCase
         $connection = $this->connection([self::seriesResponse([self::series('cpu', ['time', 'usage_user'], [['2024-01-01T00:00:00Z', 0.64]])])]);
 
         $this->assertSame(0.64, $connection->table('cpu')->value('usage_user'));
-        $this->assertSame('SELECT "usage_user" FROM "cpu" LIMIT 1', $this->lastStatement());
+        $this->assertSame('select "usage_user" from "cpu" limit 1', $this->lastStatement());
     }
 
     #[UnitTest]
@@ -183,7 +183,7 @@ class BuilderTest extends TestCase
 
         $this->assertSame(0.64, $connection->table('cpu')->value('usage_user as user'));
         $this->assertSame(0.53, $connection->table('cpu')->value(new Expression('MEAN("usage_user")')));
-        $this->assertSame('SELECT MEAN("usage_user") FROM "cpu" LIMIT 1', $this->lastStatement());
+        $this->assertSame('select MEAN("usage_user") from "cpu" limit 1', $this->lastStatement());
     }
 
     #[UnitTest]
@@ -206,7 +206,7 @@ class BuilderTest extends TestCase
         ])]);
 
         $this->assertSame([0.64, 0.42], $connection->table('cpu')->pluck('usage_user')->all());
-        $this->assertSame('SELECT "usage_user" FROM "cpu"', $this->lastStatement());
+        $this->assertSame('select "usage_user" from "cpu"', $this->lastStatement());
     }
 
     #[UnitTest]
@@ -217,7 +217,7 @@ class BuilderTest extends TestCase
         ])]);
 
         $this->assertSame(['web1' => 0.64, 'web2' => 0.42], $connection->table('cpu')->pluck('usage_user', 'host')->all());
-        $this->assertSame('SELECT "usage_user", "host" FROM "cpu"', $this->lastStatement());
+        $this->assertSame('select "usage_user", "host" from "cpu"', $this->lastStatement());
     }
 
     #[UnitTest]
@@ -228,7 +228,7 @@ class BuilderTest extends TestCase
         ])]);
 
         $this->assertSame(['web1' => 0.64, 'web2' => 0.42], $connection->table('cpu')->pluck('usage_user as user', 'host::tag')->all());
-        $this->assertSame('SELECT "usage_user" AS "user", "host"::tag FROM "cpu"', $this->lastStatement());
+        $this->assertSame('select "usage_user" as "user", "host"::tag from "cpu"', $this->lastStatement());
     }
 
     #[UnitTest]
@@ -249,7 +249,7 @@ class BuilderTest extends TestCase
         $connection = $this->connection([self::seriesResponse([self::series('cpu', ['time', 'host'], [['2024-01-01T00:00:00Z', 'web1']])])]);
 
         $this->assertSame(['web1' => 'web1'], $connection->table('cpu')->pluck('host', 'host')->all());
-        $this->assertSame('SELECT "host" FROM "cpu"', $this->lastStatement());
+        $this->assertSame('select "host" from "cpu"', $this->lastStatement());
     }
 
     #[UnitTest]
@@ -275,7 +275,7 @@ class BuilderTest extends TestCase
         ])->table('cpu')->where('host', 'web1');
 
         $this->assertTrue($query->exists());
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" = \'web1\' LIMIT 1', $this->lastStatement());
+        $this->assertSame('select * from "cpu" where "host" = \'web1\' limit 1', $this->lastStatement());
         $this->assertNull($query->getLimit());
         $this->assertTrue($query->doesntExist());
     }
@@ -299,7 +299,7 @@ class BuilderTest extends TestCase
         $connection = $this->connection([self::seriesResponse([self::series('cpu', ['time', 'aggregate'], [['1970-01-01T00:00:00Z', 42]])])]);
 
         $this->assertSame(42, $connection->table('cpu')->where('host', 'web1')->count('usage_user'));
-        $this->assertSame('SELECT COUNT("usage_user") AS "aggregate" FROM "cpu" WHERE "host" = \'web1\'', $this->lastStatement());
+        $this->assertSame('select count("usage_user") as "aggregate" from "cpu" where "host" = \'web1\'', $this->lastStatement());
     }
 
     #[UnitTest]
@@ -310,7 +310,7 @@ class BuilderTest extends TestCase
         ])]);
 
         $this->assertSame(10, $connection->table('cpu')->count());
-        $this->assertSame('SELECT COUNT(*) FROM "cpu"', $this->lastStatement());
+        $this->assertSame('select count(*) from "cpu"', $this->lastStatement());
     }
 
     #[UnitTest]
@@ -320,7 +320,7 @@ class BuilderTest extends TestCase
         $connection = $this->connection([self::seriesResponse([self::series('cpu', ['time', 'aggregate'], [['1970-01-01T00:00:00Z', $result]])])]);
 
         $this->assertSame($result, $connection->table('cpu')->{$method}('usage_user'));
-        $this->assertSame("SELECT {$function}(\"usage_user\") AS \"aggregate\" FROM \"cpu\"", $this->lastStatement());
+        $this->assertSame('select ' . strtolower($function) . '("usage_user") as "aggregate" from "cpu"', $this->lastStatement());
     }
 
     /**
@@ -361,7 +361,7 @@ class BuilderTest extends TestCase
         $connection = $this->connection([self::seriesResponse([self::series('cpu', ['time', 'aggregate'], [['1970-01-01T00:00:00Z', 0.97]])])]);
 
         $this->assertSame(0.97, $connection->table('cpu')->aggregate('percentile', ['usage_user', new Expression('95')]));
-        $this->assertSame('SELECT PERCENTILE("usage_user", 95) AS "aggregate" FROM "cpu"', $this->lastStatement());
+        $this->assertSame('select percentile("usage_user", 95) as "aggregate" from "cpu"', $this->lastStatement());
     }
 
     #[UnitTest]
@@ -375,8 +375,8 @@ class BuilderTest extends TestCase
 
         $query->count('usage_user');
 
-        $this->assertSame('SELECT COUNT("usage_user") AS "aggregate" FROM "cpu" WHERE "host" = \'web1\'', $this->lastStatement());
-        $this->assertSame('SELECT "usage_user" * ? AS "scaled" FROM "cpu" WHERE "host" = ? ORDER BY "time" DESC', $query->toSql());
+        $this->assertSame('select count("usage_user") as "aggregate" from "cpu" where "host" = \'web1\'', $this->lastStatement());
+        $this->assertSame('select "usage_user" * ? AS "scaled" from "cpu" where "host" = ? order by "time" desc', $query->toSql());
         $this->assertSame([2, 'web1'], $query->getBindings());
     }
 
@@ -387,7 +387,7 @@ class BuilderTest extends TestCase
 
         $connection->table('cpu')->groupByTime('1h')->orderByDesc()->max('usage_user');
 
-        $this->assertSame('SELECT MAX("usage_user") AS "aggregate" FROM "cpu" GROUP BY time(1h) ORDER BY "time" DESC', $this->lastStatement());
+        $this->assertSame('select max("usage_user") as "aggregate" from "cpu" group by time(1h) order by "time" desc', $this->lastStatement());
     }
 
     #[UnitTest]
@@ -432,9 +432,9 @@ class BuilderTest extends TestCase
         }));
         $this->assertSame([1 => [1, 2], 2 => [3, 4], 3 => [5]], $pages);
         $this->assertSame([
-            'SELECT * FROM "cpu" LIMIT 2 OFFSET 0',
-            'SELECT * FROM "cpu" LIMIT 2 OFFSET 2',
-            'SELECT * FROM "cpu" LIMIT 2 OFFSET 4',
+            'select * from "cpu" limit 2 offset 0',
+            'select * from "cpu" limit 2 offset 2',
+            'select * from "cpu" limit 2 offset 4',
         ], $this->statements());
     }
 
@@ -474,7 +474,7 @@ class BuilderTest extends TestCase
 
         $connection->table('cpu')->offset(10)->limit(3)->chunk(2, fn (): null => null);
 
-        $this->assertSame(['SELECT * FROM "cpu" LIMIT 2 OFFSET 10', 'SELECT * FROM "cpu" LIMIT 1 OFFSET 12'], $this->statements());
+        $this->assertSame(['select * from "cpu" limit 2 offset 10', 'select * from "cpu" limit 1 offset 12'], $this->statements());
     }
 
     #[UnitTest]
@@ -486,7 +486,7 @@ class BuilderTest extends TestCase
         ]);
 
         $this->assertTrue($connection->table('cpu')->limit(4)->chunk(2, fn (): null => null));
-        $this->assertSame(['SELECT * FROM "cpu" LIMIT 2 OFFSET 0', 'SELECT * FROM "cpu" LIMIT 2 OFFSET 2'], $this->statements());
+        $this->assertSame(['select * from "cpu" limit 2 offset 0', 'select * from "cpu" limit 2 offset 2'], $this->statements());
     }
 
     #[UnitTest]
@@ -510,7 +510,7 @@ class BuilderTest extends TestCase
 
         $this->assertTrue($deleted);
         $this->assertSame('POST', $this->lastRequest()->getMethod());
-        $this->assertSame('DELETE FROM "cpu" WHERE "host" = \'web1\' AND "time" < \'2024-01-01T00:00:00.000000Z\'', $this->lastStatement());
+        $this->assertSame('delete from "cpu" where "host" = \'web1\' and "time" < \'2024-01-01T00:00:00.000000Z\'', $this->lastStatement());
     }
 
     #[UnitTest]
@@ -518,7 +518,7 @@ class BuilderTest extends TestCase
     {
         $this->connection([self::emptyResponse()])->query()->from(new Regex('^cpu'))->where('host', 'web1')->delete();
 
-        $this->assertSame('DELETE FROM /^cpu/ WHERE "host" = \'web1\'', $this->lastStatement());
+        $this->assertSame('delete from /^cpu/ where "host" = \'web1\'', $this->lastStatement());
     }
 
     #[UnitTest]
@@ -533,7 +533,7 @@ class BuilderTest extends TestCase
             ->delete();
 
         $this->assertTrue($deleted);
-        $this->assertSame('DELETE FROM "cpu" WHERE "host" = \'web1\' AND "time" < \'2024-01-01T00:00:00.000000Z\'', $this->lastStatement());
+        $this->assertSame('delete from "cpu" where "host" = \'web1\' and "time" < \'2024-01-01T00:00:00.000000Z\'', $this->lastStatement());
         $this->assertSame(['db' => 'telegraf'], $this->lastQueryParameters());
     }
 
@@ -586,7 +586,7 @@ class BuilderTest extends TestCase
             ->get();
 
         $this->assertSame([['time' => '2024-01-01T00:00:00Z', 'usage_user' => 0.64]], $this->arrays($rows));
-        $this->assertSame('SELECT "usage_user" FROM "cpu" WHERE "host" = \'web1\'', $this->lastStatement());
+        $this->assertSame('select "usage_user" from "cpu" where "host" = \'web1\'', $this->lastStatement());
         $this->assertSame(['db' => 'telegraf/autogen'], $this->lastQueryParameters());
     }
 
@@ -644,9 +644,9 @@ class BuilderTest extends TestCase
 
             $this->fail('No exception was thrown.');
         } catch (QueryException $exception) {
-            $this->assertSame('measurement not found (Connection: main, InfluxQL: SELECT * FROM "cpu" WHERE "host" = \'web1\')', $exception->getMessage());
+            $this->assertSame('measurement not found (Connection: main, InfluxQL: select * from "cpu" where "host" = \'web1\')', $exception->getMessage());
             $this->assertSame('main', $exception->getConnectionName());
-            $this->assertSame('SELECT * FROM "cpu" WHERE "host" = \'web1\'', $exception->getSql());
+            $this->assertSame('select * from "cpu" where "host" = \'web1\'', $exception->getSql());
             $this->assertSame(['web1'], $exception->getBindings());
             $this->assertNull($exception->getPrevious());
         }
@@ -665,7 +665,7 @@ class BuilderTest extends TestCase
             $this->assertInstanceOf(ApiException::class, $exception->getPrevious());
             $this->assertSame(500, $exception->getCode());
             $this->assertStringContainsString('internal error', $exception->getMessage());
-            $this->assertStringEndsWith('(Connection: main, InfluxQL: SELECT * FROM "cpu")', $exception->getMessage());
+            $this->assertStringEndsWith('(Connection: main, InfluxQL: select * from "cpu")', $exception->getMessage());
         }
     }
 
@@ -713,7 +713,7 @@ class BuilderTest extends TestCase
         $this->pingVersion = $server;
 
         $this->assertSame([], $this->connection([self::emptyResponse()], ['version' => $connection])->table('cpu')->get()->all());
-        $this->assertSame(['SELECT * FROM "cpu"'], $this->statements());
+        $this->assertSame(['select * from "cpu"'], $this->statements());
     }
 
     /**
@@ -753,7 +753,7 @@ class BuilderTest extends TestCase
             $this->assertSame(
                 "The InfluxQL builder compiles for {$expected}, but the server reports "
                 . ($server === null ? 'no version' : "version [{$server}]")
-                . ". (Connection: main, InfluxQL: SELECT * FROM \"cpu\" WHERE \"host\" = 'web1')",
+                . ". (Connection: main, InfluxQL: select * from \"cpu\" where \"host\" = 'web1')",
                 $exception->getMessage(),
             );
             $this->assertSame(['GET /ping'], $this->requestLines());
@@ -812,9 +812,9 @@ class BuilderTest extends TestCase
     public static function sendingMethods(): array
     {
         return [
-            'get' => [static fn (Builder $query): mixed => $query->get(), 'SELECT * FROM "cpu" WHERE "host" = \'web1\''],
-            'series' => [static fn (Builder $query): mixed => $query->series(), 'SELECT * FROM "cpu" WHERE "host" = \'web1\''],
-            'delete' => [static fn (Builder $query): mixed => $query->delete(), 'DELETE FROM "cpu" WHERE "host" = \'web1\''],
+            'get' => [static fn (Builder $query): mixed => $query->get(), 'select * from "cpu" where "host" = \'web1\''],
+            'series' => [static fn (Builder $query): mixed => $query->series(), 'select * from "cpu" where "host" = \'web1\''],
+            'delete' => [static fn (Builder $query): mixed => $query->delete(), 'delete from "cpu" where "host" = \'web1\''],
         ];
     }
 
@@ -832,7 +832,7 @@ class BuilderTest extends TestCase
         } catch (QueryException $exception) {
             $this->assertInstanceOf(ApiException::class, $exception->getPrevious());
             $this->assertSame(503, $exception->getCode());
-            $this->assertSame('SELECT * FROM "cpu"', $exception->getSql());
+            $this->assertSame('select * from "cpu"', $exception->getSql());
         }
 
         $this->assertSame([], $connection->table('cpu')->get()->all());
@@ -896,7 +896,7 @@ class BuilderTest extends TestCase
 
                 $this->fail('No exception was thrown.');
             } catch (QueryException $exception) {
-                $this->assertSame("SELECT * FROM \"{$measurement}\" WHERE \"host\" = 'web1'", $exception->getSql());
+                $this->assertSame("select * from \"{$measurement}\" where \"host\" = 'web1'", $exception->getSql());
             }
         }
 
@@ -943,11 +943,11 @@ class BuilderTest extends TestCase
     public function testAnInvalidOperatorWithoutAValueIsTheValueItself(): void
     {
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE "value" > 5 OR "host" = \'web1\'',
+            'select * from "cpu" where "value" > 5 or "host" = \'web1\'',
             $this->connection()->table('cpu')->where('value', '>', 5)->where('host', 'web1', null, 'or')->toRawSql(),
         );
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE "a" = "b"',
+            'select * from "cpu" where "a" = "b"',
             $this->connection()->table('cpu')->whereColumn('a', 'b', null)->toSql(),
         );
     }
@@ -955,7 +955,7 @@ class BuilderTest extends TestCase
     #[UnitTest]
     public function testAnArrayValueComparesItsFirstElement(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" = \'web1\'', $this->connection()->table('cpu')->where('host', [['web1'], 'web2'])->toRawSql());
+        $this->assertSame('select * from "cpu" where "host" = \'web1\'', $this->connection()->table('cpu')->where('host', [['web1'], 'web2'])->toRawSql());
     }
 
     #[UnitTest]
@@ -984,7 +984,7 @@ class BuilderTest extends TestCase
         $period = CarbonPeriod::create(CarbonImmutable::parse('2024-01-01T00:00:00Z'), CarbonImmutable::parse('2024-01-31T00:00:00Z'));
 
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE ("time" >= \'2024-01-01T00:00:00.000000Z\' AND "time" <= \'2024-01-31T00:00:00.000000Z\')',
+            'select * from "cpu" where ("time" >= \'2024-01-01T00:00:00.000000Z\' and "time" <= \'2024-01-31T00:00:00.000000Z\')',
             $this->connection()->table('cpu')->whereBetween('time', $period)->toRawSql(),
         );
     }
@@ -995,7 +995,7 @@ class BuilderTest extends TestCase
         $period = new DatePeriod(new DateTimeImmutable('2024-01-01T00:00:00Z'), new DateInterval('P1D'), 3);
 
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE ("time" >= \'2024-01-01T00:00:00.000000Z\' AND "time" <= \'2024-01-04T00:00:00.000000Z\')',
+            'select * from "cpu" where ("time" >= \'2024-01-01T00:00:00.000000Z\' and "time" <= \'2024-01-04T00:00:00.000000Z\')',
             $this->connection()->table('cpu')->whereBetween('time', $period)->toRawSql(),
         );
     }
@@ -1003,19 +1003,19 @@ class BuilderTest extends TestCase
     #[UnitTest]
     public function testADynamicWhereComparesTheSnakeCasedColumn(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" = \'web1\'', $this->connection()->table('cpu')->whereHost('web1')->toRawSql());
-        $this->assertSame('SELECT * FROM "cpu" WHERE "cpu_usage" = 5', $this->connection()->table('cpu')->whereCpuUsage(5)->toRawSql());
+        $this->assertSame('select * from "cpu" where "host" = \'web1\'', $this->connection()->table('cpu')->whereHost('web1')->toRawSql());
+        $this->assertSame('select * from "cpu" where "cpu_usage" = 5', $this->connection()->table('cpu')->whereCpuUsage(5)->toRawSql());
     }
 
     #[UnitTest]
     public function testADynamicWhereChainsItsColumnsWithAndAndOr(): void
     {
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE "host" = \'web1\' AND "region" = \'eu\'',
+            'select * from "cpu" where "host" = \'web1\' and "region" = \'eu\'',
             $this->connection()->table('cpu')->whereHostAndRegion('web1', 'eu')->toRawSql(),
         );
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE "host" = \'web1\' OR "region" = \'eu\'',
+            'select * from "cpu" where "host" = \'web1\' or "region" = \'eu\'',
             $this->connection()->table('cpu')->whereHostOrRegion('web1', 'eu')->toRawSql(),
         );
     }
@@ -1105,7 +1105,7 @@ class BuilderTest extends TestCase
         });
 
         $this->assertTrue(Builder::hasMacro('onWebHosts'));
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" =~ /^web/', $this->connection()->table('cpu')->onWebHosts()->toRawSql());
+        $this->assertSame('select * from "cpu" where "host" =~ /^web/', $this->connection()->table('cpu')->onWebHosts()->toRawSql());
 
         Builder::flushState();
 
@@ -1126,7 +1126,7 @@ class BuilderTest extends TestCase
 
         $this->assertSame(['eu', 'eu', 'us', 'Descending'], $query->getBindings());
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE "region" = \'eu\' AND ("region" = \'eu\' OR "region" = \'us\') AND ("direction" != \'Descending\')',
+            'select * from "cpu" where "region" = \'eu\' and ("region" = \'eu\' or "region" = \'us\') and ("direction" != \'Descending\')',
             $query->toRawSql(),
         );
     }
@@ -1192,7 +1192,7 @@ class BuilderTest extends TestCase
         $query = $this->connection()->table('cpu')->selectRaw('? AS "k"', ['v'])->select('usage_user');
 
         $this->assertSame([], $query->getRawBindings()['select']);
-        $this->assertSame('SELECT "usage_user" FROM "cpu"', $query->toSql());
+        $this->assertSame('select "usage_user" from "cpu"', $query->toSql());
     }
 
     #[UnitTest]
@@ -1202,8 +1202,8 @@ class BuilderTest extends TestCase
 
         $clone = $query->clone()->where('region', 'eu')->limit(10);
 
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" = ? LIMIT 5', $query->toSql());
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" = ? AND "region" = ? LIMIT 10', $clone->toSql());
+        $this->assertSame('select * from "cpu" where "host" = ? limit 5', $query->toSql());
+        $this->assertSame('select * from "cpu" where "host" = ? and "region" = ? limit 10', $clone->toSql());
     }
 
     #[UnitTest]
@@ -1240,7 +1240,7 @@ class BuilderTest extends TestCase
         $this->assertSame([], $query->wheres);
 
         $query->addNestedWhereQuery($query->forNestedWhere()->where('host', 'web1'), 'or');
-        $this->assertSame('SELECT * FROM "cpu" WHERE ("host" = ?)', $query->toSql());
+        $this->assertSame('select * from "cpu" where ("host" = ?)', $query->toSql());
         $this->assertSame(['web1'], $query->getBindings());
     }
 
@@ -1307,7 +1307,7 @@ class BuilderTest extends TestCase
             ->unless(false, fn (Builder $query) => $query->where('region', 'eu'))
             ->tap(fn (Builder $query) => $query->limit(1));
 
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" = \'web1\' AND "region" = \'eu\' LIMIT 1', $query->toRawSql());
+        $this->assertSame('select * from "cpu" where "host" = \'web1\' and "region" = \'eu\' limit 1', $query->toRawSql());
     }
 
     /**

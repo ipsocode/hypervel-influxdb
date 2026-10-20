@@ -86,6 +86,8 @@ abstract class Measurement extends Model
      * gets that one, which has to extend Eloquent\Builder, as Hypervel's
      * nested set models require of theirs.
      *
+     * @return Builder<static>
+     *
      * @throws LogicException when the builder the model names does not extend Eloquent\Builder
      */
     public function newEloquentBuilder(QueryBuilder $query): Builder
@@ -94,7 +96,10 @@ abstract class Measurement extends Model
             ??= $this->resolveCustomBuilderClass();
 
         if ($builderClass === false) {
-            return new Builder($query);
+            /** @var Builder<static> $builder */
+            $builder = new Builder($query);
+
+            return $builder;
         }
 
         if (! is_subclass_of($builderClass, Builder::class)) {
@@ -105,7 +110,7 @@ abstract class Measurement extends Model
             ));
         }
 
-        /** @var Builder $builder */
+        /** @var Builder<static> $builder */
         $builder = new $builderClass($query);
 
         return $builder;
