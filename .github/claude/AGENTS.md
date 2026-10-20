@@ -84,8 +84,10 @@ installs this brief and the skill on its runner, for the review only.
   resolved.
 - A change to a setup file also needs the maintainer's approval. `.github/CODEOWNERS` lists the
   setup files.
-- A draft pull request gets CI, and the automated review runs once it is marked ready. To review
-  a branch before you push it, follow `.github/claude/skills/pr-review/SKILL.md`.
+- A pull request into `main` gets CI, and the automated review runs once it is not a draft. A
+  pull request into any other branch gets neither: they run on that branch's pull request into
+  `main`, so run the four checks above before opening one. To review a branch before you push
+  it, follow `.github/claude/skills/pr-review/SKILL.md`.
 - Fill in the pull request template. Label a breaking change `breaking-change`: the label, not
   the diff, decides the next version.
 - This repository stands alone. Commit messages, pull request titles and descriptions, code
