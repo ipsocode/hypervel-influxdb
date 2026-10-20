@@ -83,7 +83,7 @@ class InfluxDBServiceProvider extends ServiceProvider
      */
     protected function registerFactory(): void
     {
-        $this->app->singleton('influxdb.factory', fn () => new InfluxDBFactory);
+        $this->app->singleton('influxdb.factory', fn (): InfluxDBFactory => new InfluxDBFactory);
 
         $this->app->alias('influxdb.factory', InfluxDBFactory::class);
     }
@@ -93,7 +93,7 @@ class InfluxDBServiceProvider extends ServiceProvider
      */
     protected function registerManager(): void
     {
-        $this->app->singleton('influxdb', function (Application $app) {
+        $this->app->singleton('influxdb', function (Application $app): InfluxDBManager {
             return new InfluxDBManager(
                 $app->make('config'),
                 $app->make('influxdb.factory'),
@@ -110,7 +110,7 @@ class InfluxDBServiceProvider extends ServiceProvider
      */
     protected function registerConnection(): void
     {
-        $this->app->singleton('influxdb.connection', function (Application $app) {
+        $this->app->singleton('influxdb.connection', function (Application $app): Client {
             return $app->make('influxdb')->connection();
         });
 
