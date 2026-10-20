@@ -38,13 +38,25 @@ behaves. Claude Code reads servers only from a `.mcp.json` at the repository
 root: copy it there (`.gitignore` keeps that copy out of commits), then run
 `/mcp` once to sign in.
 
+### Pins in `composer.json`
+
+Three things in `composer.json` hold a version back on purpose. Each says when
+it was set, why, and what lets it go; #19 lists everything that changes when
+Hypervel 0.4 is released.
+
+| Pin | Since | Why | It goes when |
+|---|---|---|---|
+| `"phpunit/phpunit": "13.3.*"` | 2026-10-20 (`>=13.0.3 <13.4` from 2026-10-02) | The pin `hypervel/components` keeps in its own `require-dev`. PHPUnit 13.4's `PhpHandler` takes an `Emitter`, and components' parallel runner still constructs it without one, so `--parallel`, and with it `composer test:coverage`, fails before any test runs. | `hypervel/components` moves its own pin, once `src/testing/src/Concerns/RunsInParallel.php` on its `0.4` branch passes the emitter: move this one to match. Composer never reads a dependency's `require-dev`, and Dependabot is told to leave PHPUnit alone, so this is done by hand. |
+| `"config": {"platform": {"ext-swoole": "6.3.0RC1"}}` | 2026-10-19 | `hypervel/components` `0.4.x-dev` requires `ext-swoole` `^6.3.0RC1`, and the CI image runs 6.3.0RC1. The pin makes every install resolve for that Swoole, whatever the machine running Composer has; a pin below what components requires fails resolution. | Swoole 6.3.0 is released and the CI image carries it: move the pin to it. Dependabot never reads `config.platform`, so this one is moved by hand. |
+| `"hypervel/components": "0.4.x-dev"`, with `"minimum-stability": "dev"` and `"prefer-stable": true` | the first release | Hypervel 0.4 exists only as the `0.4.x-dev` branch. | Hypervel 0.4 is released: require `^0.4` and drop both stability keys (#19). |
+
 ## Checks
 
 | Command | What it runs |
 |---|---|
 | `composer conventions` | The conventions check (below), in plain PHP: no install needed |
 | `composer lint` | php-cs-fixer in dry-run mode; `composer lint:fix` applies the fixes |
-| `composer analyse` | PHPStan at level 5 over `src/` |
+| `composer analyse` | PHPStan over `src/`, at the level `phpstan.neon` sets |
 | `composer test` | The suite through the Testbench CLI |
 | `composer test:phpunit` | The suite through PHPUnit directly, bypassing the Testbench CLI |
 | `composer test:parallel` | The suite through ParaTest |
