@@ -1,0 +1,63 @@
+# This package's own workflow, not an import: it starts the InfluxDB servers the tests under
+# tests/Integration run against. The default suite and its coverage gate (tests.yml) need none.
+name: integration
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+env:
+  OTEL_SDK_DISABLED: 'true'
+  COMPOSER_CACHE_DIR: /tmp/composer-cache
+  COMPOSER_MEMORY_LIMIT: '-1'
+  COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
+
+jobs:
+  influxdb1:
+    name: InfluxDB 1.x
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    concurrency:
+      group: integration-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.ref_name != 'main' }}
+
+    container:
+      image: ghcr.io/ipsocode/hypervel/ci:8.4-latest
+
+    services:
+      influxdb:
+        image: influxdb:1.11
+        options: >-
+          --health-cmd "influx -execute 'SHOW DATABASES'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      INFLUXDB_V1_URL: http://influxdb:8086
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/composer-cache
+          key: composer-8.4-${{ hashFiles('composer.json') }}
+          restore-keys: composer-8.4-
+
+      - name: Install dependencies
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          composer update --prefer-dist --no-interaction --optimize-autoloader
+
+      - name: Run the integration suite against InfluxDB 1.x
+        run: composer test:integration

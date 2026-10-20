@@ -87,6 +87,7 @@
         "test:phpunit": "@php vendor/bin/phpunit",
         "test:parallel": "@php vendor/bin/testbench package:test --parallel",
         "test:coverage": "@php vendor/bin/testbench package:test --parallel --coverage --min=100 --coverage-clover tests/coverage/clover.xml",
+        "test:integration": "@php vendor/bin/testbench package:test -c phpunit.integration.xml",
         "test:purge": "@php vendor/bin/testbench package:purge-skeleton"
     },
     "scripts-descriptions": {
@@ -98,6 +99,7 @@
         "test:phpunit": "Run the package suite through PHPUnit directly, bypassing the Testbench CLI.",
         "test:parallel": "Run the package suite through ParaTest.",
         "test:coverage": "Run the package suite through ParaTest with PCOV coverage, failing under 100%. Needs the PCOV extension, which the CI image has.",
+        "test:integration": "Run the tests under tests/Integration against the real InfluxDB servers named by INFLUXDB_V1_URL; each class skips when its variable is unset. CONTRIBUTING.md says how to start a server.",
         "test:purge": "Clear cached config, routes, views and runtime SQLite files from the Testbench skeleton."
     }
 }
