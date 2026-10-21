@@ -125,7 +125,7 @@ class InfluxDBV2Test extends V2IntegrationTestCase
 
         $this->assertCount(1, $query()->slimit(1)->get());
         $this->assertSame(['c'], $query()->slimit(1)->soffset(2)->get()->pluck('host')->all());
-        $this->assertSame('SLIMIT 1 SOFFSET 2', substr($query()->slimit(1)->soffset(2)->toRawSql(), -18));
+        $this->assertSame('slimit 1 soffset 2', substr($query()->slimit(1)->soffset(2)->toRawSql(), -18));
     }
 
     public function testTheGrammarAllowsDeleteAsTheServerDoes(): void
