@@ -14,6 +14,7 @@ use Ipsocode\InfluxDB\Write\Batch;
 use Ipsocode\InfluxDB\Write\BatchOptions;
 use Ipsocode\InfluxDB\Write\BatchWriteException;
 use Ipsocode\InfluxDB\Write\BufferFullException;
+use Ipsocode\InfluxDB\Write\LogFailureStore;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use stdClass;
@@ -109,6 +110,23 @@ class BatchOptionsTest extends TestCase
         foreach (['strlen', [self::class, 'versions'], new RecordsFailures, RecordsFailures::class] as $onFailure) {
             $this->assertSame($onFailure, BatchOptions::fromConfig(['onFailure' => $onFailure], Version::V1, 'main')->onFailure);
         }
+    }
+
+    #[UnitTest]
+    public function testOnFailureMayNameTheLogDriverAsAStringOrAnArray(): void
+    {
+        foreach (['log', ['driver' => 'log']] as $onFailure) {
+            $this->assertInstanceOf(LogFailureStore::class, BatchOptions::fromConfig(['onFailure' => $onFailure], Version::V1, 'main')->onFailure);
+        }
+    }
+
+    #[UnitTest]
+    public function testAnUnknownFailureDriverIsRefusedWithTheConnection(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('InfluxDB connection [analytics] has an invalid write.onFailure [redis]; expected a callable, the name of an invokable class, or the driver log.');
+
+        BatchOptions::fromConfig(['onFailure' => ['driver' => 'redis']], Version::V1, 'analytics');
     }
 
     #[UnitTest]
