@@ -67,10 +67,11 @@ trait MocksWrites
      * @param int $delay the milliseconds each response takes
      * @param array<string, mixed> $writeOptions the client's write options
      * @param array<string, mixed> $options client options, over the fixture's
+     * @param class-string<BatchingWriter> $class the writer to build
      */
-    protected function writer(array $batching = [], array $responses = [], int $delay = 0, array $writeOptions = [], array $options = []): BatchingWriter
+    protected function writer(array $batching = [], array $responses = [], int $delay = 0, array $writeOptions = [], array $options = [], string $class = BatchingWriter::class): BatchingWriter
     {
-        return new BatchingWriter(
+        return new $class(
             $options + [
                 'url' => 'http://localhost:8086',
                 'token' => 'main-token',
