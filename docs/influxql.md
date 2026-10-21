@@ -145,7 +145,10 @@ A few of them read differently, because InfluxQL does:
   A tag can be plucked alongside a field, but not on its own: InfluxQL returns
   no rows for a query that selects tags only.
 - `chunk()` pages with `LIMIT` and `OFFSET` without adding an order, since
-  InfluxQL returns points in time order anyway.
+  InfluxQL returns points in time order anyway. InfluxQL applies `LIMIT` and
+  `OFFSET` to each series, so a chunk of a query grouped by a tag holds up to
+  `$count` points of every series, and paging stops on a page shorter than
+  `$count`. A `limit()` on such a query is per series too.
 - A dynamic where reads its columns in snake case, joined by `And` or `Or`:
   `whereHostAndRegion('web1', 'eu')` compares `host` and `region`.
 
