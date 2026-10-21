@@ -142,6 +142,7 @@ class BuilderTest extends TestCase
         $this->assertSame('select * from "cpu" group by * slimit 2', $this->table()->groupBy('*')->slimit(2)->slimit(-1)->toSql());
         $this->assertSame('select * from "cpu" group by *', $this->table()->groupBy('*')->slimit(2)->slimit(null)->toSql());
         $this->assertSame('select * from "cpu" group by * soffset 0', $this->table()->groupBy('*')->soffset(-3)->toSql());
+        $this->assertSame('select * from "cpu" group by *', $this->table()->groupBy('*')->soffset(2)->soffset(null)->toSql());
     }
 
     #[UnitTest]
@@ -340,6 +341,24 @@ class BuilderTest extends TestCase
     }
 
     #[UnitTest]
+    public function testWhereRefusesASubSelectAsTheColumn(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIs('InfluxQL cannot compare a sub-select; pass where() a column.');
+
+        $this->table()->where(static fn (Builder $query) => $query->selectRaw('max("v")')->from('cpu'), '=', 1);
+    }
+
+    #[UnitTest]
+    public function testAggregateRefusesAFunctionNameThatIsNotAnIdentifier(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIs('aggregate() takes the name of a function, not [mean("x")) from "secrets" --].');
+
+        $this->table()->aggregate('mean("x")) from "secrets" --', ['value']);
+    }
+
+    #[UnitTest]
     public function testWhereInRefusesASubSelect(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -433,6 +452,7 @@ class BuilderTest extends TestCase
             'on its own' => [static fn (Builder $query): Builder => $query->whereNotNull('host'), $isNotNull],
             'after an inequality' => [static fn (Builder $query): Builder => $query->where('host', '!=', 'web1')->whereNotNull('host'), $isNotNull],
             'after an equality or-ed' => [static fn (Builder $query): Builder => $query->where('region', 'eu')->orWhere('host', 'web1')->whereNotNull('host'), $isNotNull],
+            'after an equality with an or between them' => [static fn (Builder $query): Builder => $query->where('host', 'web1')->orWhere('region', 'eu')->whereNotNull('host'), $isNotNull],
             'or-ed itself' => [static fn (Builder $query): Builder => $query->where('host', 'web1')->orWhereNotNull('host'), $isNotNull],
             'on a column not compared' => [static fn (Builder $query): Builder => $query->where('host', 'web1')->whereNotNull(['host', 'region']), $isNotNull],
             'whereNull, after an equality' => [static fn (Builder $query): Builder => $query->where('host', 'web1')->whereNull('host'), 'InfluxQL has no IS NULL; a field or tag cannot be compared with null.'],

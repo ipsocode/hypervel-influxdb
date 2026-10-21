@@ -964,7 +964,7 @@ class Builder
      */
     public function soffset(?int $value): static
     {
-        $this->soffset = max(0, (int) $value);
+        $this->soffset = is_null($value) ? null : max(0, $value);
 
         return $this;
     }
@@ -1284,10 +1284,13 @@ class Builder
      *
      * @param array<Expression|string> $columns
      *
+     * @throws InvalidArgumentException for a function name that is not an identifier
      * @throws QueryException for a function the server lacks, such as SAMPLE() on InfluxDB 3
      */
     public function aggregate(string $function, array $columns = ['*']): mixed
     {
+        Dialect::ensureFunctionName($function);
+
         $results = $this->cloneWithout(['columns'])
             ->cloneWithoutBindings(['select'])
             ->setAggregate($function, $columns)

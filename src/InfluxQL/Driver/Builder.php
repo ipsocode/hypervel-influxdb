@@ -191,7 +191,7 @@ class Builder extends QueryBuilder
      */
     public function soffset(?int $value): static
     {
-        $this->soffset = max(0, (int) $value);
+        $this->soffset = is_null($value) ? null : max(0, $value);
 
         return $this;
     }
@@ -222,10 +222,14 @@ class Builder extends QueryBuilder
      * Regex value turns `=` and `!=` into their regex forms.
      *
      * @param Closure|QueryBuilder|EloquentBuilder<*>|Relation<*, *, *>|ExpressionContract|array<int|string, mixed>|string $column
-     * @throws InvalidArgumentException for an operator InfluxQL does not have, or one that cannot take a regular expression
+     * @throws InvalidArgumentException for an operator InfluxQL does not have, one that cannot take a regular expression, or a sub-select as the column
      */
     public function where(Closure|QueryBuilder|EloquentBuilder|Relation|ExpressionContract|array|string $column, mixed $operator = null, mixed $value = null, string $boolean = 'and'): static
     {
+        if ($this->isQueryable($column) && ! is_null($operator)) {
+            throw new InvalidArgumentException('InfluxQL cannot compare a sub-select; pass where() a column.');
+        }
+
         if ($column instanceof ConditionExpression || is_array($column) || $column instanceof Closure) {
             return parent::where($column, $operator, $value, $boolean);
         }
@@ -325,7 +329,8 @@ class Builder extends QueryBuilder
      *
      * An Eloquent relation adds `fk is not null`, which InfluxQL cannot write, beside
      * `fk = key`. A point matching the `=` has the value, so a not-null check on columns
-     * the query compares with `=`, both ANDed, is dropped; the grammar refuses any other.
+     * the query compares with `=`, all ANDed, is dropped; the grammar refuses any other.
+     * An `or` anywhere in the query keeps it: the equality may then be one branch of it.
      *
      * @param array<int|string, string>|ExpressionContract|string $columns
      */
@@ -565,9 +570,12 @@ class Builder extends QueryBuilder
      * InfluxQL names each count of `count(*)` after its field.
      *
      * @param array<ExpressionContract|string> $columns
+     * @throws InvalidArgumentException for a function name that is not an identifier
      */
     public function aggregate(string $function, array $columns = ['*']): mixed
     {
+        Dialect::ensureFunctionName($function);
+
         return $this->withoutFetchUsing(fn (): mixed => $this->valueOf(
             $this->cloneWithout(['columns'])->cloneWithoutBindings(['select'])->setAggregate($function, $columns)->get($columns)->first(),
             'aggregate',
@@ -781,13 +789,11 @@ class Builder extends QueryBuilder
      */
     protected function comparesForEquality(mixed $column): bool
     {
-        foreach ($this->wheres as $where) {
-            if ($where['type'] === 'Basic' && $where['boolean'] === 'and' && $where['operator'] === '=' && $where['column'] === $column) {
-                return true;
-            }
+        if (array_any($this->wheres, fn (array $where): bool => $where['boolean'] === 'or')) {
+            return false;
         }
 
-        return false;
+        return array_any($this->wheres, fn (array $where): bool => $where['type'] === 'Basic' && $where['operator'] === '=' && $where['column'] === $column);
     }
 
     /**
