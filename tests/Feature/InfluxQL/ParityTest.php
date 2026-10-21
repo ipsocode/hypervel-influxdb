@@ -108,6 +108,10 @@ class ParityTest extends TestCase
             'series' => fn (object $q) => $q->series(),
             'delete' => fn (object $q) => $q->where('host', 'web1')->delete(),
             'delete on a time range' => fn (object $q) => $q->whereBetween('time', ['2024-01-01T00:00:00Z', '2024-02-01T00:00:00Z'])->delete(),
+            'delete with an offset and soffset of 0' => fn (object $q) => $q->where('host', 'web1')->offset(0)->soffset(0)->delete(),
+            'delete with a cleared soffset' => fn (object $q) => $q->where('host', 'web1')->soffset(1)->soffset(null)->delete(),
+            'delete with an offset' => fn (object $q) => $q->where('host', 'web1')->offset(5)->delete(),
+            'aggregate with a statement for a name' => fn (object $q) => $q->aggregate('mean("x")) from "secrets" --', ['value']),
             'delete with a limit' => fn (object $q) => $q->where('host', 'web1')->limit(5)->delete(),
         ];
     }

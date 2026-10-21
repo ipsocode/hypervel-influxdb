@@ -91,7 +91,7 @@ abstract class Grammar
         $this->ensureDeleteTakesABareMeasurement($query->from);
 
         $this->ensureDeleteTakesNoLimitOrOffset(
-            isset($query->limit) || isset($query->offset) || isset($query->slimit) || isset($query->soffset),
+            isset($query->limit) || ($query->offset ?? 0) > 0 || isset($query->slimit) || ($query->soffset ?? 0) > 0,
         );
 
         return trim('delete from ' . $this->wrapMeasurement($query->from) . ' ' . $this->compileWheres($query));
