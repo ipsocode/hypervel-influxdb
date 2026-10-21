@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ipsocode\InfluxDB\Write;
 
+use Closure;
 use Hypervel\Container\Container;
 use Hypervel\Contracts\Debug\ExceptionHandler;
 use Hypervel\Coordinator\Coordinator;
@@ -312,7 +313,39 @@ class BatchingWriter extends WriteApi
             return;
         }
 
-        Coroutine::create(fn () => $this->send($batch));
+        try {
+            $this->spawn(fn () => $this->send($batch));
+        } catch (Throwable $exception) {
+            // A worker at max_coroutine cannot start the send: the batch goes back, for the next flush.
+            $this->restore($batch);
+            $this->report($exception);
+            $this->scheduleFlush();
+        }
+    }
+
+    /**
+     * Start a coroutine to send a batch.
+     */
+    protected function spawn(Closure $send): void
+    {
+        Coroutine::create($send);
+    }
+
+    /**
+     * Put a batch that was taken but not sent back in the buffer, ahead of the points buffered since.
+     */
+    protected function restore(Batch $batch): void
+    {
+        $key = serialize([$batch->bucket, $batch->org, $batch->precision]);
+
+        $this->sending -= $batch->points;
+        $this->buffered += $batch->points;
+        $this->bufferedSince ??= hrtime(true);
+
+        $this->batches[$key] ??= ['bucket' => $batch->bucket, 'org' => $batch->org, 'precision' => $batch->precision, 'lines' => [], 'points' => 0, 'bytes' => -1];
+        $this->batches[$key]['lines'] = [$batch->payload, ...$this->batches[$key]['lines']];
+        $this->batches[$key]['points'] += $batch->points;
+        $this->batches[$key]['bytes'] += 1 + strlen($batch->payload);
     }
 
     /**
@@ -329,8 +362,20 @@ class BatchingWriter extends WriteApi
             $done = $this->sends[$id] = new Coordinator;
         }
 
+        $restored = false;
+
         try {
-            $failure = self::attempt(fn () => parent::writeRaw($batch->payload, $batch->precision, $batch->bucket, $batch->org));
+            try {
+                $failure = self::attempt(fn () => parent::writeRaw($batch->payload, $batch->precision, $batch->bucket, $batch->org));
+            } catch (CanceledException $exception) {
+                // Cancelled mid-send, the batch is neither reported nor lost: it waits for the next flush.
+                $this->restore($batch);
+                $restored = true;
+                $this->scheduleFlush();
+
+                throw $exception;
+            }
+
             $attempts = $this->attempts[$id];
 
             if ($failure !== null) {
@@ -338,7 +383,10 @@ class BatchingWriter extends WriteApi
             }
         } finally {
             unset($this->attempts[$id]);
-            $this->sending -= $batch->points;
+
+            if (! $restored) {
+                $this->sending -= $batch->points;
+            }
 
             if ($done !== null) {
                 unset($this->sends[$id]);

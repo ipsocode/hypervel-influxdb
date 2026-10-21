@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ipsocode\InfluxDB\Tests\Feature\Write;
 
+use Closure;
 use GuzzleHttp\Psr7\Response;
 use Hypervel\Contracts\Debug\ExceptionHandler;
 use Hypervel\Coordinator\Constants;
@@ -387,9 +388,9 @@ class BatchingWriterTest extends TestCase
         $this->assertSame(0, $writer->getPendingPoints());
     }
 
-    public function testACancelledFlushLeavesTheBatchesItDidNotReachBuffered(): void
+    public function testACancelledFlushKeepsTheBatchesItDidNotReachBuffered(): void
     {
-        $writer = $this->writer(responses: [new CanceledException('Cancelled.'), new Response(204)]);
+        $writer = $this->writer(responses: [new CanceledException('Cancelled.'), new Response(204), new Response(204)]);
 
         $writer->write('cpu load=1i 1');
         $writer->write('cpu load=2i 2', null, 'other-bucket');
@@ -401,14 +402,15 @@ class BatchingWriterTest extends TestCase
         } catch (CanceledException) {
         }
 
-        $this->assertSame(1, $writer->getPendingPoints());
+        $this->assertSame(2, $writer->getPendingPoints());
 
         $writer->flush();
 
-        // The first request is the one the cancellation interrupted.
+        // The first request is the one the cancellation interrupted, and its batch is sent again.
         $this->assertSame([
             '/api/v2/write?org=main-org&bucket=main-bucket&precision=ns',
             '/api/v2/write?org=main-org&bucket=other-bucket&precision=ns',
+            '/api/v2/write?org=main-org&bucket=main-bucket&precision=ns',
         ], $this->sentTo());
         $this->assertSame(0, $writer->getPendingPoints());
     }
@@ -744,7 +746,7 @@ class BatchingWriterTest extends TestCase
     public function testACancelledSendIsThrownOnRatherThanReported(): void
     {
         $reported = Exceptions::fake();
-        $writer = $this->writer(responses: [new CanceledException('Cancelled.')]);
+        $writer = $this->writer(responses: [new CanceledException('Cancelled.'), new Response(204)]);
 
         $writer->write('cpu load=1i 1');
 
@@ -757,6 +759,68 @@ class BatchingWriterTest extends TestCase
         }
 
         $reported->assertNothingReported();
+        $this->assertSame(1, $writer->getPendingPoints());
+
+        $writer->flush();
+
+        $this->assertSame([['cpu load=1i 1'], ['cpu load=1i 1']], $this->sentBatches());
+        $this->assertSame(0, $writer->getPendingPoints());
+    }
+
+    public function testACancelledSendKeepsItsBatchAheadOfThePointsBufferedSince(): void
+    {
+        $writer = $this->writer(responses: [new CanceledException('Cancelled.'), new Response(204)]);
+
+        $writer->write('cpu load=1i 1');
+
+        $sending = Coroutine::create(function () use ($writer): void {
+            try {
+                $writer->flush();
+            } catch (CanceledException) {
+            }
+        });
+
+        Coroutine::join([$sending]);
+
+        $writer->write('cpu load=2i 2');
+        $writer->flush();
+
+        $this->assertSame([['cpu load=1i 1'], ['cpu load=1i 1', 'cpu load=2i 2']], $this->sentBatches());
+        $this->assertSame(0, $writer->getPendingPoints());
+    }
+
+    public function testACancelledFlushArmsTheFlushTimerAgain(): void
+    {
+        $writer = $this->writer(['flushInterval' => 0.05], [new CanceledException('Cancelled.'), new Response(204)]);
+
+        $writer->write('cpu load=1i 1');
+
+        try {
+            $writer->flush();
+        } catch (CanceledException) {
+        }
+
+        Coroutine::sleep(0.2);
+
+        $this->assertSame([['cpu load=1i 1'], ['cpu load=1i 1']], $this->sentBatches());
+        $this->assertSame(0, $writer->getPendingPoints());
+    }
+
+    public function testABatchWhoseCoroutineCannotStartStaysPendingAndIsSentByTheNextFlush(): void
+    {
+        $reported = Exceptions::fake();
+        $writer = $this->writer(['batchSize' => 2], self::accepted(), class: UnstartableBatchingWriter::class);
+
+        $writer->write('cpu load=1i 1');
+        $writer->write('cpu load=2i 2');
+
+        $this->assertSame(2, $writer->getPendingPoints());
+        $this->assertSame([], $this->history);
+        $reported->assertReported(RuntimeException::class);
+
+        $writer->flush();
+
+        $this->assertSame([['cpu load=1i 1', 'cpu load=2i 2']], $this->sentBatches());
         $this->assertSame(0, $writer->getPendingPoints());
     }
 
@@ -840,5 +904,16 @@ class BatchingWriterTest extends TestCase
         while (! $condition() && microtime(true) < $deadline) {
             usleep(5_000);
         }
+    }
+}
+
+/**
+ * A writer whose worker is at max_coroutine: no send can start a coroutine.
+ */
+class UnstartableBatchingWriter extends BatchingWriter
+{
+    protected function spawn(Closure $send): void
+    {
+        throw new RuntimeException('Too many coroutines.');
     }
 }
