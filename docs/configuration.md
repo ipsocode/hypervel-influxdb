@@ -204,9 +204,12 @@ use InfluxDB2\WriteType;
 ],
 ```
 
-`timeout`, `proxy` and `verifySSL` configure the Guzzle client that
-`InfluxDB2\Client` builds for itself. With `httpClient` set to a PSR-18 client
-of your own, they are not applied, so configure that client instead.
+`timeout`, `proxy` and `verifySSL` configure the Guzzle client that the
+connection builds for itself, which reports a refused connection, a DNS failure,
+a reset or a timeout to the client's write retries as a network error. With
+`httpClient` set to a PSR-18 client of your own, they are not applied, so
+configure that client instead; it is used as given, so its network failures are
+retried only if they reach the client as `Http\Client\Exception\NetworkException`.
 `allow_redirects`, `debug` and the token apply to either.
 
 The package's own requests go through transports built from the same options:
