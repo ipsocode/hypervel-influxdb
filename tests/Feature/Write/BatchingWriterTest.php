@@ -495,6 +495,56 @@ class BatchingWriterTest extends TestCase
         $this->assertStringStartsWith(ApiException::class . ': [503]', $failed->exception);
     }
 
+    public function testAFailureTheClientDoesNotRetryCountsAsOneAttempt(): void
+    {
+        Exceptions::fake();
+        $store = new class implements FailureStore {
+            /** @var list<FailedBatch> */
+            public array $batches = [];
+
+            public function store(FailedBatch $batch): void
+            {
+                $this->batches[] = $batch;
+            }
+        };
+        $writer = $this->writer(['onFailure' => $store], [new Response(400, [], '{"code":"invalid","message":"unable to parse"}')], 0, ['maxRetries' => 2, 'retryInterval' => 1, 'maxRetryDelay' => 1]);
+
+        $writer->write('cpu load=1i 1');
+        $writer->flush();
+
+        $this->assertCount(1, $this->history);
+        $this->assertCount(1, $store->batches);
+        $this->assertSame(1, $store->batches[0]->attempts);
+        $this->assertStringStartsWith(ApiException::class . ': [400]', $store->batches[0]->exception);
+    }
+
+    public function testBatchesSentAtOnceCountTheirOwnAttempts(): void
+    {
+        Exceptions::fake();
+        $store = new class implements FailureStore {
+            /** @var list<FailedBatch> */
+            public array $batches = [];
+
+            public function store(FailedBatch $batch): void
+            {
+                $this->batches[] = $batch;
+            }
+        };
+        $writer = $this->writer(
+            ['batchSize' => 1, 'onFailure' => $store],
+            array_fill(0, 4, new Response(503)),
+            20,
+            ['maxRetries' => 1, 'retryInterval' => 1, 'maxRetryDelay' => 1],
+        );
+
+        $writer->write('cpu load=1i 1');
+        $writer->write('cpu load=2i 2');
+        $writer->flush();
+
+        $this->assertCount(4, $this->history);
+        $this->assertSame([2, 2], array_map(static fn (FailedBatch $batch): int => $batch->attempts, $store->batches));
+    }
+
     /**
      * @param array<string, mixed> $batching
      */

@@ -234,7 +234,8 @@ Name the driver as `'onFailure' => 'log'` or `['driver' => 'log']`; an
 unknown driver throws an `InvalidArgumentException` when the connection is
 resolved. A driver is a `FailureStore`, handed a `FailedBatch` that carries the
 `connection`, `bucket`, `org`, `precision` and `payload` of the batch, its
-`attempts` (the first try and each retry), when it `failedAt`, and the
+`attempts` (the first try and each retry the client made: a failure it
+does not retry, such as a 400, counts once), when it `failedAt`, and the
 `exception` that failed it. Durable drivers are to follow.
 
 A class name is resolved from the container, and keeps the config cacheable,

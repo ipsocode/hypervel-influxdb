@@ -19,7 +19,7 @@ final class FailedBatch
      * @param string $org the org it was going to
      * @param string $precision the precision of its timestamps
      * @param string $payload its line protocol, one point per line
-     * @param int $attempts the times it was sent: the first try and each retry
+     * @param int $attempts the times it was sent: the first try and each retry the client made
      * @param DateTimeImmutable $failedAt when its last attempt failed
      * @param string $exception the class and message of the failure
      */
@@ -36,9 +36,9 @@ final class FailedBatch
     }
 
     /**
-     * Describe a batch that failed with the given exception after the given number of retries.
+     * Describe a batch that failed with the given exception after the given number of attempts.
      */
-    public static function from(BatchWriteException $exception, int $retries): self
+    public static function from(BatchWriteException $exception, int $attempts): self
     {
         $cause = $exception->getPrevious() ?? $exception;
 
@@ -48,7 +48,7 @@ final class FailedBatch
             $exception->batch->org,
             $exception->batch->precision,
             $exception->batch->payload,
-            $retries + 1,
+            $attempts,
             new DateTimeImmutable,
             sprintf('%s: %s', $cause::class, $cause->getMessage()),
         );
