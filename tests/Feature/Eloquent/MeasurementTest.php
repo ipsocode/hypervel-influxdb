@@ -293,12 +293,27 @@ class MeasurementTest extends TestCase
                 InvalidArgumentException::class,
                 '[like] is not an InfluxQL operator; use one of =, <, >, <=, >=, <>, !=, =~, !~.',
             ],
-            'chunkById' => [
-                static fn (): mixed => Cpu::query()->chunkById(10, static fn (): null => null),
-                RuntimeException::class,
-                'InfluxQL has no IS NOT NULL; a field or tag cannot be compared with null.',
-            ],
         ];
+    }
+
+    public function testPagingByIdAndReloadingByTimeAreRefusedBeforeAnythingIsSent(): void
+    {
+        foreach ([
+            static fn (): mixed => Cpu::query()->chunkById(10, static fn (): null => null),
+            static fn (): mixed => Cpu::query()->lazyById(10),
+            static fn (): mixed => (new Cpu)->newFromBuilder(['time' => '2024-01-01T00:00:00Z'])->refresh(),
+            static fn (): mixed => (new Cpu)->newFromBuilder(['time' => '2024-01-01T00:00:00Z'])->fresh(),
+        ] as $call) {
+            try {
+                $call();
+
+                $this->fail('No exception was thrown.');
+            } catch (LogicException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+
+        $this->assertSame([], $this->statements());
     }
 
     public function testAStatementTheServerRefusesIsAHypervelQueryException(): void
