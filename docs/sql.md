@@ -103,7 +103,9 @@ events, query log and `pretend()` work as they do on any other. `pretend()`
 sends nothing, and logs each statement with its values embedded, as it would
 be sent, a date as the string the connection would write.
 `setDatabaseName()` sends the connection's statements to another database
-until Hypervel's pool takes the connection back and resets it.
+until Hypervel's pool takes the connection back and resets it. A reconnect,
+whether after a lost connection or an explicit `DB::reconnect()`, keeps the
+database it chose.
 
 An Eloquent model reads through the connection too: extend
 `Ipsocode\InfluxDB\Eloquent\Measurement`, which makes
