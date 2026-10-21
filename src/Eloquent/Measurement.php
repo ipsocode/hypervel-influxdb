@@ -11,7 +11,8 @@ use LogicException;
 /**
  * A read-only Eloquent model of an InfluxDB measurement, on either of the package's drivers.
  *
- * Points are keyed by `time`, which is not unique: find() returns one of the points at that time.
+ * Points are keyed by `time`, which is not unique: find() returns one of the points at that time, so refresh()
+ * and fresh() are refused, as are chunkById() and lazyById() (and, on SQL, a cursorPaginate() ordered by time alone).
  * save() and delete() throw, and every model write built on them: write through InfluxDB::writeApi().
  * A `datetime` cast on `time` breaks chunkById() and lazyById(), and reads an `epoch` integer as seconds.
  * On influxql, findMany() and whereKey() with several keys find nothing: InfluxQL cannot OR times.
@@ -80,6 +81,28 @@ abstract class Measurement extends Model
     }
 
     /**
+     * Refuse to reload the model: its `time` can name a point of another series.
+     *
+     * @throws LogicException
+     */
+    public function refresh(): static
+    {
+        $this->refuseReload('refresh()');
+    }
+
+    /**
+     * Refuse to reload the model: its `time` can name a point of another series.
+     *
+     * @param array<string>|string $with
+     *
+     * @throws LogicException
+     */
+    public function fresh(array|string $with = []): ?static
+    {
+        $this->refuseReload('fresh()');
+    }
+
+    /**
      * Create a new Eloquent query builder for the model.
      *
      * A measurement that names its own builder with #[UseEloquentBuilder]
@@ -114,6 +137,16 @@ abstract class Measurement extends Model
         $builder = new $builderClass($query);
 
         return $builder;
+    }
+
+    /**
+     * Refuse a reload by `time`, before anything is sent.
+     *
+     * @throws LogicException
+     */
+    private function refuseReload(string $method): never
+    {
+        throw new LogicException(sprintf('%s reloads the point at its time, which can belong to another series; query the point again with its tags.', $method));
     }
 
     /**

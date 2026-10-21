@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Ipsocode\InfluxDB\Tests\Feature\Eloquent;
 
 use Closure;
+use DateTimeImmutable;
+use DateTimeZone;
 use GuzzleHttp\Client as Guzzle;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
@@ -84,6 +86,96 @@ class MeasurementOnSqlTest extends TestCase
         $this->assertSame('2024-01-01T00:00:10', $cpu->getKey());
         $this->assertSame(['time' => '2024-01-01T00:00:10', 'host' => 'web1', 'usage_user' => 0.64], $cpu->toArray());
         $this->assertSame(['select * from "cpu" where "cpu"."time" = \'2024-01-01T00:00:10Z\' limit 1'], $this->statements());
+    }
+
+    public function testFindKeepsTheInstantOfADateOutsideUtc(): void
+    {
+        $this->responses->append(self::rows([['time' => '2024-01-01T00:00:10.5', 'host' => 'web1', 'usage_user' => 0.64]]));
+
+        Cpu::find(new DateTimeImmutable('2024-01-01 02:00:10.5', new DateTimeZone('+02:00')));
+
+        $this->assertSame(['select * from "cpu" where "cpu"."time" = \'2024-01-01T02:00:10.500000+02:00\' limit 1'], $this->statements());
+        $this->assertSame(
+            'select * from "cpu" where "cpu"."time" <> \'2024-01-01T00:00:10.000000+00:00\'',
+            Cpu::query()->whereKeyNot(new DateTimeImmutable('2024-01-01 00:00:10', new DateTimeZone('UTC')))->toRawSql(),
+        );
+    }
+
+    #[DataProvider('pagingOnTime')]
+    public function testPagingOnTimeIsRefusedBeforeAnythingIsSent(Closure $page, string $message): void
+    {
+        try {
+            $page();
+
+            $this->fail('No exception was thrown.');
+        } catch (LogicException $exception) {
+            $this->assertSame($message, $exception->getMessage());
+            $this->assertSame([], $this->history);
+        }
+    }
+
+    /**
+     * @return array<string, array{Closure(): mixed, string}>
+     */
+    public static function pagingOnTime(): array
+    {
+        $byId = 'pages on time, which several series can share, so it would skip points; page with chunk() or lazy().';
+        $cursor = 'cursorPaginate() ordered by time alone skips the points that share the timestamp a page ends on; order by another column too, or page with chunk() or lazy().';
+
+        return [
+            'chunkById' => [static fn (): mixed => Cpu::query()->chunkById(2, static fn (): null => null), 'chunkById() ' . $byId],
+            'chunkByIdDesc' => [static fn (): mixed => Cpu::query()->chunkByIdDesc(2, static fn (): null => null, 'time'), 'chunkById() ' . $byId],
+            'eachById' => [static fn (): mixed => Cpu::query()->eachById(static fn (): null => null, 2), 'chunkById() ' . $byId],
+            'lazyById' => [static fn (): mixed => Cpu::query()->lazyById(2), 'lazyById() ' . $byId],
+            'lazyByIdDesc' => [static fn (): mixed => Cpu::query()->lazyByIdDesc(2), 'lazyById() ' . $byId],
+            'cursorPaginate' => [static fn (): mixed => Cpu::query()->cursorPaginate(2), $cursor],
+            'cursorPaginate ordered by time' => [static fn (): mixed => Cpu::query()->orderBy('cpu.time')->cursorPaginate(2), $cursor],
+        ];
+    }
+
+    public function testPagingByAnotherColumnIsStillAllowed(): void
+    {
+        $this->responses->append(self::rows([['time' => '2024-01-01T00:00:00', 'host' => 'web1', 'usage_user' => 0.64]]));
+        $this->responses->append(self::rows([['time' => '2024-01-01T00:00:00', 'host' => 'web1', 'usage_user' => 0.64]]));
+
+        $page = Cpu::query()->orderBy('host')->orderBy('time')->cursorPaginate(2);
+        $chunks = 0;
+        Cpu::query()->chunkById(2, static function () use (&$chunks): bool {
+            ++$chunks;
+
+            return false;
+        }, 'host');
+
+        $this->assertCount(1, $page->items());
+        $this->assertSame(1, $chunks);
+
+        $this->responses->append(self::rows([['time' => '2024-01-01T00:00:00', 'host' => 'web1', 'usage_user' => 0.64]]));
+
+        $this->assertCount(1, Cpu::query()->lazyById(2, 'host')->take(1)->all());
+    }
+
+    #[DataProvider('reloads')]
+    public function testReloadingAPointByItsTimeIsRefusedBeforeAnythingIsSent(Closure $reload, string $method): void
+    {
+        try {
+            $reload();
+
+            $this->fail('No exception was thrown.');
+        } catch (LogicException $exception) {
+            $this->assertSame($method . ' reloads the point at its time, which can belong to another series; query the point again with its tags.', $exception->getMessage());
+            $this->assertSame([], $this->history);
+        }
+    }
+
+    /**
+     * @return array<string, array{Closure(): mixed, string}>
+     */
+    public static function reloads(): array
+    {
+        return [
+            'refresh' => [static fn (): mixed => self::point()->refresh(), 'refresh()'],
+            'fresh' => [static fn (): mixed => self::point()->fresh(), 'fresh()'],
+        ];
     }
 
     public function testSeveralKeysAreComparedInOneWhereIn(): void
