@@ -1377,6 +1377,8 @@ class Builder
      * Chunk the results of the query.
      *
      * InfluxQL returns points in time order anyway, so no order is enforced, unlike Hypervel's chunk().
+     * It applies LIMIT and OFFSET to each series, so a query grouped by tags pages through up to $count
+     * points of every series: the paging stops on a page shorter than $count, not on one of exactly $count.
      *
      * @param callable(Collection<int, stdClass>, int): mixed $callback
      *
@@ -1421,7 +1423,7 @@ class Builder
             unset($results);
 
             ++$page;
-        } while ($countResults === $count);
+        } while ($countResults >= $count);
 
         return true;
     }

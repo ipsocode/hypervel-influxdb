@@ -16,6 +16,8 @@ use Hypervel\Database\Eloquent\Relations\Relation;
 use Hypervel\Database\MultipleRecordsFoundException;
 use Hypervel\Database\Query\Builder as QueryBuilder;
 use Hypervel\Database\RecordsNotFoundException;
+use Hypervel\Pagination\Cursor;
+use Hypervel\Pagination\CursorPaginator;
 use Hypervel\Support\Arr;
 use Hypervel\Support\Collection;
 use InvalidArgumentException;
@@ -499,6 +501,64 @@ class Builder extends QueryBuilder
     }
 
     /**
+     * Chunk the results of the query.
+     *
+     * InfluxQL applies LIMIT and OFFSET to each series, so a query grouped by tags pages through up to
+     * $count points of every series: the paging stops on a page shorter than $count, not on one of exactly $count.
+     *
+     * @param callable(Collection<int, stdClass>, int): mixed $callback
+     *
+     * @throws InvalidArgumentException
+     */
+    public function chunk(int $count, callable $callback): bool
+    {
+        if ($count < 1) {
+            throw new InvalidArgumentException('The chunk size should be at least 1');
+        }
+
+        $clone = clone $this;
+
+        $clone->enforceOrderBy();
+
+        $skip = $clone->getOffset();
+        $remaining = $clone->getLimit();
+
+        $page = 1;
+
+        do {
+            $offset = (($page - 1) * $count) + (int) $skip;
+
+            $limit = is_null($remaining) ? $count : min($count, $remaining);
+
+            if ($limit === 0) {
+                break;
+            }
+
+            $results = $clone->offset($offset)->limit($limit)->get();
+
+            $countResults = $results->count();
+
+            if ($countResults === 0) {
+                break;
+            }
+
+            if (! is_null($remaining)) {
+                $remaining = max($remaining - $countResults, 0);
+            }
+
+            if ($callback($results, $page) === false) {
+                return false;
+            }
+
+            unset($results);
+
+            ++$page;
+        } while ($countResults >= $count);
+
+        return true;
+    }
+
+    /**
      * Execute an aggregate function on the database.
      *
      * The result is the column the grammar names `aggregate`, or else the first after `time`:
@@ -561,6 +621,65 @@ class Builder extends QueryBuilder
         if (empty($this->orders)) {
             $this->orderBy('time');
         }
+    }
+
+    /**
+     * Paginate the query using a cursor, reading an integer `time` in the connection's epoch.
+     *
+     * InfluxQL reads a bare integer compared with `time` as nanoseconds, so with an `epoch` the cursor's
+     * `time` is turned back into the RFC3339 timestamp it stands for.
+     *
+     * @param array<string>|string $columns
+     * @return CursorPaginator<int, stdClass>
+     */
+    protected function paginateUsingCursor(
+        int $perPage,
+        array|string $columns = ['*'],
+        string $cursorName = 'cursor',
+        Cursor|string|null $cursor = null,
+    ): CursorPaginator {
+        if (! $cursor instanceof Cursor) {
+            $cursor = is_string($cursor)
+                ? Cursor::fromEncoded($cursor)
+                : CursorPaginator::resolveCurrentCursor($cursorName, $cursor);
+        }
+
+        /** @var Connection $connection */
+        $connection = $this->connection;
+        $epoch = $connection->getInfluxQL()->getEpoch();
+
+        if ($cursor !== null && $epoch !== null && $epoch !== 'ns') {
+            $parameters = $cursor->toArray();
+            $time = $parameters['time'] ?? null;
+
+            if (is_int($time)) {
+                unset($parameters['_pointsToNextItems']);
+                $parameters['time'] = $this->timestampFromEpoch($time, $epoch);
+                $cursor = new Cursor($parameters, $cursor->pointsToNextItems());
+            }
+        }
+
+        return parent::paginateUsingCursor($perPage, $columns, $cursorName, $cursor);
+    }
+
+    /**
+     * Turn an integer time in the given epoch into an RFC3339 timestamp, in UTC.
+     */
+    protected function timestampFromEpoch(int $time, string $epoch): string
+    {
+        $perSecond = ['u' => 1_000_000, 'ms' => 1_000][$epoch] ?? null;
+
+        if ($perSecond === null) {
+            $seconds = $time * ['s' => 1, 'm' => 60, 'h' => 3600, 'd' => 86400, 'w' => 604800][$epoch];
+
+            return gmdate('Y-m-d\TH:i:s\Z', $seconds);
+        }
+
+        return sprintf(
+            '%s.%09dZ',
+            gmdate('Y-m-d\TH:i:s', intdiv($time, $perSecond)),
+            ($time % $perSecond) * intdiv(1_000_000_000, $perSecond),
+        );
     }
 
     /**
