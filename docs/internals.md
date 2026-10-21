@@ -243,12 +243,15 @@ and the `maxBuffered` check count a batch until its send is over.
 `buffer()` first dispatches the batch the new lines would take past
 `batchSize` or `batchBytes`, so no request outgrows them, then adds the lines,
 and dispatches their batch once it is full. `dispatch()` sends from a
-coroutine of its own, registered in `$sends` with a `Coordinator` its
-`finally` resumes. `flush()` walks the batch keys it found when it started and
+coroutine of its own. Every `send()` registers in `$sends`, whichever
+coroutine runs it, with a `Coordinator` its `finally` resumes. `flush()` walks the batch keys it found when it started and
 takes each batch only when its turn comes, so a batch another coroutine takes
 meanwhile is not sent twice, and one this coroutine never reaches, if it is
 cancelled, is still buffered. Then `awaitSends()` waits on every coordinator
-in `$sends` but the calling coroutine's own, which would wait for itself.
+in `$sends` but the calling coroutine's own, which would wait for itself. A
+coroutine that is sending never waits, and a write from it never flushes on
+overflow: it buffers, and the timer or the next flush sends the points. Two
+sends waiting on each other could never finish.
 
 A write that would take the points waiting, buffered or being sent, past
 `maxBuffered` is refused before anything changes when `overflow` is `refuse`;

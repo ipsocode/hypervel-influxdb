@@ -400,6 +400,64 @@ class BatchingWriterTest extends TestCase
         $this->assertSame(0, $writer->getPendingPoints());
     }
 
+    public function testFlushAndCloseWaitForABatchAnotherCoroutineIsSending(): void
+    {
+        $writer = $this->writer(responses: self::accepted(2), delay: 50);
+
+        $writer->write('cpu load=1i 1');
+
+        // This flush takes the batch and yields while the server answers.
+        $flushing = Coroutine::create(fn () => $writer->flush());
+
+        $writer->flush();
+
+        $this->assertSame([['cpu load=1i 1']], $this->sentBatches());
+        $this->assertSame(0, $writer->getPendingPoints());
+
+        Coroutine::join([$flushing]);
+
+        $writer->write('cpu load=2i 2');
+
+        $flushing = Coroutine::create(fn () => $writer->flush());
+
+        $writer->close();
+
+        $this->assertSame([['cpu load=1i 1'], ['cpu load=2i 2']], $this->sentBatches());
+        $this->assertSame(0, $writer->getPendingPoints());
+
+        Coroutine::join([$flushing]);
+    }
+
+    public function testAnOnFailureThatWritesTheBatchBackDoesNotDeadlockTheWriter(): void
+    {
+        Exceptions::fake();
+        $returned = [];
+        $writer = $this->writer(
+            ['batchSize' => 1, 'maxBuffered' => 2, 'onFailure' => function (Batch $batch) use (&$returned, &$writer): void {
+                if (! in_array($batch->payload, $returned, true)) {
+                    $returned[] = $batch->payload;
+
+                    $writer->writeRaw($batch->payload, $batch->precision, $batch->bucket, $batch->org);
+                }
+            }],
+            array_fill(0, 4, new Response(503, [], 'unavailable')),
+            delay: 50,
+        );
+
+        $writer->write('cpu load=1i 1');
+        $writer->write('cpu load=2i 2');
+
+        // Both sends fail while two points are waiting: each write-back overflows maxBuffered from a send's own coroutine.
+        $writer->flush();
+
+        // The write-backs are batches of their own, sent after the flush began.
+        $writer->flush();
+
+        $this->assertCount(4, $this->history);
+        $this->assertSame(0, $writer->getPendingPoints());
+        $this->assertEqualsCanonicalizing(['cpu load=1i 1', 'cpu load=2i 2'], $returned);
+    }
+
     public function testABatchIsRetriedAsTheClientRetriesASynchronousWrite(): void
     {
         $reported = Exceptions::fake();
@@ -539,6 +597,9 @@ class BatchingWriterTest extends TestCase
 
         $writer->write('cpu load=1i 1');
         $writer->write('cpu load=2i 2');
+        $writer->flush();
+
+        // The write-backs are batches of their own, sent after the flush began.
         $writer->flush();
 
         $this->assertCount(4, $this->history);
