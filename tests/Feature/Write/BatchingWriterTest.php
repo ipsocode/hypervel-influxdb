@@ -188,6 +188,34 @@ class BatchingWriterTest extends TestCase
         $writer->writeRaw('cpu load=1i 1', null, ' ');
     }
 
+    public function testWriteRawFallsBackToTheConnectionsOptionsForEmptyArguments(): void
+    {
+        $writer = $this->writer(responses: self::accepted());
+
+        $writer->writeRaw('cpu load=1i 1', '', '', '');
+        $writer->flush();
+
+        $this->assertSame(['/api/v2/write?org=main-org&bucket=main-bucket&precision=ns'], $this->sentTo());
+    }
+
+    public function testWriteRawRefusesAnEmptyBucketWithoutNamingTheToken(): void
+    {
+        $writer = new BatchingWriter(
+            ['url' => 'http://localhost:8086', 'token' => 'main-token', 'bucket' => '', 'org' => 'main-org', 'precision' => 'ns'],
+            'main',
+            new BatchOptions(100, 1_000_000, 60.0, 1_000),
+        );
+
+        try {
+            $writer->writeRaw('cpu load=1i 1', null, '');
+
+            $this->fail('No exception was thrown.');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame("The 'bucket' should be defined as argument or default option.", $exception->getMessage());
+            $this->assertStringNotContainsString('main-token', $exception->getMessage());
+        }
+    }
+
     public function testAWriteWithoutLinesBuffersNothing(): void
     {
         $writer = $this->writer();

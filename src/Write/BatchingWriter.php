@@ -11,6 +11,7 @@ use Hypervel\Coordinator\Timer;
 use Hypervel\Coroutine\Coroutine;
 use InfluxDB2\WriteApi;
 use InfluxDB2\WriteType;
+use InvalidArgumentException;
 use Psr\Http\Message\ResponseInterface;
 use Swoole\Coroutine\CanceledException;
 use Throwable;
@@ -143,13 +144,16 @@ class BatchingWriter extends WriteApi
      */
     public function writeRaw(string $data, ?string $precision = null, ?string $bucket = null, ?string $org = null): void
     {
-        $precision ??= $this->options['precision'] ?? null;
-        $bucket ??= $this->options['bucket'] ?? null;
-        $org ??= $this->options['org'] ?? null;
+        $precision = $precision ?: ($this->options['precision'] ?? null);
+        $bucket = $bucket ?: ($this->options['bucket'] ?? null);
+        $org = $org ?: ($this->options['org'] ?? null);
 
-        $this->check('precision', $precision);
-        $this->check('bucket', $bucket);
-        $this->check('org', $org);
+        foreach (['precision' => $precision, 'bucket' => $bucket, 'org' => $org] as $option => $value) {
+            // The client's own check() lists every option, the token included, in its message.
+            if (trim((string) $value) === '') {
+                throw new InvalidArgumentException("The '{$option}' should be defined as argument or default option.");
+            }
+        }
 
         $this->buffer(rtrim($data, "\n"), (string) $precision, (string) $bucket, (string) $org);
     }

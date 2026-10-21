@@ -339,6 +339,61 @@ class SqlConnectionTest extends TestCase
         $this->assertSame(['POST /api/v3/query_sql', 'POST /api/v3/query_sql'], $this->requestLines());
     }
 
+    public function testAnErrorTheServerAnsweredIsNotRetriedWhateverItsMessageQuotes(): void
+    {
+        $this->responses->append(
+            new Response(400, ['Content-Type' => 'text/plain'], "Error parsing timestamp from 'it went away'"),
+            self::rows([['host' => 'web1']]),
+        );
+
+        try {
+            DB::connection('influxdb')->table('cpu')->where('time', '>=', 'it went away')->get();
+
+            $this->fail('No exception was thrown.');
+        } catch (QueryException $exception) {
+            $this->assertInstanceOf(ApiException::class, $exception->getPrevious());
+            $this->assertSame(['POST /api/v3/query_sql'], $this->requestLines());
+        }
+    }
+
+    #[DataProvider('floats')]
+    public function testAFloatIsEmbeddedExactly(float $value, string $literal): void
+    {
+        $this->assertSame(
+            'select * from "cpu" where "usage_user" = ' . $literal,
+            DB::connection('influxdb')->table('cpu')->where('usage_user', $value)->toRawSql(),
+        );
+    }
+
+    /**
+     * @return array<string, array{float, string}>
+     */
+    public static function floats(): array
+    {
+        return [
+            'more than 14 digits' => [0.6400000000000001, '0.6400000000000001'],
+            'a large mantissa' => [1234567.891234567, '1234567.891234567'],
+            'a whole number' => [2.0, '2.0'],
+            'an exponent' => [1.0E+25, '1.0E+25'],
+        ];
+    }
+
+    #[DataProvider('nonFiniteFloats')]
+    public function testAFloatWithoutALiteralIsRefused(float $value): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        DB::connection('influxdb')->table('cpu')->where('usage_user', $value)->toRawSql();
+    }
+
+    /**
+     * @return array<string, array{float}>
+     */
+    public static function nonFiniteFloats(): array
+    {
+        return ['INF' => [INF], 'NAN' => [NAN]];
+    }
+
     public function testALostConnectionRetryKeepsTheDatabaseSetDatabaseNameChose(): void
     {
         $this->responses->append(
@@ -378,6 +433,7 @@ class SqlConnectionTest extends TestCase
             'insert' => [static fn (Connection $db): mixed => $db->table('cpu')->insert(['host' => 'web1'])],
             'insertGetId' => [static fn (Connection $db): mixed => $db->table('cpu')->insertGetId(['host' => 'web1'])],
             'insertOrIgnore' => [static fn (Connection $db): mixed => $db->table('cpu')->insertOrIgnore(['host' => 'web1'])],
+            'insertOrIgnoreReturning' => [static fn (Connection $db): mixed => $db->table('cpu')->insertOrIgnoreReturning(['host' => 'web1'])],
             'upsert' => [static fn (Connection $db): mixed => $db->table('cpu')->upsert([['host' => 'web1', 'usage_user' => 1]], ['host'])],
             'update' => [static fn (Connection $db): mixed => $db->table('cpu')->where('host', 'web1')->update(['usage_user' => 1])],
             'increment' => [static fn (Connection $db): mixed => $db->table('cpu')->increment('usage_user')],

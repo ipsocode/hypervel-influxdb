@@ -257,6 +257,28 @@ class SqlConnection extends Connection
     }
 
     /**
+     * Escape a value for safe SQL embedding.
+     *
+     * A float is written with the shortest representation that round-trips, where
+     * `(string)` follows PHP's `precision` setting and drops digits. DataFusion reads
+     * an exponent, and reads NAN and INF as column names, so those are refused.
+     *
+     * @throws InvalidArgumentException for NAN or INF
+     */
+    public function escape(mixed $value, bool $binary = false): string
+    {
+        if (is_float($value) && ! $binary) {
+            if (! is_finite($value)) {
+                throw new InvalidArgumentException('InfluxDB 3 SQL has no literal for NAN or INF.');
+            }
+
+            return var_export($value, true);
+        }
+
+        return parent::escape($value, $binary);
+    }
+
+    /**
      * Escape a string value for safe SQL embedding.
      *
      * DataFusion reads a doubled `'` as a string literal's only escape, and a backslash as itself.
