@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 10
 
     concurrency:
-      group: integration-${{ github.job }}-${{ github.event.pull_request.number || github.ref }}
+      group: integration-influxdb1-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.ref_name != 'main' }}
 
     container:
@@ -68,7 +68,7 @@ jobs:
     timeout-minutes: 10
 
     concurrency:
-      group: integration-${{ github.job }}-${{ github.event.pull_request.number || github.ref }}
+      group: integration-influxdb2-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.ref_name != 'main' }}
 
     container:
@@ -120,7 +120,7 @@ jobs:
     timeout-minutes: 10
 
     concurrency:
-      group: integration-${{ github.job }}-${{ github.event.pull_request.number || github.ref }}
+      group: integration-influxdb3-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.ref_name != 'main' }}
 
     container:
