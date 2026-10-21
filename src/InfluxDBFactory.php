@@ -49,9 +49,14 @@ class InfluxDBFactory
 
         $config += [
             'verifySSL' => true,
-            'precision' => 'ns',
             'debug' => false,
         ];
+
+        // An empty INFLUXDB_PRECISION reads as '' or null: the client would put every option,
+        // the token included, into the message of the exception it throws on the first write.
+        if (! is_string($config['precision'] ?? null) || $config['precision'] === '') {
+            $config['precision'] = 'ns';
+        }
 
         if (empty($config['httpClient'])) {
             $config['httpClient'] = new PluginClient(new Guzzle([
