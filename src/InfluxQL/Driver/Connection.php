@@ -104,6 +104,8 @@ class Connection extends DatabaseConnection
      * GROUP BY tags appended; series() keeps them apart.
      * `$useReadPdo` and `$fetchUsing` configure PDO, which the connection does not use.
      *
+     * @param list<mixed> $bindings
+     * @param array<mixed> $fetchUsing
      * @return list<stdClass>
      */
     public function select(string $query, array $bindings = [], bool $useReadPdo = true, array $fetchUsing = []): array
@@ -116,6 +118,8 @@ class Connection extends DatabaseConnection
      *
      * The server answers with the whole result at once, so this yields the rows select() reads.
      *
+     * @param list<mixed> $bindings
+     * @param array<mixed> $fetchUsing
      * @return Generator<int, stdClass>
      */
     public function cursor(string $query, array $bindings = [], bool $useReadPdo = true, array $fetchUsing = []): Generator
@@ -140,6 +144,8 @@ class Connection extends DatabaseConnection
 
     /**
      * Execute a statement whose result is not needed, such as `DELETE` or `SELECT ... INTO`.
+     *
+     * @param list<mixed> $bindings
      */
     public function statement(string $query, array $bindings = []): bool
     {
@@ -148,6 +154,8 @@ class Connection extends DatabaseConnection
 
     /**
      * Run a statement that could affect points, and return 0: InfluxQL reports no count.
+     *
+     * @param list<mixed> $bindings
      */
     public function affectingStatement(string $query, array $bindings = []): int
     {
@@ -167,6 +175,7 @@ class Connection extends DatabaseConnection
     /**
      * Refuse an insert statement: InfluxQL has none.
      *
+     * @param list<mixed> $bindings
      * @throws LogicException
      */
     public function insert(string $query, array $bindings = []): bool
@@ -177,6 +186,7 @@ class Connection extends DatabaseConnection
     /**
      * Refuse an update statement: InfluxQL has none.
      *
+     * @param list<mixed> $bindings
      * @throws LogicException
      */
     public function update(string $query, array $bindings = []): int
@@ -189,6 +199,9 @@ class Connection extends DatabaseConnection
      *
      * A boolean stays a boolean, where Hypervel casts it to 0 or 1 for PDO:
      * InfluxQL compares a boolean field with `true` or `false` only.
+     *
+     * @param array<int|string, mixed> $bindings
+     * @return array<int|string, mixed>
      */
     public function prepareBindings(array $bindings): array
     {

@@ -654,6 +654,8 @@ class Builder
     /**
      * Resolve the start and end dates from a DatePeriod.
      *
+     * @param DatePeriod<DateTimeInterface, null|DateTimeInterface, null|int> $period
+     *
      * @return array{DateTimeInterface, DateTimeInterface}
      */
     protected function resolveDatePeriodBounds(DatePeriod $period): array

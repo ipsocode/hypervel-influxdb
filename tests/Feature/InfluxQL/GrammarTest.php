@@ -35,28 +35,28 @@ class GrammarTest extends TestCase
     #[UnitTest]
     public function testAQueryWithNoColumnsSelectsEverything(): void
     {
-        $this->assertSame('SELECT * FROM "cpu"', $this->table()->toSql());
+        $this->assertSame('select * from "cpu"', $this->table()->toSql());
     }
 
     #[UnitTest]
     public function testColumnsAreDoubleQuotedAndTheWildcardIsNot(): void
     {
-        $this->assertSame('SELECT "usage_user", "host" FROM "cpu"', $this->table()->select('usage_user', 'host')->toSql());
-        $this->assertSame('SELECT "usage_user", "host" FROM "cpu"', $this->table()->select(['usage_user', 'host'])->toSql());
-        $this->assertSame('SELECT *, "host" FROM "cpu"', $this->table()->select('*', 'host')->toSql());
+        $this->assertSame('select "usage_user", "host" from "cpu"', $this->table()->select('usage_user', 'host')->toSql());
+        $this->assertSame('select "usage_user", "host" from "cpu"', $this->table()->select(['usage_user', 'host'])->toSql());
+        $this->assertSame('select *, "host" from "cpu"', $this->table()->select('*', 'host')->toSql());
     }
 
     #[UnitTest]
     public function testAColumnIsQuotedWholeRatherThanSplitOnDots(): void
     {
-        $this->assertSame('SELECT "disk.used" FROM "cpu"', $this->table()->select('disk.used')->toSql());
+        $this->assertSame('select "disk.used" from "cpu"', $this->table()->select('disk.used')->toSql());
     }
 
     #[UnitTest]
     public function testAnAliasIsQuotedOnBothSidesOfAs(): void
     {
         $this->assertSame(
-            'SELECT "usage_user" AS "user", "usage_system" AS "system" FROM "cpu"',
+            'select "usage_user" as "user", "usage_system" as "system" from "cpu"',
             $this->table()->select('usage_user as user', 'usage_system AS system')->toSql(),
         );
     }
@@ -65,17 +65,17 @@ class GrammarTest extends TestCase
     public function testATypeHintStaysOutsideTheQuotes(): void
     {
         $this->assertSame(
-            'SELECT "host"::tag, "value"::field, "load"::float, "count"::integer FROM "cpu"',
+            'select "host"::tag, "value"::field, "load"::float, "count"::integer from "cpu"',
             $this->table()->select('host::tag', 'value::field', 'load::FLOAT', 'count::integer')->toSql(),
         );
-        $this->assertSame('SELECT "value"::field AS "v" FROM "cpu"', $this->table()->select('value::field as v')->toSql());
+        $this->assertSame('select "value"::field as "v" from "cpu"', $this->table()->select('value::field as v')->toSql());
     }
 
     #[UnitTest]
     public function testIdentifiersEscapeQuotesBackslashesAndNewlinesWithABackslash(): void
     {
         $this->assertSame(
-            'SELECT "a\"b", "c\\\d", "e\nf" FROM "cpu"',
+            'select "a\"b", "c\\\d", "e\nf" from "cpu"',
             $this->table()->select('a"b', 'c\d', "e\nf")->toSql(),
         );
     }
@@ -85,45 +85,45 @@ class GrammarTest extends TestCase
     {
         $query = $this->table()->selectRaw('MEAN("value") * ? AS "scaled"', [2]);
 
-        $this->assertSame('SELECT MEAN("value") * ? AS "scaled" FROM "cpu"', $query->toSql());
-        $this->assertSame('SELECT MEAN("value") * 2 AS "scaled" FROM "cpu"', $query->toRawSql());
+        $this->assertSame('select MEAN("value") * ? AS "scaled" from "cpu"', $query->toSql());
+        $this->assertSame('select MEAN("value") * 2 AS "scaled" from "cpu"', $query->toRawSql());
     }
 
     #[UnitTest]
     public function testAddSelectAppendsColumnsOnce(): void
     {
-        $this->assertSame('SELECT "a" FROM "cpu"', $this->table()->addSelect('a')->toSql());
-        $this->assertSame('SELECT "a", "b" FROM "cpu"', $this->table()->select('a')->addSelect('b', 'a')->toSql());
-        $this->assertSame('SELECT "a", "b", "c" FROM "cpu"', $this->table()->select('a')->addSelect(['b', 'c'])->toSql());
+        $this->assertSame('select "a" from "cpu"', $this->table()->addSelect('a')->toSql());
+        $this->assertSame('select "a", "b" from "cpu"', $this->table()->select('a')->addSelect('b', 'a')->toSql());
+        $this->assertSame('select "a", "b", "c" from "cpu"', $this->table()->select('a')->addSelect(['b', 'c'])->toSql());
     }
 
     #[UnitTest]
     public function testDistinctWrapsEachColumnInTheDistinctFunctionAndKeepsTheAliasOutside(): void
     {
-        $this->assertSame('SELECT DISTINCT("host") FROM "cpu"', $this->table()->select('host')->distinct()->toSql());
-        $this->assertSame('SELECT DISTINCT("value") AS "v" FROM "cpu"', $this->table()->select('value as v')->distinct()->toSql());
-        $this->assertSame('SELECT DISTINCT(*) FROM "cpu"', $this->table()->distinct()->toSql());
-        $this->assertSame('SELECT DISTINCT("value"::field) FROM "cpu"', $this->table()->select(new Expression('"value"::field'))->distinct()->toSql());
+        $this->assertSame('select distinct("host") from "cpu"', $this->table()->select('host')->distinct()->toSql());
+        $this->assertSame('select distinct("value") as "v" from "cpu"', $this->table()->select('value as v')->distinct()->toSql());
+        $this->assertSame('select distinct(*) from "cpu"', $this->table()->distinct()->toSql());
+        $this->assertSame('select distinct("value"::field) from "cpu"', $this->table()->select(new Expression('"value"::field'))->distinct()->toSql());
     }
 
     #[UnitTest]
     public function testADottedMeasurementIsQualifiedSegmentBySegment(): void
     {
-        $this->assertSame('SELECT * FROM "telegraf"."autogen"."cpu"', $this->table('telegraf.autogen.cpu')->toSql());
-        $this->assertSame('SELECT * FROM "autogen"."cpu"', $this->table('autogen.cpu')->toSql());
-        $this->assertSame('SELECT * FROM "telegraf".."cpu"', $this->table('telegraf..cpu')->toSql());
+        $this->assertSame('select * from "telegraf"."autogen"."cpu"', $this->table('telegraf.autogen.cpu')->toSql());
+        $this->assertSame('select * from "autogen"."cpu"', $this->table('autogen.cpu')->toSql());
+        $this->assertSame('select * from "telegraf".."cpu"', $this->table('telegraf..cpu')->toSql());
     }
 
     #[UnitTest]
     public function testAMeasurementWhoseNameHasADotIsAnExpression(): void
     {
-        $this->assertSame('SELECT * FROM "disk.io"', $this->table()->from(new Expression('"disk.io"'))->toSql());
+        $this->assertSame('select * from "disk.io"', $this->table()->from(new Expression('"disk.io"'))->toSql());
     }
 
     #[UnitTest]
     public function testMeasurementIdentifiersAreEscaped(): void
     {
-        $this->assertSame('SELECT * FROM "c\"p\\\u"', $this->table('c"p\u')->toSql());
+        $this->assertSame('select * from "c\"p\\\u"', $this->table('c"p\u')->toSql());
     }
 
     #[UnitTest]
@@ -131,8 +131,8 @@ class GrammarTest extends TestCase
     {
         $query = $this->table()->from(new Regex('^(cpu|mem)$'));
 
-        $this->assertSame('SELECT * FROM ?', $query->toSql());
-        $this->assertSame('SELECT * FROM /^(cpu|mem)$/', $query->toRawSql());
+        $this->assertSame('select * from ?', $query->toSql());
+        $this->assertSame('select * from /^(cpu|mem)$/', $query->toRawSql());
     }
 
     #[UnitTest]
@@ -141,15 +141,15 @@ class GrammarTest extends TestCase
         $query = $this->table()->from(new Regex('^cpu'))->from('mem');
 
         $this->assertSame([], $query->getBindings());
-        $this->assertSame('SELECT * FROM "mem"', $query->toRawSql());
+        $this->assertSame('select * from "mem"', $query->toRawSql());
     }
 
     #[UnitTest]
     public function testARawFromIsEmbeddedAsWrittenWithItsBindings(): void
     {
-        $this->assertSame('SELECT * FROM "cpu", "mem"', $this->builder()->fromRaw('"cpu", "mem"')->toRawSql());
-        $this->assertSame('SELECT * FROM /^cpu/', $this->builder()->fromRaw('?', new Regex('^cpu'))->toRawSql());
-        $this->assertSame('SELECT * FROM "cpu"', $this->builder()->fromRaw(new Expression('"cpu"'))->toRawSql());
+        $this->assertSame('select * from "cpu", "mem"', $this->builder()->fromRaw('"cpu", "mem"')->toRawSql());
+        $this->assertSame('select * from /^cpu/', $this->builder()->fromRaw('?', new Regex('^cpu'))->toRawSql());
+        $this->assertSame('select * from "cpu"', $this->builder()->fromRaw(new Expression('"cpu"'))->toRawSql());
     }
 
     #[UnitTest]
@@ -159,9 +159,9 @@ class GrammarTest extends TestCase
             $query->selectRaw('MEAN("value") AS "mean"')->from('cpu')->where('host', 'web1')->groupByTime('10m');
         });
 
-        $this->assertSame('SELECT "mean" FROM (SELECT MEAN("value") AS "mean" FROM "cpu" WHERE "host" = ? GROUP BY time(10m))', $query->toSql());
+        $this->assertSame('select "mean" from (select MEAN("value") AS "mean" from "cpu" where "host" = ? group by time(10m))', $query->toSql());
         $this->assertSame(['web1'], $query->getBindings());
-        $this->assertSame('SELECT "mean" FROM (SELECT MEAN("value") AS "mean" FROM "cpu" WHERE "host" = \'web1\' GROUP BY time(10m))', $query->toRawSql());
+        $this->assertSame('select "mean" from (select MEAN("value") AS "mean" from "cpu" where "host" = \'web1\' group by time(10m))', $query->toRawSql());
     }
 
     #[UnitTest]
@@ -170,7 +170,7 @@ class GrammarTest extends TestCase
         $inner = $this->table()->selectRaw('MAX("value") AS "max"')->where('host', 'web1')->groupByTime('1h');
 
         $this->assertSame(
-            'SELECT MEAN("max") FROM (SELECT MAX("value") AS "max" FROM "cpu" WHERE "host" = \'web1\' GROUP BY time(1h))',
+            'select MEAN("max") from (select MAX("value") AS "max" from "cpu" where "host" = \'web1\' group by time(1h))',
             $this->builder()->selectRaw('MEAN("max")')->fromSub($inner)->toRawSql(),
         );
     }
@@ -179,7 +179,7 @@ class GrammarTest extends TestCase
     public function testIntoComesBetweenTheColumnsAndFrom(): void
     {
         $this->assertSame(
-            'SELECT MEAN("value") INTO "telegraf"."autogen"."cpu_hourly" FROM "cpu" GROUP BY time(1h)',
+            'select MEAN("value") into "telegraf"."autogen"."cpu_hourly" from "cpu" group by time(1h)',
             $this->table()->selectRaw('MEAN("value")')->into('telegraf.autogen.cpu_hourly')->groupByTime('1h')->toSql(),
         );
     }
@@ -188,7 +188,7 @@ class GrammarTest extends TestCase
     public function testAnIntoExpressionCarriesAMeasurementBackreference(): void
     {
         $this->assertSame(
-            'SELECT MEAN(*) INTO "downsampled"."autogen".:MEASUREMENT FROM /.*/ GROUP BY time(1h)',
+            'select MEAN(*) into "downsampled"."autogen".:MEASUREMENT from /.*/ group by time(1h)',
             $this->builder()->selectRaw('MEAN(*)')->into(new Expression('"downsampled"."autogen".:MEASUREMENT'))->from(new Regex('.*'))->groupByTime('1h')->toRawSql(),
         );
     }
@@ -198,9 +198,9 @@ class GrammarTest extends TestCase
     {
         $query = $this->table()->where('host', 'web1');
 
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" = ?', $query->toSql());
+        $this->assertSame('select * from "cpu" where "host" = ?', $query->toSql());
         $this->assertSame(['web1'], $query->getBindings());
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" = \'web1\'', $query->toRawSql());
+        $this->assertSame('select * from "cpu" where "host" = \'web1\'', $query->toRawSql());
     }
 
     #[UnitTest]
@@ -208,7 +208,7 @@ class GrammarTest extends TestCase
     public function testEveryComparisonOperatorCompilesAsWritten(string $operator): void
     {
         $this->assertSame(
-            "SELECT * FROM \"cpu\" WHERE \"value\" {$operator} 5",
+            "select * from \"cpu\" where \"value\" {$operator} 5",
             $this->table()->where('value', $operator, 5)->toRawSql(),
         );
     }
@@ -228,11 +228,11 @@ class GrammarTest extends TestCase
     public function testWheresChainWithAndAndOr(): void
     {
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE "host" = \'web1\' AND "value" > 5 OR "region" = \'eu\'',
+            'select * from "cpu" where "host" = \'web1\' and "value" > 5 or "region" = \'eu\'',
             $this->table()->where('host', 'web1')->where('value', '>', 5)->orWhere('region', 'eu')->toRawSql(),
         );
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE "value" > 5 OR "value" < 1',
+            'select * from "cpu" where "value" > 5 or "value" < 1',
             $this->table()->where('value', '>', 5)->orWhere('value', '<', 1)->toRawSql(),
         );
     }
@@ -249,21 +249,21 @@ class GrammarTest extends TestCase
                 $query->where('region', 'eu');
             });
 
-        $this->assertSame('SELECT * FROM "cpu" WHERE ("host" = ? OR "host" = ?) AND "value" > ? OR ("region" = ?)', $query->toSql());
+        $this->assertSame('select * from "cpu" where ("host" = ? or "host" = ?) and "value" > ? or ("region" = ?)', $query->toSql());
         $this->assertSame(['web1', 'web2', 5, 'eu'], $query->getBindings());
     }
 
     #[UnitTest]
     public function testAnEmptyNestedGroupIsLeftOut(): void
     {
-        $this->assertSame('SELECT * FROM "cpu"', $this->table()->where(function (Builder $query): void {})->toSql());
+        $this->assertSame('select * from "cpu"', $this->table()->where(function (Builder $query): void {})->toSql());
     }
 
     #[UnitTest]
     public function testAnArrayOfWheresIsANestedGroupOfEqualities(): void
     {
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE ("host" = \'web1\' AND "region" = \'eu\')',
+            'select * from "cpu" where ("host" = \'web1\' and "region" = \'eu\')',
             $this->table()->where(['host' => 'web1', 'region' => 'eu'])->toRawSql(),
         );
     }
@@ -272,7 +272,7 @@ class GrammarTest extends TestCase
     public function testAListOfWheresPassesEachEntryAsArguments(): void
     {
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE ("value" > 5 AND "host" = \'web1\')',
+            'select * from "cpu" where ("value" > 5 and "host" = \'web1\')',
             $this->table()->where([['value', '>', 5], ['host', 'web1']])->toRawSql(),
         );
     }
@@ -281,7 +281,7 @@ class GrammarTest extends TestCase
     public function testAnOrArrayOfWheresOrsItsEntriesToo(): void
     {
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE "value" > 5 OR ("host" = \'web1\' OR "host" = \'web2\')',
+            'select * from "cpu" where "value" > 5 or ("host" = \'web1\' or "host" = \'web2\')',
             $this->table()->where('value', '>', 5)->orWhere([['host', 'web1'], ['host', '=', 'web2']])->toRawSql(),
         );
     }
@@ -291,7 +291,7 @@ class GrammarTest extends TestCase
     {
         $query = $this->table()->where('time', '>', new Expression('now() - 1h'));
 
-        $this->assertSame('SELECT * FROM "cpu" WHERE "time" > now() - 1h', $query->toSql());
+        $this->assertSame('select * from "cpu" where "time" > now() - 1h', $query->toSql());
         $this->assertSame([], $query->getBindings());
     }
 
@@ -299,7 +299,7 @@ class GrammarTest extends TestCase
     public function testAnExpressionColumnIsEmbeddedAsWritten(): void
     {
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE "usage_user" + "usage_system" > 90',
+            'select * from "cpu" where "usage_user" + "usage_system" > 90',
             $this->table()->where(new Expression('"usage_user" + "usage_system"'), '>', 90)->toRawSql(),
         );
     }
@@ -307,19 +307,19 @@ class GrammarTest extends TestCase
     #[UnitTest]
     public function testWhereColumnComparesTwoColumns(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" WHERE "usage_user" > "usage_system"', $this->table()->whereColumn('usage_user', '>', 'usage_system')->toSql());
-        $this->assertSame('SELECT * FROM "cpu" WHERE "a" = "b"', $this->table()->whereColumn('a', 'b')->toSql());
-        $this->assertSame('SELECT * FROM "cpu" WHERE "a" = "b" OR "c" < "d"', $this->table()->whereColumn('a', 'b')->orWhereColumn('c', '<', 'd')->toSql());
+        $this->assertSame('select * from "cpu" where "usage_user" > "usage_system"', $this->table()->whereColumn('usage_user', '>', 'usage_system')->toSql());
+        $this->assertSame('select * from "cpu" where "a" = "b"', $this->table()->whereColumn('a', 'b')->toSql());
+        $this->assertSame('select * from "cpu" where "a" = "b" or "c" < "d"', $this->table()->whereColumn('a', 'b')->orWhereColumn('c', '<', 'd')->toSql());
     }
 
     #[UnitTest]
     public function testAnArrayOfColumnComparisonsIsANestedGroup(): void
     {
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE ("a" = "b" AND "c" > "d")',
+            'select * from "cpu" where ("a" = "b" and "c" > "d")',
             $this->table()->whereColumn([['a', 'b'], ['c', '>', 'd']])->toSql(),
         );
-        $this->assertSame('SELECT * FROM "cpu" WHERE ("a" = "b")', $this->table()->whereColumn(['a' => 'b'])->toSql());
+        $this->assertSame('select * from "cpu" where ("a" = "b")', $this->table()->whereColumn(['a' => 'b'])->toSql());
     }
 
     #[UnitTest]
@@ -327,20 +327,20 @@ class GrammarTest extends TestCase
     {
         $query = $this->table()->whereRaw('"value" > ? AND "value" < ?', [1, 10])->orWhereRaw('"host" = ?', 'web1');
 
-        $this->assertSame('SELECT * FROM "cpu" WHERE "value" > ? AND "value" < ? OR "host" = ?', $query->toSql());
-        $this->assertSame('SELECT * FROM "cpu" WHERE "value" > 1 AND "value" < 10 OR "host" = \'web1\'', $query->toRawSql());
-        $this->assertSame('SELECT * FROM "cpu" WHERE time > now() - 1h', $this->table()->whereRaw(new Expression('time > now() - 1h'))->toSql());
+        $this->assertSame('select * from "cpu" where "value" > ? AND "value" < ? or "host" = ?', $query->toSql());
+        $this->assertSame('select * from "cpu" where "value" > 1 AND "value" < 10 or "host" = \'web1\'', $query->toRawSql());
+        $this->assertSame('select * from "cpu" where time > now() - 1h', $this->table()->whereRaw(new Expression('time > now() - 1h'))->toSql());
     }
 
     #[UnitTest]
     public function testARawWhereTakesABareRegexOrDateBinding(): void
     {
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE "host" =~ /^web/',
+            'select * from "cpu" where "host" =~ /^web/',
             $this->table()->whereRaw('"host" =~ ?', new Regex('^web'))->toRawSql(),
         );
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE time > \'2024-01-01T00:00:00.000000Z\'',
+            'select * from "cpu" where time > \'2024-01-01T00:00:00.000000Z\'',
             $this->table()->whereRaw('time > ?', new DateTimeImmutable('2024-01-01T00:00:00Z'))->toRawSql(),
         );
     }
@@ -350,15 +350,15 @@ class GrammarTest extends TestCase
     {
         $query = $this->table()->whereIn('host', ['web1', 'web2']);
 
-        $this->assertSame('SELECT * FROM "cpu" WHERE ("host" = ? OR "host" = ?)', $query->toSql());
-        $this->assertSame('SELECT * FROM "cpu" WHERE ("host" = \'web1\' OR "host" = \'web2\')', $query->toRawSql());
+        $this->assertSame('select * from "cpu" where ("host" = ? or "host" = ?)', $query->toSql());
+        $this->assertSame('select * from "cpu" where ("host" = \'web1\' or "host" = \'web2\')', $query->toRawSql());
     }
 
     #[UnitTest]
     public function testWhereNotInIsTheAndOfOneInequalityPerValue(): void
     {
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE ("host" != \'web1\' AND "host" != \'web2\')',
+            'select * from "cpu" where ("host" != \'web1\' and "host" != \'web2\')',
             $this->table()->whereNotIn('host', ['web1', 'web2'])->toRawSql(),
         );
     }
@@ -366,15 +366,15 @@ class GrammarTest extends TestCase
     #[UnitTest]
     public function testAnEmptyWhereInMatchesNothingAndAnEmptyWhereNotInEverything(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" WHERE 0 = 1', $this->table()->whereIn('host', [])->toSql());
-        $this->assertSame('SELECT * FROM "cpu" WHERE 1 = 1', $this->table()->whereNotIn('host', [])->toSql());
+        $this->assertSame('select * from "cpu" where 0 = 1', $this->table()->whereIn('host', [])->toSql());
+        $this->assertSame('select * from "cpu" where 1 = 1', $this->table()->whereNotIn('host', [])->toSql());
     }
 
     #[UnitTest]
     public function testOrWhereInAndOrWhereNotInJoinWithOr(): void
     {
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE "value" > 5 OR ("host" = \'web1\') OR ("region" != \'eu\')',
+            'select * from "cpu" where "value" > 5 or ("host" = \'web1\') or ("region" != \'eu\')',
             $this->table()->where('value', '>', 5)->orWhereIn('host', ['web1'])->orWhereNotIn('region', ['eu'])->toRawSql(),
         );
     }
@@ -384,7 +384,7 @@ class GrammarTest extends TestCase
     {
         $query = $this->table()->whereIn('value', [1, new Expression('2 + 1')]);
 
-        $this->assertSame('SELECT * FROM "cpu" WHERE ("value" = ? OR "value" = 2 + 1)', $query->toSql());
+        $this->assertSame('select * from "cpu" where ("value" = ? or "value" = 2 + 1)', $query->toSql());
         $this->assertSame([1], $query->getBindings());
     }
 
@@ -393,15 +393,15 @@ class GrammarTest extends TestCase
     {
         $query = $this->table()->whereBetween('value', [1, 10]);
 
-        $this->assertSame('SELECT * FROM "cpu" WHERE ("value" >= ? AND "value" <= ?)', $query->toSql());
-        $this->assertSame('SELECT * FROM "cpu" WHERE ("value" >= 1 AND "value" <= 10)', $query->toRawSql());
+        $this->assertSame('select * from "cpu" where ("value" >= ? and "value" <= ?)', $query->toSql());
+        $this->assertSame('select * from "cpu" where ("value" >= 1 and "value" <= 10)', $query->toRawSql());
     }
 
     #[UnitTest]
     public function testWhereNotBetweenIsTwoExclusiveComparisons(): void
     {
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE ("value" < 1 OR "value" > 10)',
+            'select * from "cpu" where ("value" < 1 or "value" > 10)',
             $this->table()->whereNotBetween('value', [1, 10])->toRawSql(),
         );
     }
@@ -410,7 +410,7 @@ class GrammarTest extends TestCase
     public function testOrWhereBetweenAndOrWhereNotBetweenJoinWithOr(): void
     {
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE "host" = \'web1\' OR ("value" >= 1 AND "value" <= 2) OR ("value" < 5 OR "value" > 6)',
+            'select * from "cpu" where "host" = \'web1\' or ("value" >= 1 and "value" <= 2) or ("value" < 5 or "value" > 6)',
             $this->table()->where('host', 'web1')->orWhereBetween('value', [1, 2])->orWhereNotBetween('value', [5, 6])->toRawSql(),
         );
     }
@@ -419,7 +419,7 @@ class GrammarTest extends TestCase
     public function testATimeWindowWithDatesIsEmbeddedInUtc(): void
     {
         $this->assertSame(
-            'SELECT * FROM "cpu" WHERE ("time" >= \'2024-01-01T00:00:00.000000Z\' AND "time" <= \'2024-01-01T23:59:59.500000Z\')',
+            'select * from "cpu" where ("time" >= \'2024-01-01T00:00:00.000000Z\' and "time" <= \'2024-01-01T23:59:59.500000Z\')',
             $this->table()->whereBetween('time', [
                 new DateTimeImmutable('2024-01-01 02:00:00', new DateTimeZone('+02:00')),
                 new DateTime('2024-01-01 18:59:59.5', new DateTimeZone('America/New_York')),
@@ -432,24 +432,24 @@ class GrammarTest extends TestCase
     {
         $query = $this->table()->whereBetween('time', [new Expression('now() - 1h'), new Expression('now()')]);
 
-        $this->assertSame('SELECT * FROM "cpu" WHERE ("time" >= now() - 1h AND "time" <= now())', $query->toSql());
+        $this->assertSame('select * from "cpu" where ("time" >= now() - 1h and "time" <= now())', $query->toSql());
         $this->assertSame([], $query->getBindings());
     }
 
     #[UnitTest]
     public function testARegexWhereTakesTheRegexOperators(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" =~ ?', $this->table()->where('host', '=~', '^web')->toSql());
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" =~ /^web/', $this->table()->where('host', '=~', '^web')->toRawSql());
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" !~ /^web/', $this->table()->where('host', '!~', new Regex('^web'))->toRawSql());
+        $this->assertSame('select * from "cpu" where "host" =~ ?', $this->table()->where('host', '=~', '^web')->toSql());
+        $this->assertSame('select * from "cpu" where "host" =~ /^web/', $this->table()->where('host', '=~', '^web')->toRawSql());
+        $this->assertSame('select * from "cpu" where "host" !~ /^web/', $this->table()->where('host', '!~', new Regex('^web'))->toRawSql());
     }
 
     #[UnitTest]
     public function testARegexValueTurnsEqualityIntoARegexMatch(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" =~ /^web/', $this->table()->where('host', new Regex('^web'))->toRawSql());
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" !~ /^web/', $this->table()->where('host', '!=', new Regex('^web'))->toRawSql());
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" !~ /^web/', $this->table()->where('host', '<>', new Regex('^web'))->toRawSql());
+        $this->assertSame('select * from "cpu" where "host" =~ /^web/', $this->table()->where('host', new Regex('^web'))->toRawSql());
+        $this->assertSame('select * from "cpu" where "host" !~ /^web/', $this->table()->where('host', '!=', new Regex('^web'))->toRawSql());
+        $this->assertSame('select * from "cpu" where "host" !~ /^web/', $this->table()->where('host', '<>', new Regex('^web'))->toRawSql());
     }
 
     #[UnitTest]
@@ -463,25 +463,25 @@ class GrammarTest extends TestCase
     #[UnitTest]
     public function testGroupByTakesTagsAndTheWildcard(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" GROUP BY "host"', $this->table()->groupBy('host')->toSql());
-        $this->assertSame('SELECT * FROM "cpu" GROUP BY "host", "region"', $this->table()->groupBy('host', 'region')->toSql());
-        $this->assertSame('SELECT * FROM "cpu" GROUP BY "host", "region", "zone"', $this->table()->groupBy(['host', 'region'])->groupBy('zone')->toSql());
-        $this->assertSame('SELECT * FROM "cpu" GROUP BY *', $this->table()->groupBy('*')->toSql());
+        $this->assertSame('select * from "cpu" group by "host"', $this->table()->groupBy('host')->toSql());
+        $this->assertSame('select * from "cpu" group by "host", "region"', $this->table()->groupBy('host', 'region')->toSql());
+        $this->assertSame('select * from "cpu" group by "host", "region", "zone"', $this->table()->groupBy(['host', 'region'])->groupBy('zone')->toSql());
+        $this->assertSame('select * from "cpu" group by *', $this->table()->groupBy('*')->toSql());
     }
 
     #[UnitTest]
     public function testGroupByTimeTakesAnIntervalAndAnOffset(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" GROUP BY time(10m)', $this->table()->groupByTime('10m')->toSql());
-        $this->assertSame('SELECT * FROM "cpu" GROUP BY time(1h, -15m)', $this->table()->groupByTime('1h', '-15m')->toSql());
-        $this->assertSame('SELECT * FROM "cpu" GROUP BY time(1d), "host"', $this->table()->groupByTime('1d')->groupBy('host')->toSql());
+        $this->assertSame('select * from "cpu" group by time(10m)', $this->table()->groupByTime('10m')->toSql());
+        $this->assertSame('select * from "cpu" group by time(1h, -15m)', $this->table()->groupByTime('1h', '-15m')->toSql());
+        $this->assertSame('select * from "cpu" group by time(1d), "host"', $this->table()->groupByTime('1d')->groupBy('host')->toSql());
     }
 
     #[UnitTest]
     #[DataProvider('durations')]
     public function testGroupByTimeAcceptsEveryDurationUnit(string $duration): void
     {
-        $this->assertSame("SELECT * FROM \"cpu\" GROUP BY time({$duration})", $this->table()->groupByTime($duration)->toSql());
+        $this->assertSame("select * from \"cpu\" group by time({$duration})", $this->table()->groupByTime($duration)->toSql());
     }
 
     /**
@@ -521,7 +521,7 @@ class GrammarTest extends TestCase
     #[UnitTest]
     public function testARawGroupByIsEmbeddedAsWrittenWithItsBindings(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" GROUP BY /^h/', $this->table()->groupByRaw('?', [new Regex('^h')])->toRawSql());
+        $this->assertSame('select * from "cpu" group by /^h/', $this->table()->groupByRaw('?', [new Regex('^h')])->toRawSql());
     }
 
     #[UnitTest]
@@ -529,7 +529,7 @@ class GrammarTest extends TestCase
     public function testFillCompilesAKeywordOrANumber(float|int|string $value, string $expected): void
     {
         $this->assertSame(
-            "SELECT MEAN(\"value\") FROM \"cpu\" GROUP BY time(1h) fill({$expected})",
+            "select MEAN(\"value\") from \"cpu\" group by time(1h) fill({$expected})",
             $this->table()->selectRaw('MEAN("value")')->groupByTime('1h')->fill($value)->toSql(),
         );
     }
@@ -565,15 +565,15 @@ class GrammarTest extends TestCase
     #[UnitTest]
     public function testOrderByCompilesTimeInEitherDirection(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" ORDER BY "time" ASC', $this->table()->orderBy()->toSql());
-        $this->assertSame('SELECT * FROM "cpu" ORDER BY "time" DESC', $this->table()->orderBy('time', 'desc')->toSql());
-        $this->assertSame('SELECT * FROM "cpu" ORDER BY "time" DESC', $this->table()->orderBy('time', 'DESC')->toSql());
-        $this->assertSame('SELECT * FROM "cpu" ORDER BY "time" DESC', $this->table()->orderByDesc()->toSql());
-        $this->assertSame('SELECT * FROM "cpu" ORDER BY "time" DESC', $this->table()->latest()->toSql());
-        $this->assertSame('SELECT * FROM "cpu" ORDER BY "time" ASC', $this->table()->oldest()->toSql());
-        $this->assertSame('SELECT * FROM "cpu" ORDER BY "time" DESC', $this->table()->orderBy('time', SortDirection::Descending)->toSql());
-        $this->assertSame('SELECT * FROM "cpu" ORDER BY "time" ASC', $this->table()->orderBy('time', SortDirection::Ascending)->toSql());
-        $this->assertSame('SELECT * FROM "cpu" ORDER BY time DESC', $this->table()->orderBy(new Expression('time'), 'desc')->toSql());
+        $this->assertSame('select * from "cpu" order by "time" asc', $this->table()->orderBy()->toSql());
+        $this->assertSame('select * from "cpu" order by "time" desc', $this->table()->orderBy('time', 'desc')->toSql());
+        $this->assertSame('select * from "cpu" order by "time" desc', $this->table()->orderBy('time', 'DESC')->toSql());
+        $this->assertSame('select * from "cpu" order by "time" desc', $this->table()->orderByDesc()->toSql());
+        $this->assertSame('select * from "cpu" order by "time" desc', $this->table()->latest()->toSql());
+        $this->assertSame('select * from "cpu" order by "time" asc', $this->table()->oldest()->toSql());
+        $this->assertSame('select * from "cpu" order by "time" desc', $this->table()->orderBy('time', SortDirection::Descending)->toSql());
+        $this->assertSame('select * from "cpu" order by "time" asc', $this->table()->orderBy('time', SortDirection::Ascending)->toSql());
+        $this->assertSame('select * from "cpu" order by time desc', $this->table()->orderBy(new Expression('time'), 'desc')->toSql());
     }
 
     #[UnitTest]
@@ -597,54 +597,54 @@ class GrammarTest extends TestCase
     #[UnitTest]
     public function testARawOrderIsEmbeddedAsWrittenWithItsBindings(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" ORDER BY time DESC', $this->table()->orderByRaw('time DESC')->toSql());
-        $this->assertSame('SELECT * FROM "cpu" ORDER BY time DESC', $this->table()->orderByRaw('? DESC', [new Expression('time')])->toRawSql());
+        $this->assertSame('select * from "cpu" order by time DESC', $this->table()->orderByRaw('time DESC')->toSql());
+        $this->assertSame('select * from "cpu" order by time DESC', $this->table()->orderByRaw('? DESC', [new Expression('time')])->toRawSql());
     }
 
     #[UnitTest]
     public function testReorderReplacesEveryOrder(): void
     {
-        $this->assertSame('SELECT * FROM "cpu"', $this->table()->orderByDesc()->orderByRaw('time DESC', [])->reorder()->toSql());
-        $this->assertSame('SELECT * FROM "cpu" ORDER BY "time" DESC', $this->table()->orderBy()->reorder('time', 'desc')->toSql());
+        $this->assertSame('select * from "cpu"', $this->table()->orderByDesc()->orderByRaw('time DESC', [])->reorder()->toSql());
+        $this->assertSame('select * from "cpu" order by "time" desc', $this->table()->orderBy()->reorder('time', 'desc')->toSql());
     }
 
     #[UnitTest]
     public function testAnEmptyOrderListCompilesToNothing(): void
     {
-        $this->assertSame('SELECT * FROM "cpu"', $this->table()->orderBy()->cloneWithout(['orders'])->toSql());
+        $this->assertSame('select * from "cpu"', $this->table()->orderBy()->cloneWithout(['orders'])->toSql());
     }
 
     #[UnitTest]
     public function testLimitAndOffsetCountPoints(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" LIMIT 10 OFFSET 20', $this->table()->limit(10)->offset(20)->toSql());
-        $this->assertSame('SELECT * FROM "cpu" LIMIT 10 OFFSET 20', $this->table()->take(10)->skip(20)->toSql());
-        $this->assertSame('SELECT * FROM "cpu" LIMIT 25 OFFSET 50', $this->table()->forPage(3, 25)->toSql());
-        $this->assertSame('SELECT * FROM "cpu" LIMIT 15 OFFSET 0', $this->table()->forPage(1)->toSql());
+        $this->assertSame('select * from "cpu" limit 10 offset 20', $this->table()->limit(10)->offset(20)->toSql());
+        $this->assertSame('select * from "cpu" limit 10 offset 20', $this->table()->take(10)->skip(20)->toSql());
+        $this->assertSame('select * from "cpu" limit 25 offset 50', $this->table()->forPage(3, 25)->toSql());
+        $this->assertSame('select * from "cpu" limit 15 offset 0', $this->table()->forPage(1)->toSql());
     }
 
     #[UnitTest]
     public function testANegativeLimitIsIgnoredAndANullOneClearsIt(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" LIMIT 10', $this->table()->limit(10)->limit(-1)->toSql());
-        $this->assertSame('SELECT * FROM "cpu"', $this->table()->limit(10)->limit(null)->toSql());
-        $this->assertSame('SELECT * FROM "cpu" OFFSET 0', $this->table()->offset(-5)->toSql());
-        $this->assertSame('SELECT * FROM "cpu" OFFSET 0', $this->table()->offset(null)->toSql());
+        $this->assertSame('select * from "cpu" limit 10', $this->table()->limit(10)->limit(-1)->toSql());
+        $this->assertSame('select * from "cpu"', $this->table()->limit(10)->limit(null)->toSql());
+        $this->assertSame('select * from "cpu" offset 0', $this->table()->offset(-5)->toSql());
+        $this->assertSame('select * from "cpu" offset 0', $this->table()->offset(null)->toSql());
     }
 
     #[UnitTest]
     public function testSlimitAndSoffsetCountSeries(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" GROUP BY * SLIMIT 2 SOFFSET 1', $this->table()->groupBy('*')->slimit(2)->soffset(1)->toSql());
-        $this->assertSame('SELECT * FROM "cpu" SLIMIT 2', $this->table()->slimit(2)->slimit(-1)->toSql());
-        $this->assertSame('SELECT * FROM "cpu"', $this->table()->slimit(2)->slimit(null)->toSql());
-        $this->assertSame('SELECT * FROM "cpu" SOFFSET 0', $this->table()->soffset(-1)->toSql());
+        $this->assertSame('select * from "cpu" group by * slimit 2 soffset 1', $this->table()->groupBy('*')->slimit(2)->soffset(1)->toSql());
+        $this->assertSame('select * from "cpu" slimit 2', $this->table()->slimit(2)->slimit(-1)->toSql());
+        $this->assertSame('select * from "cpu"', $this->table()->slimit(2)->slimit(null)->toSql());
+        $this->assertSame('select * from "cpu" soffset 0', $this->table()->soffset(-1)->toSql());
     }
 
     #[UnitTest]
     public function testTzLocalisesTheReturnedTimestamps(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" tz(\'America/Chicago\')', $this->table()->tz('America/Chicago')->toSql());
+        $this->assertSame('select * from "cpu" tz(\'America/Chicago\')', $this->table()->tz('America/Chicago')->toSql());
     }
 
     #[UnitTest]
@@ -676,9 +676,9 @@ class GrammarTest extends TestCase
             ->selectRaw('MEAN("usage_user") AS "mean"');
 
         $this->assertSame(
-            'SELECT MEAN("usage_user") AS "mean" INTO "telegraf"."autogen"."cpu_hourly" FROM "telegraf"."autogen"."cpu"'
-            . ' WHERE "host" = \'web1\' AND "time" >= now() - 1d GROUP BY "region", time(1h) fill(previous)'
-            . ' ORDER BY "time" DESC LIMIT 10 OFFSET 5 SLIMIT 2 SOFFSET 1 tz(\'Europe/Amsterdam\')',
+            'select MEAN("usage_user") AS "mean" into "telegraf"."autogen"."cpu_hourly" from "telegraf"."autogen"."cpu"'
+            . ' where "host" = \'web1\' and "time" >= now() - 1d group by "region", time(1h) fill(previous)'
+            . ' order by "time" desc limit 10 offset 5 slimit 2 soffset 1 tz(\'Europe/Amsterdam\')',
             $query->toRawSql(),
         );
     }
@@ -693,8 +693,8 @@ class GrammarTest extends TestCase
             ->from(new Regex('^cpu'))
             ->selectRaw('"value" * ? AS "scaled"', [2]);
 
-        $this->assertSame('SELECT "value" * ? AS "scaled" FROM ? WHERE "host" = ? GROUP BY ? ORDER BY ? DESC', $query->toSql());
-        $this->assertSame('SELECT "value" * 2 AS "scaled" FROM /^cpu/ WHERE "host" = \'web1\' GROUP BY /^h/ ORDER BY time DESC', $query->toRawSql());
+        $this->assertSame('select "value" * ? AS "scaled" from ? where "host" = ? group by ? order by ? DESC', $query->toSql());
+        $this->assertSame('select "value" * 2 AS "scaled" from /^cpu/ where "host" = \'web1\' group by /^h/ order by time DESC', $query->toRawSql());
     }
 
     #[UnitTest]
@@ -703,7 +703,7 @@ class GrammarTest extends TestCase
         $query = $this->table()->select('ignored');
         $query->aggregate = ['function' => 'count', 'columns' => ['value']];
 
-        $this->assertSame('SELECT COUNT("value") AS "aggregate" FROM "cpu"', $query->toSql());
+        $this->assertSame('select count("value") as "aggregate" from "cpu"', $query->toSql());
     }
 
     #[UnitTest]
@@ -712,7 +712,7 @@ class GrammarTest extends TestCase
         $query = $this->table();
         $query->aggregate = ['function' => 'count', 'columns' => ['*']];
 
-        $this->assertSame('SELECT COUNT(*) FROM "cpu"', $query->toSql());
+        $this->assertSame('select count(*) from "cpu"', $query->toSql());
     }
 
     #[UnitTest]
@@ -721,11 +721,11 @@ class GrammarTest extends TestCase
         $query = $this->table()->distinct();
         $query->aggregate = ['function' => 'count', 'columns' => ['host']];
 
-        $this->assertSame('SELECT COUNT(DISTINCT("host")) AS "aggregate" FROM "cpu"', $query->toSql());
+        $this->assertSame('select count(distinct("host")) as "aggregate" from "cpu"', $query->toSql());
 
         $query->aggregate = ['function' => 'count', 'columns' => ['*']];
 
-        $this->assertSame('SELECT COUNT(*) FROM "cpu"', $query->toSql());
+        $this->assertSame('select count(*) from "cpu"', $query->toSql());
     }
 
     #[UnitTest]
@@ -734,7 +734,7 @@ class GrammarTest extends TestCase
         $query = $this->table();
         $query->aggregate = ['function' => 'percentile', 'columns' => ['value', new Expression('95')]];
 
-        $this->assertSame('SELECT PERCENTILE("value", 95) AS "aggregate" FROM "cpu"', $query->toSql());
+        $this->assertSame('select percentile("value", 95) as "aggregate" from "cpu"', $query->toSql());
     }
 
     #[UnitTest]
@@ -752,13 +752,13 @@ class GrammarTest extends TestCase
     {
         $grammar = new V1Grammar;
 
-        $this->assertSame('DELETE FROM "cpu"', $grammar->compileDelete($this->table()));
+        $this->assertSame('delete from "cpu"', $grammar->compileDelete($this->table()));
         $this->assertSame(
-            'DELETE FROM "cpu" WHERE "host" = ? AND "time" < ?',
+            'delete from "cpu" where "host" = ? and "time" < ?',
             $grammar->compileDelete($this->table()->select('value')->where('host', 'web1')->where('time', '<', new DateTimeImmutable)->orderByDesc()),
         );
-        $this->assertSame('DELETE FROM ?', $grammar->compileDelete($this->builder()->from(new Regex('^cpu'))));
-        $this->assertSame('DELETE FROM "disk.io"', $grammar->compileDelete($this->builder()->from(new Expression('"disk.io"'))));
+        $this->assertSame('delete from ?', $grammar->compileDelete($this->builder()->from(new Regex('^cpu'))));
+        $this->assertSame('delete from "disk.io"', $grammar->compileDelete($this->builder()->from(new Expression('"disk.io"'))));
     }
 
     /**
@@ -921,7 +921,7 @@ class GrammarTest extends TestCase
     #[UnitTest]
     public function testSubstitutionLeavesAPlaceholderWithNoBindingAsItIs(): void
     {
-        $this->assertSame('SELECT * FROM "cpu" WHERE "a" = 1 AND "b" = ?', (new V1Grammar)->substituteBindingsIntoRawSql('SELECT * FROM "cpu" WHERE "a" = ? AND "b" = ?', [1]));
+        $this->assertSame('select * from "cpu" where "a" = 1 and "b" = ?', (new V1Grammar)->substituteBindingsIntoRawSql('select * from "cpu" where "a" = ? and "b" = ?', [1]));
     }
 
     #[UnitTest]
@@ -976,8 +976,8 @@ class GrammarTest extends TestCase
 
         $this->assertInstanceOf(V2Grammar::class, $query(['version' => 'v2'])->getGrammar());
         $this->assertSame(
-            'SELECT MEAN("usage_user") AS "mean" FROM "telegraf"."autogen"."cpu" WHERE "host" =~ /^web/ AND "time" >= \'2024-01-01T00:00:00.000000Z\''
-            . ' GROUP BY time(1h), "region" fill(previous) ORDER BY "time" DESC LIMIT 10 OFFSET 5 SLIMIT 2 SOFFSET 1 tz(\'Europe/Amsterdam\')',
+            'select MEAN("usage_user") AS "mean" from "telegraf"."autogen"."cpu" where "host" =~ /^web/ and "time" >= \'2024-01-01T00:00:00.000000Z\''
+            . ' group by time(1h), "region" fill(previous) order by "time" desc limit 10 offset 5 slimit 2 soffset 1 tz(\'Europe/Amsterdam\')',
             $query(['version' => 'v2'])->toRawSql(),
         );
         $this->assertSame($query(['version' => 'v1'])->toRawSql(), $query(['version' => 'v2'])->toRawSql());
@@ -1005,8 +1005,8 @@ class GrammarTest extends TestCase
         $query = $this->table(config: ['version' => 'v2', ...$config])->where('host', 'web1');
 
         $this->assertNull($query->getConnection()->getRetentionPolicy());
-        $this->assertSame('DELETE FROM "cpu" WHERE "host" = ?', $query->getGrammar()->compileDelete($query));
-        $this->assertSame('DELETE FROM ? WHERE "host" = ?', $query->getGrammar()->compileDelete($query->from(new Regex('^cpu'))));
+        $this->assertSame('delete from "cpu" where "host" = ?', $query->getGrammar()->compileDelete($query));
+        $this->assertSame('delete from ? where "host" = ?', $query->getGrammar()->compileDelete($query->from(new Regex('^cpu'))));
     }
 
     /**
@@ -1054,7 +1054,7 @@ class GrammarTest extends TestCase
         $query = $this->table(config: ['version' => 'v1', 'bucket' => 'telegraf/weekly'])->where('host', 'web1');
 
         $this->assertSame('weekly', $query->getConnection()->getRetentionPolicy());
-        $this->assertSame('DELETE FROM "cpu" WHERE "host" = ?', $query->getGrammar()->compileDelete($query));
+        $this->assertSame('delete from "cpu" where "host" = ?', $query->getGrammar()->compileDelete($query));
     }
 
     #[UnitTest]
@@ -1075,8 +1075,8 @@ class GrammarTest extends TestCase
 
         $this->assertInstanceOf(V3Grammar::class, $query(['version' => 'v3'])->getGrammar());
         $this->assertSame(
-            'SELECT MEAN("usage_user") AS "mean" FROM "telegraf"."autogen"."cpu" WHERE "host" =~ /^web/ AND "time" >= \'2024-01-01T00:00:00.000000Z\''
-            . ' GROUP BY time(1h), "region" fill(previous) ORDER BY "time" DESC LIMIT 10 OFFSET 5 tz(\'Europe/Amsterdam\')',
+            'select MEAN("usage_user") AS "mean" from "telegraf"."autogen"."cpu" where "host" =~ /^web/ and "time" >= \'2024-01-01T00:00:00.000000Z\''
+            . ' group by time(1h), "region" fill(previous) order by "time" desc limit 10 offset 5 tz(\'Europe/Amsterdam\')',
             $query(['version' => 'v3'])->toRawSql(),
         );
         $this->assertSame($query(['version' => 'v1'])->toRawSql(), $query(['version' => 'v3'])->toRawSql());
@@ -1101,10 +1101,10 @@ class GrammarTest extends TestCase
     {
         $query = fn (): Builder => $this->table(config: ['version' => 'v3'])->groupBy('*');
 
-        $this->assertSame('SELECT * FROM "cpu" GROUP BY *', $query()->slimit(0)->soffset(0)->toSql());
-        $this->assertSame('SELECT * FROM "cpu" GROUP BY *', $query()->soffset(null)->toSql());
-        $this->assertSame('SELECT * FROM "cpu" GROUP BY *', $query()->soffset(-1)->slimit(2)->slimit(null)->toSql());
-        $this->assertSame('SELECT * FROM "cpu" GROUP BY * SLIMIT 0 SOFFSET 0', $this->table()->groupBy('*')->slimit(0)->soffset(0)->toSql());
+        $this->assertSame('select * from "cpu" group by *', $query()->slimit(0)->soffset(0)->toSql());
+        $this->assertSame('select * from "cpu" group by *', $query()->soffset(null)->toSql());
+        $this->assertSame('select * from "cpu" group by *', $query()->soffset(-1)->slimit(2)->slimit(null)->toSql());
+        $this->assertSame('select * from "cpu" group by * slimit 0 soffset 0', $this->table()->groupBy('*')->slimit(0)->soffset(0)->toSql());
     }
 
     #[UnitTest]

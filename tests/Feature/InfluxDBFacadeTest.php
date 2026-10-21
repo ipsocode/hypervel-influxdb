@@ -38,7 +38,7 @@ class InfluxDBFacadeTest extends TestCase
         $this->assertSame($manager->influxql('analytics'), InfluxDB::influxql('analytics'));
         $this->assertInstanceOf(Builder::class, InfluxDB::query());
         $this->assertSame($manager->influxql('analytics'), InfluxDB::query('analytics')->getConnection());
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" = \'web1\'', InfluxDB::table('cpu')->where('host', 'web1')->toRawSql());
+        $this->assertSame('select * from "cpu" where "host" = \'web1\'', InfluxDB::table('cpu')->where('host', 'web1')->toRawSql());
         $this->assertSame($manager->influxql('analytics'), InfluxDB::table('cpu', 'analytics')->getConnection());
     }
 }

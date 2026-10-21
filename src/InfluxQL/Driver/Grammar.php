@@ -8,6 +8,7 @@ use Hypervel\Contracts\Database\Query\Expression;
 use Hypervel\Database\Connection;
 use Hypervel\Database\Query\Builder;
 use Hypervel\Database\Query\Grammars\Grammar as QueryGrammar;
+use Hypervel\Database\Query\JoinClause;
 use InvalidArgumentException;
 use Ipsocode\InfluxDB\InfluxQL\Dialect;
 use Ipsocode\InfluxDB\InfluxQL\Grammars\Concerns\RefusesWhatTheVersionLacks;
@@ -142,6 +143,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse the "join" portions of the query: InfluxQL has no joins.
      *
+     * @param list<JoinClause> $joins
      * @throws RuntimeException
      */
     protected function compileJoins(Builder $query, array $joins): string
@@ -152,6 +154,7 @@ class Grammar extends QueryGrammar
     /**
      * Get an array of all the where clauses for the query.
      *
+     * @return list<array<string, mixed>>
      * @throws RuntimeException for whereNot() and orWhereNot(): InfluxQL has no NOT
      */
     protected function compileWheresToArray(Builder $query): array
@@ -168,6 +171,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a "where binary" clause: InfluxQL has no binary comparison.
      *
+     * @param array<string, mixed> $where
      * @throws RuntimeException
      */
     protected function whereBinary(Builder $query, array $where): string
@@ -178,6 +182,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a bitwise operator where clause: InfluxQL has none.
      *
+     * @param array<string, mixed> $where
      * @throws RuntimeException
      */
     protected function whereBitwise(Builder $query, array $where): string
@@ -188,6 +193,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a "where like" clause: InfluxQL has no LIKE.
      *
+     * @param array<string, mixed> $where
      * @throws RuntimeException
      */
     protected function whereLike(Builder $query, array $where): string
@@ -200,6 +206,8 @@ class Grammar extends QueryGrammar
      *
      * InfluxQL has no IN, so the list becomes the OR of one equality per value.
      * An empty list matches nothing, as `0 = 1` does in Hypervel.
+     *
+     * @param array<string, mixed> $where
      */
     protected function whereIn(Builder $query, array $where): string
     {
@@ -219,6 +227,8 @@ class Grammar extends QueryGrammar
      * Compile a "where not in" clause.
      *
      * The AND of one inequality per value; an empty list matches everything.
+     *
+     * @param array<string, mixed> $where
      */
     protected function whereNotIn(Builder $query, array $where): string
     {
@@ -237,6 +247,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a "where not in raw" clause: InfluxQL has no NOT IN.
      *
+     * @param array<string, mixed> $where
      * @throws RuntimeException
      */
     protected function whereNotInRaw(Builder $query, array $where): string
@@ -247,6 +258,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a "where in raw" clause: InfluxQL has no IN.
      *
+     * @param array<string, mixed> $where
      * @throws RuntimeException
      */
     protected function whereInRaw(Builder $query, array $where): string
@@ -257,6 +269,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a "where null" clause: InfluxQL has no IS NULL.
      *
+     * @param array<string, mixed> $where
      * @throws RuntimeException
      */
     protected function whereNull(Builder $query, array $where): string
@@ -267,6 +280,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a "where not null" clause: InfluxQL has no IS NOT NULL.
      *
+     * @param array<string, mixed> $where
      * @throws RuntimeException
      */
     protected function whereNotNull(Builder $query, array $where): string
@@ -277,6 +291,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a "where null safe equals" clause: InfluxQL has no null-safe comparison.
      *
+     * @param array<string, mixed> $where
      * @throws RuntimeException
      */
     protected function whereNullSafeEquals(Builder $query, array $where): string
@@ -289,6 +304,8 @@ class Grammar extends QueryGrammar
      *
      * InfluxQL has no BETWEEN, so the bounds become two comparisons. Both are
      * inclusive, as BETWEEN is; the negation is exclusive on both sides.
+     *
+     * @param array<string, mixed> $where
      */
     protected function whereBetween(Builder $query, array $where): string
     {
@@ -306,6 +323,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a "between columns" where clause: InfluxQL has no BETWEEN.
      *
+     * @param array<string, mixed> $where
      * @throws RuntimeException
      */
     protected function whereBetweenColumns(Builder $query, array $where): string
@@ -316,6 +334,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a "value between" where clause: InfluxQL has no BETWEEN.
      *
+     * @param array<string, mixed> $where
      * @throws RuntimeException
      */
     protected function whereValueBetween(Builder $query, array $where): string
@@ -326,6 +345,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a date based where clause, such as whereDate(): InfluxQL cannot compare part of a timestamp.
      *
+     * @param array<string, mixed> $where
      * @throws RuntimeException
      */
     protected function dateBasedWhere(string $type, Builder $query, array $where): string
@@ -336,6 +356,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a where condition with a sub-select: InfluxQL cannot compare a column with one.
      *
+     * @param array<string, mixed> $where
      * @throws RuntimeException
      */
     protected function whereSub(Builder $query, array $where): string
@@ -346,6 +367,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a where exists clause: InfluxQL has no EXISTS.
      *
+     * @param array<string, mixed> $where
      * @throws RuntimeException
      */
     protected function whereExists(Builder $query, array $where): string
@@ -356,6 +378,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a where not exists clause: InfluxQL has no NOT EXISTS.
      *
+     * @param array<string, mixed> $where
      * @throws RuntimeException
      */
     protected function whereNotExists(Builder $query, array $where): string
@@ -366,6 +389,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a where row values condition: InfluxQL has no row values.
      *
+     * @param array<string, mixed> $where
      * @throws RuntimeException
      */
     protected function whereRowValues(Builder $query, array $where): string
@@ -466,6 +490,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse an insert statement: InfluxQL has none.
      *
+     * @param array<int|string, mixed> $values
      * @throws LogicException
      */
     public function compileInsert(Builder $query, array $values): string
@@ -476,6 +501,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse an insert ignore statement: InfluxQL has none.
      *
+     * @param array<int|string, mixed> $values
      * @throws LogicException
      */
     public function compileInsertOrIgnore(Builder $query, array $values): string
@@ -486,6 +512,9 @@ class Grammar extends QueryGrammar
     /**
      * Refuse an insert or ignore statement with a returning clause: InfluxQL has none.
      *
+     * @param array<int|string, mixed> $values
+     * @param list<string> $returning
+     * @param null|list<string> $uniqueBy
      * @throws LogicException
      */
     public function compileInsertOrIgnoreReturning(Builder $query, array $values, array $returning, ?array $uniqueBy): string
@@ -496,6 +525,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse an insert and get ID statement: InfluxQL has none.
      *
+     * @param array<int|string, mixed> $values
      * @throws LogicException
      */
     public function compileInsertGetId(Builder $query, array $values, ?string $sequence): string
@@ -506,6 +536,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse an insert statement using a subquery: InfluxQL has none.
      *
+     * @param list<string> $columns
      * @throws LogicException
      */
     public function compileInsertUsing(Builder $query, array $columns, string $sql): string
@@ -516,6 +547,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse an insert ignore statement using a subquery: InfluxQL has none.
      *
+     * @param list<string> $columns
      * @throws LogicException
      */
     public function compileInsertOrIgnoreUsing(Builder $query, array $columns, string $sql): string
@@ -526,6 +558,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse an update statement: InfluxQL has none.
      *
+     * @param array<string, mixed> $values
      * @throws LogicException
      */
     public function compileUpdate(Builder $query, array $values): string
@@ -536,6 +569,9 @@ class Grammar extends QueryGrammar
     /**
      * Refuse an "upsert" statement: InfluxQL has none.
      *
+     * @param array<int|string, mixed> $values
+     * @param list<string> $uniqueBy
+     * @param array<int|string, mixed> $update
      * @throws LogicException
      */
     public function compileUpsert(Builder $query, array $values, array $uniqueBy, array $update): string
@@ -572,6 +608,7 @@ class Grammar extends QueryGrammar
     /**
      * Refuse a truncate table statement: InfluxQL has none.
      *
+     * @return array<string, array<mixed>>
      * @throws LogicException
      */
     public function compileTruncate(Builder $query): array

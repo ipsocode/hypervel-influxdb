@@ -44,6 +44,11 @@ driver. The grammars share `Dialect` and `RefusesWhatTheVersionLacks`, so a
 statement is written, and refused, the same way whichever compiles it.
 `InfluxQL\Driver\Connection` and `Sql\SqlConnection` are built alike too. Keep
 each pair in step: a change to one usually needs the same change to its twin.
+`tests/Feature/InfluxQL/ParityTest.php` is where that is held: it runs the same
+builder calls through both InfluxQL stacks, for every version, and fails when
+one sends a different statement or refuses differently. Add a case there for
+any builder method you add or change, and list an intended difference in the
+test with its reason.
 
 ## Where the package keeps state
 
@@ -378,8 +383,11 @@ An aggregate is aliased `aggregate`, as Hypervel reads it back, except over
 that is an error. `DISTINCT` is a function around each column, not a keyword
 on the clause, and `Driver\Grammar` writes Hypervel's `avg` as InfluxQL's
 `mean`, which `InfluxDB::table()`'s builder asks for itself.
-`Grammars\Grammar` writes keywords in upper case and `Driver\Grammar` in lower
-case, as Hypervel does; InfluxQL reads either.
+Both grammars write keywords in lower case, as Hypervel's own grammars do, so
+the same query reads the same in `toSql()`, `pretend()` and query logs whichever
+entry point built it; InfluxQL reads either case. `ParityTest` compares the two
+stacks' statements exactly. Keep a keyword in lower case in both grammars when
+you add one.
 
 ### Refusing what the version lacks
 

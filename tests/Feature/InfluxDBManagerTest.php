@@ -266,6 +266,6 @@ class InfluxDBManagerTest extends TestCase
 
         $this->assertSame('cpu', $query->from);
         $this->assertSame($manager->influxql('analytics'), $query->getConnection());
-        $this->assertSame('SELECT * FROM "cpu" WHERE "host" = ?', $manager->table('cpu')->where('host', 'web1')->toSql());
+        $this->assertSame('select * from "cpu" where "host" = ?', $manager->table('cpu')->where('host', 'web1')->toSql());
     }
 }
