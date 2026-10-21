@@ -120,7 +120,7 @@ jobs:
     timeout-minutes: 10
 
     concurrency:
-      group: integration-${{ github.event.pull_request.number || github.ref }}
+      group: integration-${{ github.job }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.ref_name != 'main' }}
 
     container:
