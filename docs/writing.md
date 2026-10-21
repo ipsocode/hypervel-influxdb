@@ -115,9 +115,10 @@ tries each fallback in order, with the same retries, until one takes it. The
 ### What is failed over
 
 A connection fails to take a write when its server cannot be reached, or
-answers `429` or a `5xx` once the client's retries are spent: the failures
-the client retries. A write the server refuses for the write's own fault,
-with any other `4xx`, such as a `400` for a line it cannot parse, is not
+answers a status of `429` or above, `5xx` included, once the client's retries
+are spent: the failures the client retries. A write the server refuses for
+the write's own fault, with a `4xx` below `429`, such as a `400` for a line it
+cannot parse or a `401` for a token, is not
 failed over: it is refused as it would be without fallbacks, since a fallback
 would refuse it too, and the connection is not taken for down. A fallback
 that refuses a write is passed over, and the next one tried.
