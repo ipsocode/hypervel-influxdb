@@ -9,8 +9,11 @@ use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Response;
+use Ipsocode\InfluxDB\Write\Availability;
 use Ipsocode\InfluxDB\Write\BatchingWriter;
 use Ipsocode\InfluxDB\Write\BatchOptions;
+use Ipsocode\InfluxDB\Write\Failover;
+use Ipsocode\InfluxDB\Write\FailoverOptions;
 use Psr\Http\Message\RequestInterface;
 use Throwable;
 
@@ -67,19 +70,12 @@ trait MocksWrites
      * @param int $delay the milliseconds each response takes
      * @param array<string, mixed> $writeOptions the client's write options
      * @param array<string, mixed> $options client options, over the fixture's
+     * @param null|Failover $failover the connections a batch the `main` connection cannot take falls back to
      */
-    protected function writer(array $batching = [], array $responses = [], int $delay = 0, array $writeOptions = [], array $options = []): BatchingWriter
+    protected function writer(array $batching = [], array $responses = [], int $delay = 0, array $writeOptions = [], array $options = [], ?Failover $failover = null): BatchingWriter
     {
         return new BatchingWriter(
-            $options + [
-                'url' => 'http://localhost:8086',
-                'token' => 'main-token',
-                'bucket' => 'main-bucket',
-                'org' => 'main-org',
-                'precision' => 'ns',
-                'logFile' => '/dev/null',
-                'httpClient' => $this->transport($responses, $delay),
-            ],
+            $options + self::clientOptions('main', $this->transport($responses, $delay)),
             'main',
             new BatchOptions(...$batching + [
                 'batchSize' => 100,
@@ -88,7 +84,54 @@ trait MocksWrites
                 'maxBuffered' => 1_000,
             ]),
             $writeOptions + ['maxRetries' => 0],
+            failover: $failover,
         );
+    }
+
+    /**
+     * A failover of the `main` connection's writes to the given fallbacks, each over a transport answering with its responses.
+     *
+     * The fallbacks' clients are named after them: `backup` writes to `http://backup.localhost:8086`,
+     * bucket `backup-bucket` and org `backup-org`.
+     *
+     * @param array<string, list<Response|Throwable>> $fallbacks the responses of each fallback, by connection name, in the order to try them
+     * @param float $cooldown the seconds a connection that failed is skipped
+     * @param null|Availability $availability the cooldowns to share, or new ones
+     */
+    protected function failover(array $fallbacks, float $cooldown = 30.0, ?Availability $availability = null): Failover
+    {
+        $options = [];
+
+        foreach ($fallbacks as $name => $responses) {
+            $options[$name] = self::clientOptions($name, $this->transport($responses));
+        }
+
+        return new Failover(
+            'main',
+            self::clientOptions('main', null),
+            new FailoverOptions(array_keys($options), $cooldown),
+            $availability ?? new Availability,
+            $options,
+        );
+    }
+
+    /**
+     * The client options of a connection named after itself, such as `http://backup.localhost:8086` and bucket `backup-bucket`.
+     *
+     * The `main` connection keeps the fixture's `http://localhost:8086`. The client's log goes to /dev/null rather than the test's output.
+     *
+     * @return array<string, mixed>
+     */
+    protected static function clientOptions(string $connection, ?Guzzle $httpClient): array
+    {
+        return [
+            'url' => $connection === 'main' ? 'http://localhost:8086' : "http://{$connection}.localhost:8086",
+            'token' => $connection . '-token',
+            'bucket' => "{$connection}-bucket",
+            'org' => "{$connection}-org",
+            'precision' => 'ns',
+            'logFile' => '/dev/null',
+        ] + ($httpClient === null ? [] : ['httpClient' => $httpClient]);
     }
 
     /**
@@ -123,6 +166,19 @@ trait MocksWrites
     {
         return array_map(
             static fn (array $entry): string => $entry['request']->getUri()->getPath() . '?' . $entry['request']->getUri()->getQuery(),
+            $this->history,
+        );
+    }
+
+    /**
+     * The host, path and query string of every request sent, oldest first, such as `backup.localhost /api/v2/write?org=o&bucket=b&precision=ns`.
+     *
+     * @return list<string>
+     */
+    protected function sentThrough(): array
+    {
+        return array_map(
+            static fn (array $entry): string => $entry['request']->getUri()->getHost() . ' ' . $entry['request']->getUri()->getPath() . '?' . $entry['request']->getUri()->getQuery(),
             $this->history,
         );
     }

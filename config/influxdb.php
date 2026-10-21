@@ -54,11 +54,17 @@ return [
             // ('log' by default: a batch that cannot be written is logged and dropped) and the
             // InfluxDB client's write options, such as `maxRetries`, can be added too.
             // https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/writing.md#batching-writes
+            //
+            // INFLUXDB_FALLBACK names the connections, comma-separated, a write this connection cannot
+            // take falls back to, in order; a connection that fails is skipped for `cooldown` seconds.
+            // https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/writing.md#falling-back-to-other-connections
             'write' => [
                 'writeType' => env('INFLUXDB_BATCHING', false) ? WriteType::BATCHING : WriteType::SYNCHRONOUS,
                 'batchSize' => env('INFLUXDB_BATCH_SIZE'),
                 'batchSizeMb' => env('INFLUXDB_BATCH_SIZE_MB'),
                 'flushInterval' => env('INFLUXDB_FLUSH_INTERVAL'),
+                'fallback' => env('INFLUXDB_FALLBACK'),
+                'cooldown' => env('INFLUXDB_COOLDOWN'),
             ],
 
             // Any other option InfluxDB2\Client accepts (timeout, proxy, tags, ...) can be added here.

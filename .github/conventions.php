@@ -37,6 +37,8 @@ return [
             'src/InfluxQL/Driver/Builder.php' => [4, "the driver builder's own raw API: subqueries and where clauses carry their bindings, groupByTime() embeds only a duration literal checked against Dialect::DURATION, and rawValue() selects with its bindings"],
             'src/InfluxQL/Driver/Connection.php' => [3, "the driver connection's statement API, which runs InfluxQL through runInfluxQL() with its bindings"],
             'src/Write/BatchingWriter.php' => [1, "writeRaw() sends line protocol through InfluxDB's write API; it runs no query"],
+            'src/Write/Failover.php' => [1, "writeRaw() sends line protocol a connection could not take through a fallback connection's write API; it runs no query"],
+            'src/Write/FailoverWriter.php' => [1, "writeRaw() sends line protocol through InfluxDB's write API, as BatchingWriter's does; it runs no query"],
         ],
     ],
 ];
