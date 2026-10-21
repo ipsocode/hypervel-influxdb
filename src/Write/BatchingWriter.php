@@ -11,6 +11,7 @@ use Hypervel\Coordinator\Timer;
 use Hypervel\Coroutine\Coroutine;
 use InfluxDB2\WriteApi;
 use InfluxDB2\WriteType;
+use Psr\Http\Message\ResponseInterface;
 use Swoole\Coroutine\CanceledException;
 use Throwable;
 
@@ -73,6 +74,16 @@ class BatchingWriter extends WriteApi
     protected int $flushTimerGeneration = 0;
 
     protected Timer $timer;
+
+    /**
+     * The times each batch being sent has been posted so far, keyed by the ID of the coroutine sending it.
+     *
+     * A coroutine sends one batch at a time, and the client retries a batch
+     * only when its failure is retryable, so the count is kept per send.
+     *
+     * @var array<int, int>
+     */
+    protected array $attempts = [];
 
     /**
      * @param array<string, mixed> $options the connection's client options
@@ -170,6 +181,24 @@ class BatchingWriter extends WriteApi
         $this->closed = true;
 
         $this->flush();
+    }
+
+    /**
+     * Post a request through the client, counting it as an attempt of the batch this coroutine is sending.
+     *
+     * @param mixed $payload
+     * @param mixed $uriPath
+     * @param mixed $queryParams
+     */
+    public function post($payload, $uriPath, $queryParams): ResponseInterface
+    {
+        $id = Coroutine::id();
+
+        if (isset($this->attempts[$id])) {
+            ++$this->attempts[$id];
+        }
+
+        return parent::post($payload, $uriPath, $queryParams);
     }
 
     /**
@@ -295,21 +324,26 @@ class BatchingWriter extends WriteApi
      */
     protected function send(Batch $batch): void
     {
+        $id = Coroutine::id();
+        $this->attempts[$id] = 0;
+
         try {
             $failure = self::attempt(fn () => parent::writeRaw($batch->payload, $batch->precision, $batch->bucket, $batch->org));
+            $attempts = $this->attempts[$id];
 
             if ($failure !== null) {
-                $this->fail($batch, $failure);
+                $this->fail($batch, $failure, $attempts);
             }
         } finally {
+            unset($this->attempts[$id]);
             $this->sending -= $batch->points;
         }
     }
 
     /**
-     * Report a batch that could not be written, and hand it to `onFailure`.
+     * Report a batch that could not be written after the given number of attempts, and hand it to `onFailure`.
      */
-    protected function fail(Batch $batch, Throwable $cause): void
+    protected function fail(Batch $batch, Throwable $cause, int $attempts): void
     {
         $exception = new BatchWriteException($batch, $cause);
 
@@ -317,15 +351,23 @@ class BatchingWriter extends WriteApi
 
         $onFailure = $this->batching->onFailure;
 
-        if ($onFailure === null) {
-            return;
-        }
-
-        $failure = self::attempt(fn () => (is_callable($onFailure) ? $onFailure : Container::getInstance()->make($onFailure))($batch, $exception));
+        $failure = self::attempt(fn () => match (true) {
+            $onFailure === null => (new LogFailureStore)->store($this->failed($exception, $attempts)),
+            $onFailure instanceof FailureStore => $onFailure->store($this->failed($exception, $attempts)),
+            default => (is_callable($onFailure) ? $onFailure : Container::getInstance()->make($onFailure))($batch, $exception),
+        });
 
         if ($failure !== null) {
             $this->report($failure);
         }
+    }
+
+    /**
+     * Describe a failed batch for a FailureStore.
+     */
+    protected function failed(BatchWriteException $exception, int $attempts): FailedBatch
+    {
+        return FailedBatch::from($exception, $attempts);
     }
 
     /**

@@ -21,7 +21,12 @@ use Ipsocode\InfluxDB\Write\BatchingWriter;
 use Ipsocode\InfluxDB\Write\BatchOptions;
 use Ipsocode\InfluxDB\Write\BatchWriteException;
 use Ipsocode\InfluxDB\Write\BufferFullException;
+use Ipsocode\InfluxDB\Write\FailedBatch;
+use Ipsocode\InfluxDB\Write\FailureStore;
+use Ipsocode\InfluxDB\Write\LogFailureStore;
 use Mockery;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Swoole\Coroutine\CanceledException;
 
@@ -460,6 +465,142 @@ class BatchingWriterTest extends TestCase
         );
         $this->assertSame($batch, $exception->batch);
         $this->assertSame('InfluxDB connection [main] dropped a batch of 1 point (13 bytes) for bucket [other-bucket]: [503] Error connecting to the API (http://localhost:8086/api/v2/write?org=other-org&bucket=other-bucket&precision=s)(unavailable)', $exception->getMessage());
+    }
+
+    public function testALogFailureStoreIsHandedTheFailedBatch(): void
+    {
+        Exceptions::fake();
+        $store = new class implements FailureStore {
+            /** @var list<FailedBatch> */
+            public array $batches = [];
+
+            public function store(FailedBatch $batch): void
+            {
+                $this->batches[] = $batch;
+            }
+        };
+        $writer = $this->writer(['onFailure' => $store], [new Response(503), new Response(503), new Response(503)], 0, ['maxRetries' => 2, 'retryInterval' => 1, 'maxRetryDelay' => 1]);
+
+        $writer->write('cpu load=1i 1', 's', 'other-bucket', 'other-org');
+        $writer->flush();
+
+        $this->assertCount(1, $store->batches);
+
+        $failed = $store->batches[0];
+
+        $this->assertSame(
+            ['main', 'other-bucket', 'other-org', 's', 'cpu load=1i 1', 3],
+            [$failed->connection, $failed->bucket, $failed->org, $failed->precision, $failed->payload, $failed->attempts],
+        );
+        $this->assertStringStartsWith(ApiException::class . ': [503]', $failed->exception);
+    }
+
+    public function testAFailureTheClientDoesNotRetryCountsAsOneAttempt(): void
+    {
+        Exceptions::fake();
+        $store = new class implements FailureStore {
+            /** @var list<FailedBatch> */
+            public array $batches = [];
+
+            public function store(FailedBatch $batch): void
+            {
+                $this->batches[] = $batch;
+            }
+        };
+        $writer = $this->writer(['onFailure' => $store], [new Response(400, [], '{"code":"invalid","message":"unable to parse"}')], 0, ['maxRetries' => 2, 'retryInterval' => 1, 'maxRetryDelay' => 1]);
+
+        $writer->write('cpu load=1i 1');
+        $writer->flush();
+
+        $this->assertCount(1, $this->history);
+        $this->assertCount(1, $store->batches);
+        $this->assertSame(1, $store->batches[0]->attempts);
+        $this->assertStringStartsWith(ApiException::class . ': [400]', $store->batches[0]->exception);
+    }
+
+    public function testBatchesSentAtOnceCountTheirOwnAttempts(): void
+    {
+        Exceptions::fake();
+        $store = new class implements FailureStore {
+            /** @var list<FailedBatch> */
+            public array $batches = [];
+
+            public function store(FailedBatch $batch): void
+            {
+                $this->batches[] = $batch;
+            }
+        };
+        $writer = $this->writer(
+            ['batchSize' => 1, 'onFailure' => $store],
+            array_fill(0, 4, new Response(503)),
+            20,
+            ['maxRetries' => 1, 'retryInterval' => 1, 'maxRetryDelay' => 1],
+        );
+
+        $writer->write('cpu load=1i 1');
+        $writer->write('cpu load=2i 2');
+        $writer->flush();
+
+        $this->assertCount(4, $this->history);
+        $this->assertSame([2, 2], array_map(static fn (FailedBatch $batch): int => $batch->attempts, $store->batches));
+    }
+
+    /**
+     * @param array<string, mixed> $batching
+     */
+    #[DataProvider('logDrivers')]
+    public function testTheLogDriverLogsTheFailedBatchAndDropsIt(array $batching): void
+    {
+        $reported = Exceptions::fake();
+        $logger = Mockery::mock(LoggerInterface::class);
+        $logger->shouldReceive('warning')->once()->withArgs(fn (string $message, array $context): bool => str_contains($message, 'InfluxDB connection [main] dropped a batch for bucket [other-bucket] after 1 attempt: ')
+            && $context['connection'] === 'main'
+            && $context['bucket'] === 'other-bucket'
+            && $context['org'] === 'other-org'
+            && $context['precision'] === 's'
+            && $context['bytes'] === 13
+            && $context['attempts'] === 1
+            && is_string($context['failedAt']));
+        $this->app->instance(LoggerInterface::class, $logger);
+        $writer = $this->writer($batching, [new Response(503)]);
+
+        $writer->write('cpu load=1i 1', 's', 'other-bucket', 'other-org');
+        $writer->flush();
+
+        $reported->assertReportedCount(1);
+        $this->assertSame(0, $writer->getPendingPoints());
+    }
+
+    /**
+     * @return array<string, array{array<string, mixed>}>
+     */
+    public static function logDrivers(): array
+    {
+        return [
+            'omitted' => [[]],
+            'named' => [['onFailure' => new LogFailureStore]],
+        ];
+    }
+
+    public function testTheLogDriverUsesTheErrorLogWhenTheLoggerFails(): void
+    {
+        Exceptions::fake();
+        $log = tempnam(sys_get_temp_dir(), 'influxdb');
+        $previous = ini_set('error_log', $log);
+        $logger = Mockery::mock(LoggerInterface::class);
+        $logger->shouldReceive('warning')->once()->andThrow(new RuntimeException('The logger is down.'));
+        $this->app->instance(LoggerInterface::class, $logger);
+        $writer = $this->writer([], [new Response(503)]);
+
+        try {
+            $writer->write('cpu load=1i 1');
+            $writer->flush();
+
+            $this->assertStringContainsString('InfluxDB connection [main] dropped a batch for bucket [main-bucket] after 1 attempt', (string) file_get_contents($log));
+        } finally {
+            ini_set('error_log', $previous === false ? '' : $previous);
+            unlink($log);
+        }
     }
 
     public function testOnFailureMayNameAnInvokableClass(): void

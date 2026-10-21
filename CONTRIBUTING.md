@@ -61,6 +61,7 @@ Hypervel 0.4 is released.
 | `composer test:phpunit` | The suite through PHPUnit directly, bypassing the Testbench CLI |
 | `composer test:parallel` | The suite through ParaTest |
 | `composer test:coverage` | The suite under PCOV, failing below 100% line coverage |
+| `composer test:integration` | The tests under `tests/Integration` against real InfluxDB servers (below) |
 | `composer test:purge` | Clears the Testbench skeleton's cached config, routes, views and SQLite files |
 
 Arguments after `--` reach PHPUnit or ParaTest, e.g.
@@ -71,7 +72,64 @@ connection config the tests resolve (`workbench/config/influxdb.php`) and a
 few console commands that drive the manager the way an application would
 (`workbench/routes/console.php`). `testbench.yaml` declares what it discovers.
 The suite never reaches a live InfluxDB: a URL in it is only config, and the
-HTTP layer underneath is a Guzzle mock (`tests/Concerns`).
+HTTP layer underneath is a Guzzle mock (`tests/Concerns`). Only `tests/Integration` does.
+
+### Integration tests
+
+`tests/Integration` runs the package against real InfluxDB servers, outside the default suite:
+`composer test` and `composer test:coverage` start no server and keep their 100% gate. Each test class
+reads its server's URL from an environment variable and skips when it is unset, so the suite reports
+skips, not failures, without a server. Each test creates a database of its own and drops it afterwards,
+so the suite can run again against the same server.
+
+| Variable | Server | Tests |
+|---|---|---|
+| `INFLUXDB_V1_URL` | InfluxDB 1.x | `InfluxDBV1Test`, `InfluxDBV1VersionDetectionTest` |
+| `INFLUXDB_V2_URL` | InfluxDB 2.x | `InfluxDBV2Test`, `InfluxDBV2VersionDetectionTest` |
+| `INFLUXDB_V3_URL` | InfluxDB 3 Core | `InfluxDBV3Test`, `InfluxDBV3VersionDetectionTest` |
+
+The 2.x classes also read `INFLUXDB_V2_TOKEN` and `INFLUXDB_V2_ORG`, which default to the `it-token` and
+`it-org` the server below is started with. 2.x has no `CREATE DATABASE`, so a class makes its database as a
+bucket through the API; a bucket named without a slash has a virtual DBRP mapping, which is all InfluxQL needs.
+
+Start InfluxDB 1.x and run the suite in the CI image, on the same Docker network so the image
+reaches the server by name:
+
+```sh
+docker network create influx
+docker run -d --rm --name influxdb --network influx influxdb:1.11
+docker run --rm -v "$PWD":/app -w /app --network influx -e OTEL_SDK_DISABLED=true \
+    -e INFLUXDB_V1_URL=http://influxdb:8086 \
+    ghcr.io/ipsocode/hypervel/ci:8.4-latest composer test:integration
+```
+
+InfluxDB 2.x runs the same way, with the setup variables that create its organization, bucket and token:
+
+```sh
+docker run -d --rm --name influxdb2 --network influx \
+    -e DOCKER_INFLUXDB_INIT_MODE=setup -e DOCKER_INFLUXDB_INIT_USERNAME=admin \
+    -e DOCKER_INFLUXDB_INIT_PASSWORD=adminpassword -e DOCKER_INFLUXDB_INIT_ORG=it-org \
+    -e DOCKER_INFLUXDB_INIT_BUCKET=it-bucket -e DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=it-token \
+    influxdb:2.7
+docker run --rm -v "$PWD":/app -w /app --network influx -e OTEL_SDK_DISABLED=true \
+    -e INFLUXDB_V2_URL=http://influxdb2:8086 \
+    ghcr.io/ipsocode/hypervel/ci:8.4-latest composer test:integration
+```
+
+InfluxDB 3 Core needs no setup: it creates a database on its first write, and the 3 tests make and drop their
+own through the configure API. Start it without authentication, or set `INFLUXDB_V3_TOKEN` to the admin token
+of a server that has it:
+
+```sh
+docker run -d --rm --name influxdb3 --network influx \
+    -e INFLUXDB3_NODE_IDENTIFIER_PREFIX=it-node -e INFLUXDB3_OBJECT_STORE=memory \
+    -e INFLUXDB3_START_WITHOUT_AUTH=true influxdb:3-core
+docker run --rm -v "$PWD":/app -w /app --network influx -e OTEL_SDK_DISABLED=true \
+    -e INFLUXDB_V3_URL=http://influxdb3:8181 \
+    ghcr.io/ipsocode/hypervel/ci:8.4-latest composer test:integration
+```
+
+`.github/workflows/integration.yml` runs the same on pull requests, with the server as a service container.
 
 php-cs-fixer and PHPStan are configured like `hypervel/components`:
 `.php-cs-fixer.dist.php` loads its rules, verbatim, from

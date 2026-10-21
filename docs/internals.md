@@ -293,6 +293,13 @@ reporting what that throws. `report()` goes through the container's
 `ExceptionHandler`, and falls back to `error_log()` when that throws, as it
 does when no handler is bound. No failed batch is thrown at a `write()`.
 
+A `FailedBatch` carries the times its batch was actually posted. The client
+retries only a failure it takes for retryable (429 and above, or a network
+error), so `maxRetries` is not that count. `send()` starts a count in
+`$attempts`, keyed by the sending coroutine's ID, and `post()`, which the
+client calls for every try, adds to it. Batches sent at once from coroutines
+of their own share the writer, and each counts only its own posts.
+
 ## The InfluxQL dialect
 
 How InfluxQL writes identifiers and literals lives in `InfluxQL\Dialect`, a
