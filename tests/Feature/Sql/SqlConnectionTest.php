@@ -339,6 +339,23 @@ class SqlConnectionTest extends TestCase
         $this->assertSame(['POST /api/v3/query_sql', 'POST /api/v3/query_sql'], $this->requestLines());
     }
 
+    public function testALostConnectionRetryKeepsTheDatabaseSetDatabaseNameChose(): void
+    {
+        $this->responses->append(
+            new ConnectException('Connection reset by peer', new Request('POST', '/api/v3/query_sql')),
+            self::rows([['host' => 'web1']]),
+        );
+
+        $connection = DB::connection('influxdb');
+        $connection->setDatabaseName('tenant_b')->select('select "host" from "cpu"');
+
+        $this->assertSame('tenant_b', $connection->getDatabaseName());
+        $this->assertSame(['tenant_b', 'tenant_b'], array_map(
+            static fn (array $entry): string => json_decode((string) $entry['request']->getBody(), true, 512, JSON_THROW_ON_ERROR)['db'],
+            $this->history,
+        ));
+    }
+
     #[DataProvider('writes')]
     public function testEveryWriteIsRefusedBeforeAnythingIsSent(Closure $write): void
     {

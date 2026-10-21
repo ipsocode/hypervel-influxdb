@@ -301,13 +301,12 @@ class SqlConnection extends Connection
     }
 
     /**
-     * Refresh the driver resources from a fresh connection.
+     * Refresh the driver resources from a fresh connection, keeping the database setDatabaseName() chose.
      */
     protected function replaceDriverResources(Connection $fresh): void
     {
         /** @var self $fresh */
         $api = $fresh->api;
-        $database = $fresh->database;
         $configuredDatabase = $fresh->configuredDatabase;
         $tablePrefix = $fresh->tablePrefix;
         $configuredTablePrefix = $fresh->configuredTablePrefix;
@@ -317,7 +316,6 @@ class SqlConnection extends Connection
             $this->disconnect();
         } finally {
             $this->api = $api;
-            $this->database = $database;
             $this->configuredDatabase = $configuredDatabase;
             $this->tablePrefix = $tablePrefix;
             $this->configuredTablePrefix = $configuredTablePrefix;
