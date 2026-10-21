@@ -50,10 +50,11 @@ class BatchingWriter extends WriteApi
     protected ?int $bufferedSince = null;
 
     /**
-     * The sends running in coroutines of their own, keyed by coroutine ID.
+     * The sends running in coroutines, keyed by coroutine ID.
      *
-     * Each one's coordinator is resumed when it finishes, which is what
-     * flush() waits for.
+     * Every send registers here, whichever coroutine runs it: one dispatched
+     * for a full batch, the flush timer's, or a flush() caller's. Each one's
+     * coordinator is resumed when it finishes, which is what flush() waits for.
      *
      * @var array<int, Coordinator>
      */
@@ -257,7 +258,8 @@ class BatchingWriter extends WriteApi
             $this->dispatch($this->take($key));
         }
 
-        if ($overflowing) {
+        // A send coroutine never flushes: its own batch is still counted, and it would wait on sends that wait on it.
+        if ($overflowing && ! $this->sendingHere()) {
             $this->flush();
         } else {
             $this->scheduleFlush();
@@ -306,17 +308,7 @@ class BatchingWriter extends WriteApi
             return;
         }
 
-        Coroutine::create(function () use ($batch): void {
-            $id = Coroutine::id();
-            $done = $this->sends[$id] = new Coordinator;
-
-            try {
-                $this->send($batch);
-            } finally {
-                unset($this->sends[$id]);
-                $done->resume();
-            }
-        });
+        Coroutine::create(fn () => $this->send($batch));
     }
 
     /**
@@ -326,6 +318,12 @@ class BatchingWriter extends WriteApi
     {
         $id = Coroutine::id();
         $this->attempts[$id] = 0;
+
+        $done = null;
+
+        if (Coroutine::inCoroutine() && ! isset($this->sends[$id])) {
+            $done = $this->sends[$id] = new Coordinator;
+        }
 
         try {
             $failure = self::attempt(fn () => parent::writeRaw($batch->payload, $batch->precision, $batch->bucket, $batch->org));
@@ -337,6 +335,11 @@ class BatchingWriter extends WriteApi
         } finally {
             unset($this->attempts[$id]);
             $this->sending -= $batch->points;
+
+            if ($done !== null) {
+                unset($this->sends[$id]);
+                $done->resume();
+            }
         }
     }
 
@@ -435,11 +438,19 @@ class BatchingWriter extends WriteApi
     }
 
     /**
-     * Wait for the batches being sent in coroutines of their own, but the calling one's.
+     * Whether the calling coroutine is sending a batch.
+     */
+    protected function sendingHere(): bool
+    {
+        return Coroutine::inCoroutine() && isset($this->sends[Coroutine::id()]);
+    }
+
+    /**
+     * Wait for the batches being sent in other coroutines, unless the calling one is sending.
      */
     protected function awaitSends(): void
     {
-        if (! Coroutine::inCoroutine()) {
+        if (! Coroutine::inCoroutine() || $this->sendingHere()) {
             return;
         }
 
