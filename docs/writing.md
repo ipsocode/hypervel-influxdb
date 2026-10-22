@@ -125,7 +125,7 @@ The `write` block takes these options for batching:
 | `maxBuffered` | 10 × `batchSize` | The points a writer [holds](#how-much-a-worker-holds), buffered or being sent |
 | `overflow` | `'flush'` | What a write past `maxBuffered` does: `'flush'` or `'refuse'` (`BatchOptions::FLUSH`, `BatchOptions::REFUSE`) |
 | `maxAttempts` | `5` | The sends a batch a [store kept](#replaying-failed-batches) gets, replays included, before a replay drops it |
-| `onFailure` | `'log'` | `'log'`, `'filesystem'`, a [driver array](#the-filesystem-driver), a callable, or the name of an invokable class, handed each batch that [cannot be written](#when-a-batch-cannot-be-written) |
+| `onFailure` | `'log'` | `'log'`, `'filesystem'`, `'redis'`, a [driver array](#the-filesystem-driver), a callable, or the name of an invokable class, handed each batch that [cannot be written](#when-a-batch-cannot-be-written) |
 | `maxRetries` | `3` | The client's option: the retries a batch gets |
 
 The client's other retry options, `retryInterval`, `maxRetryDelay`,
@@ -232,7 +232,7 @@ class SpillFailedBatch
 ```
 
 Name the driver as `'onFailure' => 'log'` or `['driver' => 'log']`, or use the
-[`filesystem` driver](#the-filesystem-driver); an
+[`filesystem`](#the-filesystem-driver) or [`redis`](#the-redis-driver) driver; an
 unknown driver throws an `InvalidArgumentException` when the connection is
 resolved. A driver is a `FailureStore`, handed a `FailedBatch` that carries the
 `connection`, `bucket`, `org`, `precision` and `payload` of the batch, its
@@ -290,6 +290,32 @@ the option. A file in the directory that is not a batch ends a replay with a
 `RuntimeException` naming it, and stays where it is until you remove it. Give
 each connection its own `path`; two sharing one replay each other's batches to
 their own servers.
+
+### The redis driver
+
+`redis` keeps each failed batch as an entry of a Redis list, so a restart or an
+InfluxDB outage does not lose it, and [replays](#replaying-failed-batches) them
+oldest first:
+
+```php
+'write' => [
+    'writeType' => WriteType::BATCHING,
+    'onFailure' => ['driver' => 'redis', 'connection' => 'default'],
+],
+```
+
+| Option | Default | |
+|---|---|---|
+| `connection` | the application's default Redis connection | The name of a connection in `config/database.php` |
+
+The list is `influxdb:failed:<connection>`, named after the InfluxDB
+connection, so connections do not replay each other's batches. Each entry is
+the `FailedBatch` as JSON, with its payload of line protocol unchanged, appended
+at the end of the list. An entry is removed only after the writer returns for
+it. A `connection` that is not a non-empty string throws an
+`InvalidArgumentException` naming the connection and the option. An entry that
+is not a batch ends a replay with a `RuntimeException`, and stays in the list
+until you remove it.
 
 ### Replaying failed batches
 
