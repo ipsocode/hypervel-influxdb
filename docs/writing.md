@@ -124,6 +124,7 @@ The `write` block takes these options for batching:
 | `flushInterval` | `1` | The seconds after the buffer's first point that it is sent at the latest |
 | `maxBuffered` | 10 × `batchSize` | The points a writer [holds](#how-much-a-worker-holds), buffered or being sent |
 | `overflow` | `'flush'` | What a write past `maxBuffered` does: `'flush'` or `'refuse'` (`BatchOptions::FLUSH`, `BatchOptions::REFUSE`) |
+| `maxAttempts` | `5` | The sends a batch a [store kept](#replaying-failed-batches) gets, replays included, before a replay drops it |
 | `onFailure` | `'log'` | `'log'`, `['driver' => 'log']`, a callable, or the name of an invokable class, handed each batch that [cannot be written](#when-a-batch-cannot-be-written) |
 | `maxRetries` | `3` | The client's option: the retries a batch gets |
 
@@ -260,6 +261,36 @@ and the worker's exit wait for it, so keep it quick: hand the payload to
 storage or a queue rather than retrying the server from it. An exception it
 throws is reported through the exception handler too, and an exception the
 handler cannot report goes to PHP's `error_log()`.
+
+### Replaying failed batches
+
+A `FailureStore` that also implements `Ipsocode\InfluxDB\Write\ReplayableFailureStore`
+can hand its batches back: `replay(callable $writer, int $limit = 100): int`
+gives up to `$limit` of them, oldest first, to `$writer(FailedBatch $batch)`,
+and removes each one only after the writer returns. A store of your own that
+does not implement it keeps working, but cannot be replayed.
+
+```php
+use Ipsocode\InfluxDB\Facades\InfluxDB;
+
+$written = InfluxDB::replayFailed('main', limit: 100); // the batches written
+```
+
+```
+php artisan influxdb:replay-failed main --limit=100
+```
+
+Both write each batch through a synchronous `WriteApi` to the bucket, org and
+precision it was going to. A batch that fails again is stored again with its
+`attempts` plus one, and once that reaches the connection's `maxAttempts`
+(`5` by default) it is logged as the `log` driver logs a batch, and dropped.
+A connection whose `onFailure` is not a `ReplayableFailureStore`, such as the
+`log` driver or a callable, cannot replay: the manager throws an
+`InvalidArgumentException` and the command fails, saying so.
+
+A point written without a timestamp receives the server's time when its batch
+is replayed, not the time it was recorded; give points a timestamp when that
+matters.
 
 ### How much a worker holds
 
