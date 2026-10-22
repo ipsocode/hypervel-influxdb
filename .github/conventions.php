@@ -38,6 +38,8 @@ return [
             'src/InfluxQL/Driver/Connection.php' => [3, "the driver connection's statement API, which runs InfluxQL through runInfluxQL() with its bindings"],
             'src/InfluxDBManager.php' => [1, "replayFailed() sends a stored batch's line protocol through InfluxDB's write API; it runs no query"],
             'src/Write/BatchingWriter.php' => [1, "writeRaw() sends line protocol through InfluxDB's write API; it runs no query"],
+            'src/Write/Failover.php' => [1, "writeRaw() sends line protocol a connection could not take through a fallback connection's write API; it runs no query"],
+            'src/Write/FailoverWriter.php' => [1, "writeRaw() sends line protocol through InfluxDB's write API, as BatchingWriter's does; it runs no query"],
         ],
     ],
 ];

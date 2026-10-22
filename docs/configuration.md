@@ -34,9 +34,11 @@ set, makes the client log each request and response, headers and body, to
 The package's `config/influxdb.php` also reads `INFLUXDB_DATABASE`,
 `INFLUXDB_RETENTION_POLICY` and `INFLUXDB_EPOCH` into the connection's
 `influxql` block (see [Configuring InfluxQL](influxql.md#configuring-influxql)),
-and `INFLUXDB_BATCHING`, `INFLUXDB_BATCH_SIZE`, `INFLUXDB_BATCH_SIZE_MB` and
+`INFLUXDB_BATCHING`, `INFLUXDB_BATCH_SIZE`, `INFLUXDB_BATCH_SIZE_MB` and
 `INFLUXDB_FLUSH_INTERVAL` into its `write` block (see
-[Batching writes](writing.md#batching-writes)).
+[Batching writes](writing.md#batching-writes)), and `INFLUXDB_FALLBACK` and
+`INFLUXDB_COOLDOWN` into that block too (see
+[Falling back to other connections](writing.md#falling-back-to-other-connections)).
 
 ### More connections
 
@@ -183,7 +185,8 @@ client accepts can be set on it, not only the keys shown above: `timeout`,
 `proxy`, `allow_redirects`, `tags` (default tags for every point), `logFile`,
 `httpClient` and the rest. Three keys are this package's own: `write`, the
 write options `writeApi()` passes to the connection's `WriteApi`, which also
-turn on [batching](writing.md#batching-writes), and `version`
+turn on [batching](writing.md#batching-writes) and name the connections to
+[fall back to](writing.md#falling-back-to-other-connections), and `version`
 ([above](#choosing-the-server-version)) and `influxql`
 ([Configuring InfluxQL](influxql.md#configuring-influxql)), which are not
 passed to the client.
@@ -210,5 +213,7 @@ of your own, they are not applied, so configure that client instead.
 `allow_redirects`, `debug` and the token apply to either.
 
 The package's own requests go through transports built from the same options:
-InfluxQL queries, SQL queries on InfluxDB 3, and the batches a batching writer
-sends. So these options apply to them as they do to writes and Flux queries.
+InfluxQL queries, SQL queries on InfluxDB 3, the batches a batching writer
+sends, and the writes that fall back to a connection, which go through that
+connection's options. So these options apply to them as they do to writes and
+Flux queries.
