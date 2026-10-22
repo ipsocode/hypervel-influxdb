@@ -91,6 +91,16 @@ class ReplayFailedTest extends TestCase
         $this->app->get(InfluxDBManager::class)->replayFailed('main');
     }
 
+    public function testAConnectionWhoseStoreIsTheQueueLeavesTheReplayingToTheQueue(): void
+    {
+        $this->connection(null, [], ['onFailure' => 'queue']);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('InfluxDB connection [main] has no failure store that can replay its batches: its queue driver leaves the replaying to the queue\'s workers.');
+
+        $this->app->get(InfluxDBManager::class)->replayFailed('main');
+    }
+
     public function testAConnectionThatDoesNotBatchRefusesToReplay(): void
     {
         $this->expectException(InvalidArgumentException::class);

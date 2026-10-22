@@ -17,6 +17,7 @@ use Ipsocode\InfluxDB\Write\BufferFullException;
 use Ipsocode\InfluxDB\Write\DatabaseFailureStore;
 use Ipsocode\InfluxDB\Write\FilesystemFailureStore;
 use Ipsocode\InfluxDB\Write\LogFailureStore;
+use Ipsocode\InfluxDB\Write\QueueFailureStore;
 use Ipsocode\InfluxDB\Write\RedisFailureStore;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
@@ -164,6 +165,23 @@ class BatchOptionsTest extends TestCase
     }
 
     #[UnitTest]
+    public function testOnFailureMayNameTheQueueDriverWithAConnectionAndAQueue(): void
+    {
+        foreach (['queue', ['driver' => 'queue'], ['driver' => 'queue', 'connection' => 'redis', 'queue' => 'influxdb'], ['driver' => 'queue', 'connection' => null, 'queue' => null]] as $onFailure) {
+            $this->assertInstanceOf(QueueFailureStore::class, BatchOptions::fromConfig(['onFailure' => $onFailure], Version::V1, 'main')->onFailure);
+        }
+    }
+
+    #[UnitTest]
+    public function testAQueueNameOfTheWrongKindIsRefusedWithTheConnectionAndKey(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('InfluxDB connection [analytics] has an invalid write.onFailure.queue []; expected a non-empty string.');
+
+        BatchOptions::fromConfig(['onFailure' => ['driver' => 'queue', 'queue' => '']], Version::V1, 'analytics');
+    }
+
+    #[UnitTest]
     public function testADatabaseTableOfTheWrongKindIsRefusedWithTheConnectionAndKey(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -199,7 +217,7 @@ class BatchOptionsTest extends TestCase
     public function testAnUnknownFailureDriverIsRefusedWithTheConnection(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('InfluxDB connection [analytics] has an invalid write.onFailure [sqs]; expected a callable, the name of an invokable class, or the driver log, filesystem, redis or database.');
+        $this->expectExceptionMessage('InfluxDB connection [analytics] has an invalid write.onFailure [sqs]; expected a callable, the name of an invokable class, or the driver log, filesystem, redis, database or queue.');
 
         BatchOptions::fromConfig(['onFailure' => ['driver' => 'sqs']], Version::V1, 'analytics');
     }
