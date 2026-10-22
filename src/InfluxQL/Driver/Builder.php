@@ -683,10 +683,13 @@ class Builder extends QueryBuilder
             return gmdate('Y-m-d\TH:i:s\Z', $seconds);
         }
 
+        // Floor, not truncate: a time before 1970 keeps a positive fraction of the second before it.
+        $fraction = (($time % $perSecond) + $perSecond) % $perSecond;
+
         return sprintf(
             '%s.%09dZ',
-            gmdate('Y-m-d\TH:i:s', intdiv($time, $perSecond)),
-            ($time % $perSecond) * intdiv(1_000_000_000, $perSecond),
+            gmdate('Y-m-d\TH:i:s', intdiv($time - $fraction, $perSecond)),
+            $fraction * intdiv(1_000_000_000, $perSecond),
         );
     }
 
