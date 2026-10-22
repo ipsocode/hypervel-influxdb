@@ -110,7 +110,7 @@ final class BatchOptions
             throw self::invalid($connection, 'overflow', $overflow, sprintf('%s or %s', self::FLUSH, self::REFUSE));
         }
 
-        if (in_array($onFailure, [LogFailureStore::DRIVER, FilesystemFailureStore::DRIVER, RedisFailureStore::DRIVER], true) || (is_array($onFailure) && array_key_exists('driver', $onFailure))) {
+        if (in_array($onFailure, [LogFailureStore::DRIVER, FilesystemFailureStore::DRIVER, RedisFailureStore::DRIVER, DatabaseFailureStore::DRIVER], true) || (is_array($onFailure) && array_key_exists('driver', $onFailure))) {
             $onFailure = self::store($onFailure, $connection);
         }
 
@@ -162,7 +162,17 @@ final class BatchOptions
             );
         }
 
-        throw self::invalid($connection, 'onFailure', $name, sprintf('a callable, the name of an invokable class, or the driver %s, %s or %s', LogFailureStore::DRIVER, FilesystemFailureStore::DRIVER, RedisFailureStore::DRIVER));
+        if ($name === DatabaseFailureStore::DRIVER) {
+            $options = is_array($driver) ? $driver : [];
+
+            return new DatabaseFailureStore(
+                $connection,
+                self::storeOption($options, 'table', DatabaseFailureStore::DEFAULT_TABLE, $connection),
+                self::storeOption($options, 'connection', null, $connection),
+            );
+        }
+
+        throw self::invalid($connection, 'onFailure', $name, sprintf('a callable, the name of an invokable class, or the driver %s, %s, %s or %s', LogFailureStore::DRIVER, FilesystemFailureStore::DRIVER, RedisFailureStore::DRIVER, DatabaseFailureStore::DRIVER));
     }
 
     /**

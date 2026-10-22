@@ -58,6 +58,10 @@ class InfluxDBServiceProvider extends ServiceProvider
             __DIR__ . '/../config/influxdb.php' => config_path('influxdb.php'),
         ], 'influxdb-config');
 
+        $this->publishesMigrations([
+            __DIR__ . '/../database/migrations' => database_path('migrations'),
+        ], 'influxdb-migrations');
+
         $this->commands([ReplayFailedCommand::class]);
 
         $events = $this->app->make('events');
