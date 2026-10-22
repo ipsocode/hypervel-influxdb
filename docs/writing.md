@@ -125,7 +125,7 @@ The `write` block takes these options for batching:
 | `maxBuffered` | 10 × `batchSize` | The points a writer [holds](#how-much-a-worker-holds), buffered or being sent |
 | `overflow` | `'flush'` | What a write past `maxBuffered` does: `'flush'` or `'refuse'` (`BatchOptions::FLUSH`, `BatchOptions::REFUSE`) |
 | `maxAttempts` | `5` | The sends a batch a [store kept](#replaying-failed-batches) gets, replays included, before a replay drops it |
-| `onFailure` | `'log'` | `'log'`, `['driver' => 'log']`, a callable, or the name of an invokable class, handed each batch that [cannot be written](#when-a-batch-cannot-be-written) |
+| `onFailure` | `'log'` | `'log'`, `'filesystem'`, a [driver array](#the-filesystem-driver), a callable, or the name of an invokable class, handed each batch that [cannot be written](#when-a-batch-cannot-be-written) |
 | `maxRetries` | `3` | The client's option: the retries a batch gets |
 
 The client's other retry options, `retryInterval`, `maxRetryDelay`,
@@ -231,13 +231,14 @@ class SpillFailedBatch
 }
 ```
 
-Name the driver as `'onFailure' => 'log'` or `['driver' => 'log']`; an
+Name the driver as `'onFailure' => 'log'` or `['driver' => 'log']`, or use the
+[`filesystem` driver](#the-filesystem-driver); an
 unknown driver throws an `InvalidArgumentException` when the connection is
 resolved. A driver is a `FailureStore`, handed a `FailedBatch` that carries the
 `connection`, `bucket`, `org`, `precision` and `payload` of the batch, its
 `attempts` (the first try and each retry the client made: a failure it
 does not retry, such as a 400, counts once), when it `failedAt`, and the
-`exception` that failed it. Durable drivers are to follow.
+`exception` that failed it.
 
 A class name is resolved from the container, and keeps the config cacheable,
 which a closure does not. A batch the server refuses may still have been
@@ -261,6 +262,34 @@ and the worker's exit wait for it, so keep it quick: hand the payload to
 storage or a queue rather than retrying the server from it. An exception it
 throws is reported through the exception handler too, and an exception the
 handler cannot report goes to PHP's `error_log()`.
+
+### The filesystem driver
+
+`filesystem` keeps each failed batch as a file on a disk, so a restart or an
+InfluxDB outage does not lose it, and [replays](#replaying-failed-batches) them
+oldest first:
+
+```php
+'write' => [
+    'writeType' => WriteType::BATCHING,
+    'onFailure' => ['driver' => 'filesystem', 'disk' => 'local', 'path' => 'influxdb/failed/main'],
+],
+```
+
+| Option | Default | |
+|---|---|---|
+| `disk` | the application's default disk | The name of a disk in `config/filesystems.php` |
+| `path` | `influxdb/failed/<connection>` | The directory on the disk the files are kept in |
+
+`'onFailure' => 'filesystem'` takes both defaults. Each batch is one JSON file
+that starts with when the batch failed, so the names sort in failure order, and
+carries the `FailedBatch` with its payload of line protocol unchanged. A file is
+deleted only after the writer returns for it. A `disk` or `path` that is not a
+non-empty string throws an `InvalidArgumentException` naming the connection and
+the option. A file in the directory that is not a batch ends a replay with a
+`RuntimeException` naming it, and stays where it is until you remove it. Give
+each connection its own `path`; two sharing one replay each other's batches to
+their own servers.
 
 ### Replaying failed batches
 
