@@ -172,10 +172,14 @@ InfluxDB::table('cpu')
   series, and `tz()` for the time zone of the returned timestamps. InfluxDB 3
   has no `SLIMIT` or `SOFFSET`, so a `v3` connection refuses any value but 0,
   which it leaves out.
-- The interval and offset of `groupByTime()` must be InfluxQL duration
-  literals, such as `10m`, `1h` or `-15m`, since they are embedded as written;
-  `fill()` takes a number or one of its four keywords, and `tz()` a time zone
-  name PHP knows. Anything else throws an `InvalidArgumentException`.
+- The interval of `groupByTime()` must be a positive InfluxQL duration
+  literal, such as `10m` or `1h`, and its offset one that may be negative, such
+  as `-15m`, since they are embedded as written; `fill()` takes a number or one
+  of its four keywords, and `tz()` a time zone name such as `Europe/Amsterdam`,
+  not an offset (`+02:00`) or an abbreviation (`CEST`), which InfluxDB's time
+  zone database lacks. Anything else throws an `InvalidArgumentException`.
+- A query is ordered by `time` once: `orderBy('TIME')` is written as `time`,
+  and a second `orderBy()` on it throws an `InvalidArgumentException`.
 - `groupBy()` takes tags, or `*` for every tag; a time window goes through
   `groupByTime()`. A function is selected with `selectRaw()`, since a function
   call is not a column name.
@@ -346,6 +350,7 @@ Each connection can carry an `influxql` block:
             'database' => env('INFLUXDB_DATABASE'),
             'retentionPolicy' => env('INFLUXDB_RETENTION_POLICY'),
             'epoch' => env('INFLUXDB_EPOCH'),
+            'throwOnPartial' => false,
         ],
     ],
 ],
@@ -356,6 +361,7 @@ Each connection can carry an `influxql` block:
 | `database` | The bucket, up to its first `/`; on `v3`, the whole bucket | The database the statements are addressed to. |
 | `retentionPolicy` | The bucket after its first `/`, or else the database's default; on `v3`, none | The retention policy the statements are addressed to. A `v3` connection refuses one, since InfluxDB 3 has no retention policies. |
 | `epoch` | None | Return timestamps as integers of this precision (`ns`, `u`, `ms`, `s`, `m` or `h`, and on `v3` also `d` or `w`) instead of RFC3339 strings. `µ` is accepted and sent as `u`, the one spelling every version reads. |
+| `throwOnPartial` | `false` | Throw a `QueryException` from `get()`, `count()`, `pluck()` and the other reads that flatten a result, when the server truncated it (`max-row-limit`), instead of returning the rows it kept. `results()` and `series()` always report the `partial` flag. |
 
 InfluxQL addresses data by database and retention policy rather than by
 bucket. Without a `database`, both come from the bucket, split at its first

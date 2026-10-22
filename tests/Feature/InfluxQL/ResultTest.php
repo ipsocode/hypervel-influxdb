@@ -126,4 +126,14 @@ class ResultTest extends TestCase
         $this->assertSame(['web1', 'web1', 'web2'], array_column($rows, 'host'));
         $this->assertSame([1, 2, 3], array_column($rows, 'value'));
     }
+
+    #[UnitTest]
+    public function testAResultIsPartialWhenItOrOneOfItsSeriesIs(): void
+    {
+        $series = ['name' => 'cpu', 'columns' => ['time'], 'values' => [['2024-01-01T00:00:00Z']]];
+
+        $this->assertTrue(Result::fromArray(['partial' => true])->isPartial());
+        $this->assertTrue(Result::fromArray(['series' => [$series, $series + ['partial' => true]]])->isPartial());
+        $this->assertFalse(Result::fromArray(['series' => [$series]])->isPartial());
+    }
 }

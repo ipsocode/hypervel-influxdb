@@ -646,8 +646,8 @@ class Grammar extends QueryGrammar
     /**
      * Substitute the given bindings into the given raw InfluxQL query.
      *
-     * The connection sends the result, so values are written by Dialect::escape(): the
-     * connection's escape() has no literal for a regular expression or a date. A `?` in
+     * The connection sends the result, so values are written by Dialect::escape(), which
+     * writes a regular expression and a date as the connection's escape() does. A `?` in
      * a raw regular expression is read as a placeholder too: pass a Regex as a binding.
      *
      * @param array<mixed> $bindings
