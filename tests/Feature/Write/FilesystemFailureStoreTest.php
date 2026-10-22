@@ -61,6 +61,15 @@ class FilesystemFailureStoreTest extends TestCase
         );
     }
 
+    public function testTheFileNameStartsWithWhenTheBatchFailedInUtc(): void
+    {
+        (new FilesystemFailureStore('spill', 'failed'))->store($this->failed('cpu load=1i 1', 1, '2026-10-22T02:30:00.000001+02:00'));
+
+        $files = glob($this->root . '/spill/*.json');
+        $this->assertCount(1, $files);
+        $this->assertStringStartsWith('20261022003000000001-', basename($files[0]));
+    }
+
     public function testBatchesAreReplayedOldestFirstAndRemovedOnlyAfterTheWriterReturns(): void
     {
         $store = new FilesystemFailureStore('spill', 'failed');

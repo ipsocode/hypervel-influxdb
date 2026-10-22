@@ -56,6 +56,18 @@ class ReplayFailedTest extends TestCase
         $this->assertStringContainsString('unable to parse', $store->batches[0]->exception);
     }
 
+    public function testAReplayIsSentOnceWhateverTheConnectionsMaxRetries(): void
+    {
+        $store = $this->store([$this->failed('cpu load=1i 1', 2)]);
+        $this->connection($store, [new Response(503), new Response(503)], ['maxRetries' => 3]);
+
+        $this->assertSame(0, $this->app->get(InfluxDBManager::class)->replayFailed('main'));
+
+        $this->assertCount(1, $this->sentTo());
+        $this->assertCount(1, $store->batches);
+        $this->assertSame(3, $store->batches[0]->attempts);
+    }
+
     public function testABatchThatReachesMaxAttemptsIsLoggedAndDropped(): void
     {
         $store = $this->store([$this->failed('cpu load=1i 1', 1)]);

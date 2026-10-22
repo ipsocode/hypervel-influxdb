@@ -21,6 +21,9 @@ The namespace `Ipsocode\InfluxDB` is rooted at `src/`.
 | `Write/Failover.php`, `Write/FailoverOptions.php`, `Write/Availability.php` | Writes line protocol through the first connection that takes it; the failover options, checked; the cooldowns of the connections that failed, one set per worker | [Falling back to other connections](writing.md#falling-back-to-other-connections), [below](#falling-back) |
 | `Write/FailoverException.php` | A write a connection failed to take, and what became of it | [What is reported, and what is thrown](writing.md#what-is-reported-and-what-is-thrown) |
 | `Write/Concerns/ReportsFailures.php` | Reporting through the exception handler, and running what may fail without throwing, shared by `BatchingWriter` and `Failover` | [Below](#failures) |
+| `Write/FailureStore.php`, `Write/ReplayableFailureStore.php`, `Write/FailedBatch.php` | Where a batch that cannot be written goes; a store that can hand its batches back; the batch it is handed | [When a batch cannot be written](writing.md#when-a-batch-cannot-be-written), [Replaying failed batches](writing.md#replaying-failed-batches) |
+| `Write/LogFailureStore.php`, `FilesystemFailureStore.php`, `RedisFailureStore.php`, `DatabaseFailureStore.php`, `QueueFailureStore.php` | The `onFailure` drivers | [The filesystem driver](writing.md#the-filesystem-driver) and the sections after it |
+| `Console/ReplayFailedCommand.php`, `Jobs/ReplayFailedBatch.php` | `influxdb:replay-failed`, and the job the `queue` driver dispatches | [Replaying failed batches](writing.md#replaying-failed-batches), [The queue driver](writing.md#the-queue-driver) |
 | `Write/Batch.php`, `Write/BatchWriteException.php`, `Write/BufferFullException.php` | One request's line protocol; a batch dropped after its retries; a write refused past `maxBuffered` | [When a batch cannot be written](writing.md#when-a-batch-cannot-be-written), [How much a worker holds](writing.md#how-much-a-worker-holds) |
 | `InfluxQL/Connection.php`, `V1Connection.php`, `V2Connection.php`, `V3Connection.php` | Run InfluxQL on `/query`, addressed to a database and retention policy; one subclass per version, picked by `Connection::make()` | [Running statements](influxql.md#running-statements); connecting to [1.x](configuration.md#connecting-to-influxdb-1x), [2.x](configuration.md#connecting-to-influxdb-2x) and [3](configuration.md#connecting-to-influxdb-3) |
 | `InfluxQL/Version.php` | The InfluxDB major versions, and the statements each runs | [Choosing the server version](configuration.md#choosing-the-server-version) |
@@ -38,7 +41,8 @@ The namespace `Ipsocode\InfluxDB` is rooted at `src/`.
 | `Testing/TestState.php` | Resets the package's static state after each test | [Testing an application that uses it](hypervel.md#testing-an-application-that-uses-it), [below](#where-the-package-keeps-state) |
 
 Outside `src/`, `config/influxdb.php` is the config the provider merges and
-publishes, and `workbench/` is the host application the suite runs against,
+publishes, `database/migrations/` holds the `database` driver's table, published
+with the `influxdb-migrations` tag, and `workbench/` is the host application the suite runs against,
 described in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 Two builders and two grammars compile InfluxQL: `InfluxQL\Builder` and
@@ -62,7 +66,8 @@ an application is in [Long-lived workers](hypervel.md#long-lived-workers). The
 package keeps state, shared by every coroutine of a worker, in these places:
 
 - **The manager's caches.** `InfluxDBManager` is a container singleton, so its
-  resolved clients, memoised `WriteApi`s and InfluxQL connections live as long
+  resolved clients, memoised `WriteApi`s, the synchronous `WriteApi` per
+  connection that replays failed batches, and InfluxQL connections live as long
   as the worker. They are instance properties, so they go when a test rebuilds
   the container. `reconnect()`, `disconnect()` and `setDefaultConnection()`
   change what every coroutine on the worker sees, and are for boot or tests

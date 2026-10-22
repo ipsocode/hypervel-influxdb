@@ -356,8 +356,8 @@ class SpillFailedBatch
 ```
 
 Name the driver as `'onFailure' => 'log'` or `['driver' => 'log']`, or use the
-[`filesystem`](#the-filesystem-driver), [`redis`](#the-redis-driver) or
-[`database`](#the-database-driver) driver; an
+[`filesystem`](#the-filesystem-driver), [`redis`](#the-redis-driver),
+[`database`](#the-database-driver) or [`queue`](#the-queue-driver) driver; an
 unknown driver throws an `InvalidArgumentException` when the connection is
 resolved. A driver is a `FailureStore`, handed a `FailedBatch` that carries the
 `connection`, `bucket`, `org`, `precision` and `payload` of the batch, its
@@ -409,7 +409,7 @@ oldest first:
 | `path` | `influxdb/failed/<connection>` | The directory on the disk the files are kept in |
 
 `'onFailure' => 'filesystem'` takes both defaults. Each batch is one JSON file
-that starts with when the batch failed, so the names sort in failure order, and
+that starts with when the batch failed, in UTC, so the names sort in failure order, and
 carries the `FailedBatch` with its payload of line protocol unchanged. A file is
 deleted only after the writer returns for it. A `disk` or `path` that is not a
 non-empty string throws an `InvalidArgumentException` naming the connection and
@@ -499,7 +499,7 @@ backoff replay it, and no `influxdb:replay-failed` is needed:
 The job is `Ipsocode\InfluxDB\Jobs\ReplayFailedBatch`, carrying the
 `FailedBatch`. A worker writes it through a synchronous `WriteApi` of the
 InfluxDB connection that buffered it, to the bucket, org and precision it was
-going to, and the job throws when the write fails, so the queue retries it by
+going to, sending it once, and the job throws when the write fails, so the queue retries it by
 its own `tries`, `backoff` and failed-job handling. Run a worker for the queue
 as for any other. The driver is not a `ReplayableFailureStore`: the batches
 live in the queue, so [replaying](#replaying-failed-batches) a connection that
@@ -527,7 +527,8 @@ php artisan influxdb:replay-failed main --limit=100
 ```
 
 Both write each batch through a synchronous `WriteApi` to the bucket, org and
-precision it was going to. A batch that fails again is stored again with its
+precision it was going to, sending it once: the connection's `maxRetries` does not
+apply to a replay, which counts as one attempt. A batch that fails again is stored again with its
 `attempts` plus one, and once that reaches the connection's `maxAttempts`
 (`5` by default) it is logged as the `log` driver logs a batch, and dropped.
 A connection whose `onFailure` is not a `ReplayableFailureStore`, such as the

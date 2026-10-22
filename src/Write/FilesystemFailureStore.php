@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ipsocode\InfluxDB\Write;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use Hypervel\Container\Container;
 use Hypervel\Contracts\Filesystem\Factory;
 use Hypervel\Contracts\Filesystem\Filesystem;
@@ -14,7 +15,7 @@ use Throwable;
 /**
  * The `filesystem` driver: keeps each failed batch as a JSON file on a disk, and replays them oldest first.
  *
- * The file name starts with when the batch failed, so the names sort in failure order.
+ * The file name starts with when the batch failed, in UTC, so the names sort in failure order.
  * The disk is resolved on first use, not when the connection is configured.
  *
  * @see docs/writing.md#the-filesystem-driver
@@ -42,7 +43,7 @@ final class FilesystemFailureStore implements ReplayableFailureStore
      */
     public function store(FailedBatch $batch): void
     {
-        $name = sprintf('%s/%s-%s.json', $this->path, $batch->failedAt->format('YmdHisu'), bin2hex(random_bytes(4)));
+        $name = sprintf('%s/%s-%s.json', $this->path, $batch->failedAt->setTimezone(new DateTimeZone('UTC'))->format('YmdHisu'), bin2hex(random_bytes(4)));
 
         $contents = json_encode([
             'connection' => $batch->connection,

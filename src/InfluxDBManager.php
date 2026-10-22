@@ -193,6 +193,8 @@ class InfluxDBManager
     /**
      * Write a failed batch through a synchronous WriteApi of its connection, to the bucket, org and precision it was going to.
      *
+     * The batch is sent once, with no retries of the client's, so each replay counts as one attempt.
+     *
      * @param null|string $name the connection to write through; the one that buffered the batch when left out
      *
      * @throws Throwable when the write fails
@@ -202,7 +204,7 @@ class InfluxDBManager
     public function writeFailed(FailedBatch $batch, ?string $name = null): void
     {
         $name ??= $batch->connection;
-        $replayApi = $this->replayApis[$name] ??= $this->connection($name)->createWriteApi(['writeType' => WriteType::SYNCHRONOUS]);
+        $replayApi = $this->replayApis[$name] ??= $this->connection($name)->createWriteApi(['writeType' => WriteType::SYNCHRONOUS, 'maxRetries' => 0]);
 
         $replayApi->writeRaw($batch->payload, $batch->precision, $batch->bucket, $batch->org);
     }
