@@ -81,6 +81,13 @@ class BatchOptionsTest extends TestCase
     }
 
     #[UnitTest]
+    public function testMaxAttemptsDefaultsToFiveAndMayBeSet(): void
+    {
+        $this->assertSame(5, BatchOptions::fromConfig([], Version::V2, 'main')->maxAttempts);
+        $this->assertSame(2, BatchOptions::fromConfig(['maxAttempts' => '2'], Version::V2, 'main')->maxAttempts);
+    }
+
+    #[UnitTest]
     public function testMaxBufferedDefaultsToTenBatches(): void
     {
         $this->assertSame(1_230, BatchOptions::fromConfig(['batchSize' => 123], Version::V2, 'main')->maxBuffered);
@@ -155,6 +162,7 @@ class BatchOptionsTest extends TestCase
             'flushInterval of 0' => ['flushInterval', 0, '[0]; expected a number above zero'],
             'flushInterval below 0' => ['flushInterval', -1, '[-1]; expected a number above zero'],
             'maxBuffered of 0' => ['maxBuffered', 0, '[0]; expected a whole number above zero'],
+            'maxAttempts of 0' => ['maxAttempts', 0, '[0]; expected a whole number above zero'],
             'an unknown overflow' => ['overflow', 'drop', '[drop]; expected flush or refuse'],
             'an overflow that is not a string' => ['overflow', [], '[array]; expected flush or refuse'],
             'onFailure naming no class' => ['onFailure', 'App\Missing', '[App\Missing]; expected a callable or the name of an invokable class'],

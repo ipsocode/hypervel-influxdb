@@ -9,6 +9,7 @@ use Hypervel\Context\CoroutineContext;
 use Hypervel\Contracts\Config\Repository;
 use InfluxDB2\Client;
 use InfluxDB2\WriteApi;
+use InfluxDB2\WriteType;
 use InvalidArgumentException;
 use Ipsocode\InfluxDB\InfluxQL\Builder;
 use Ipsocode\InfluxDB\InfluxQL\Connection;
@@ -18,6 +19,10 @@ use Ipsocode\InfluxDB\InfluxQL\Regex;
 use Ipsocode\InfluxDB\InfluxQL\Version;
 use Ipsocode\InfluxDB\Write\BatchingWriter;
 use Ipsocode\InfluxDB\Write\BatchOptions;
+use Ipsocode\InfluxDB\Write\FailedBatch;
+use Ipsocode\InfluxDB\Write\LogFailureStore;
+use Ipsocode\InfluxDB\Write\ReplayableFailureStore;
+use Throwable;
 
 /**
  * Resolves and caches named InfluxDB connections.
@@ -56,6 +61,13 @@ class InfluxDBManager
      * @var array<string, Connection>
      */
     protected array $influxql = [];
+
+    /**
+     * The memoised synchronous WriteApi instances that replay failed batches, keyed by connection name.
+     *
+     * @var array<string, WriteApi>
+     */
+    protected array $replayApis = [];
 
     public function __construct(
         protected Repository $config,
@@ -121,6 +133,47 @@ class InfluxDBManager
                 $writeApi->flush();
             }
         }
+    }
+
+    /**
+     * Write the batches the given connection's failure store kept, oldest first.
+     *
+     * A batch that fails again is stored again with one more attempt, and dropped and logged
+     * once that reaches `write.maxAttempts`. Each batch is removed from the store only after
+     * it was written, stored again or dropped.
+     *
+     * @return int the batches written
+     *
+     * @throws InvalidArgumentException when the connection is not configured, does not batch, or its `onFailure` is not a ReplayableFailureStore
+     *
+     * @see docs/writing.md#replaying-failed-batches
+     */
+    public function replayFailed(?string $name = null, int $limit = 100): int
+    {
+        $name = $name ?: $this->getDefaultConnection();
+        $writeApi = $this->writeApi($name);
+        $store = $writeApi instanceof BatchingWriter ? $writeApi->getBatchOptions()->onFailure : null;
+
+        if (! $store instanceof ReplayableFailureStore) {
+            throw new InvalidArgumentException("InfluxDB connection [{$name}] has no failure store that can replay its batches: set write.onFailure to a ReplayableFailureStore.");
+        }
+
+        $maxAttempts = $writeApi->getBatchOptions()->maxAttempts;
+        $replayApi = $this->replayApis[$name] ??= $this->connection($name)->createWriteApi(['writeType' => WriteType::SYNCHRONOUS]);
+        $written = 0;
+
+        $store->replay(function (FailedBatch $batch) use ($replayApi, $store, $maxAttempts, &$written): void {
+            try {
+                $replayApi->writeRaw($batch->payload, $batch->precision, $batch->bucket, $batch->org);
+                ++$written;
+            } catch (Throwable $exception) {
+                $again = $batch->replayFailed($exception);
+
+                ($again->attempts >= $maxAttempts ? new LogFailureStore : $store)->store($again);
+            }
+        }, $limit);
+
+        return $written;
     }
 
     /**
@@ -225,7 +278,7 @@ class InfluxDBManager
 
         $writeApi = $this->writeApis[$name] ?? null;
 
-        unset($this->connections[$name], $this->writeApis[$name], $this->influxql[$name]);
+        unset($this->connections[$name], $this->writeApis[$name], $this->replayApis[$name], $this->influxql[$name]);
 
         if ($writeApi instanceof BatchingWriter) {
             $writeApi->close();

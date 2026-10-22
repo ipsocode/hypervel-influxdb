@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ipsocode\InfluxDB\Write;
 
 use DateTimeImmutable;
+use Throwable;
 
 /**
  * A Batch that could not be written, with what a FailureStore needs to keep it and write it again.
@@ -49,6 +50,23 @@ final class FailedBatch
             $exception->batch->precision,
             $exception->batch->payload,
             $attempts,
+            new DateTimeImmutable,
+            sprintf('%s: %s', $cause::class, $cause->getMessage()),
+        );
+    }
+
+    /**
+     * Describe this batch after a replay of it failed with the given exception.
+     */
+    public function replayFailed(Throwable $cause): self
+    {
+        return new self(
+            $this->connection,
+            $this->bucket,
+            $this->org,
+            $this->precision,
+            $this->payload,
+            $this->attempts + 1,
             new DateTimeImmutable,
             sprintf('%s: %s', $cause::class, $cause->getMessage()),
         );

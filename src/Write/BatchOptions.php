@@ -44,12 +44,18 @@ final class BatchOptions
     public const int DEFAULT_MAX_RETRIES = 3;
 
     /**
+     * The times a failed batch is sent, replays included, before it is dropped when `maxAttempts` is not set.
+     */
+    public const int DEFAULT_MAX_ATTEMPTS = 5;
+
+    /**
      * @param int $batchSize the lines of line protocol a batch is sent at
      * @param int $batchBytes the bytes a batch is sent at, and no other write makes it outgrow
      * @param float $flushInterval the seconds after its first point a batch is sent at the latest
      * @param int $maxBuffered the points held at most, buffered or being sent, before `overflow` applies
      * @param string $overflow what write() does past `maxBuffered`: FLUSH or REFUSE
      * @param null|callable|class-string|FailureStore $onFailure called with the Batch and the BatchWriteException of each batch that could not be written, or the store handed its FailedBatch; null logs it
+     * @param int $maxAttempts the times a batch a store kept is sent, replays included, before a replay drops it
      */
     public function __construct(
         public readonly int $batchSize,
@@ -58,6 +64,7 @@ final class BatchOptions
         public readonly int $maxBuffered,
         public readonly string $overflow = self::FLUSH,
         public readonly mixed $onFailure = null,
+        public readonly int $maxAttempts = self::DEFAULT_MAX_ATTEMPTS,
     ) {
     }
 
@@ -118,6 +125,7 @@ final class BatchOptions
             self::positiveInteger($writeOptions, 'maxBuffered', self::DEFAULT_BUFFERED_BATCHES * $batchSize, $connection),
             $overflow,
             $onFailure,
+            self::positiveInteger($writeOptions, 'maxAttempts', self::DEFAULT_MAX_ATTEMPTS, $connection),
         );
     }
 
