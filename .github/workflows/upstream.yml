@@ -1,0 +1,158 @@
+# Imported from ipsocode/hypervel-packages github/workflows/upstream.yml. Edit it there.
+name: upstream
+
+on:
+  schedule:
+    - cron: '17 23 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Test main even if this components commit was tested already
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  OTEL_SDK_DISABLED: 'true'
+  COMPOSER_CACHE_DIR: /tmp/composer-cache
+  COMPOSER_MEMORY_LIMIT: '-1'
+  COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
+
+concurrency:
+  group: upstream
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    name: Watch
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    outputs:
+      ref: ${{ steps.head.outputs.ref }}
+      tested: ${{ steps.seen.outputs.cache-hit }}
+
+    steps:
+      - name: Read the head of hypervel/components 0.4
+        id: head
+        run: |
+          ref=$(git ls-remote https://github.com/hypervel/components refs/heads/0.4 | cut -f1)
+          [[ "${ref}" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::hypervel/components has no 0.4 branch head (${ref:-nothing})."; exit 1; }
+          echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
+          echo "hypervel/components 0.4 is at ${ref}."
+
+      - name: Look for an earlier run on it
+        id: seen
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .upstream-tested
+          key: upstream-tested-${{ steps.head.outputs.ref }}
+          lookup-only: true
+
+  test:
+    name: PHP 8.4 on the latest components
+    needs: watch
+    if: needs.watch.outputs.tested != 'true' || inputs.force
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    outputs:
+      ref: ${{ steps.components.outputs.ref }}
+
+    container:
+      image: ghcr.io/ipsocode/hypervel/ci:8.4-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Restore Composer downloads
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/composer-cache
+          key: composer-8.4-${{ hashFiles('composer.json') }}
+          restore-keys: composer-8.4-
+
+      - name: Install dependencies
+        id: install
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          composer update --prefer-dist --no-interaction --optimize-autoloader
+
+      - name: Find the framework it installed
+        id: components
+        run: bash .github/scripts/review.sh components-ref
+
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse --memory-limit 1G -c phpstan.neon --no-progress
+
+      - name: Assert a coverage driver is loaded
+        run: php -m | grep -qx pcov
+
+      - name: Run the suite under the coverage gate
+        env:
+          MIN_COVERAGE: '100'
+        run: |
+          vendor/bin/testbench package:test --parallel \
+            --coverage --min="${MIN_COVERAGE}" --coverage-clover tests/coverage/clover.xml
+
+      - name: Remember the commit was tested
+        if: ${{ always() && steps.install.outcome == 'success' }}
+        run: echo "${{ needs.watch.outputs.ref }}" > .upstream-tested
+
+      - name: Save it
+        if: ${{ always() && steps.install.outcome == 'success' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .upstream-tested
+          key: upstream-tested-${{ needs.watch.outputs.ref }}
+
+  report:
+    name: Report
+    needs: [watch, test]
+    if: ${{ always() && (needs.test.result == 'success' || needs.test.result == 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    permissions:
+      issues: write
+
+    steps:
+      - name: Open, update or close the components issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RESULT: ${{ needs.test.result }}
+          REF: ${{ needs.test.outputs.ref || needs.watch.outputs.ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title='Nightly components check failed'
+          number=$(gh api "repos/${REPO}/issues?state=open&per_page=100" \
+            --jq "map(select(.pull_request == null and .title == \"${title}\"))[0].number // empty")
+          if [ "${RESULT}" = success ]; then
+            if [ -n "${number}" ]; then
+              gh api -X POST "repos/${REPO}/issues/${number}/comments" -f body="passes at ${REF} (${RUN_URL})" > /dev/null
+              gh api -X PATCH "repos/${REPO}/issues/${number}" -f state=closed -f state_reason=completed > /dev/null
+              echo "Closed #${number}: main passes at hypervel/components ${REF}."
+            else
+              echo "main passes at hypervel/components ${REF}."
+            fi
+            exit 0
+          fi
+          body="main fails against hypervel/components ${REF}: ${RUN_URL}"
+          if [ -z "${number}" ]; then
+            number=$(gh api -X POST "repos/${REPO}/issues" -f title="${title}" -f body="${body}" -f 'labels[]=bug' --jq .number)
+            echo "::warning::Opened #${number}: ${body}"
+          else
+            last=$(gh api "repos/${REPO}/issues/${number}/comments?per_page=100" --jq 'last.body // ""')
+            if [[ "${last}" == *"${REF}"* ]]; then
+              echo "#${number} already names ${REF}."
+            else
+              gh api -X POST "repos/${REPO}/issues/${number}/comments" -f body="${body}" > /dev/null
+              echo "::warning::Commented on #${number}: ${body}"
+            fi
+          fi
