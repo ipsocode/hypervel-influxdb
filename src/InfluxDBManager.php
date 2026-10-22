@@ -21,6 +21,7 @@ use Ipsocode\InfluxDB\Write\BatchingWriter;
 use Ipsocode\InfluxDB\Write\BatchOptions;
 use Ipsocode\InfluxDB\Write\FailedBatch;
 use Ipsocode\InfluxDB\Write\LogFailureStore;
+use Ipsocode\InfluxDB\Write\QueueFailureStore;
 use Ipsocode\InfluxDB\Write\ReplayableFailureStore;
 use Throwable;
 
@@ -154,17 +155,20 @@ class InfluxDBManager
         $writeApi = $this->writeApi($name);
         $store = $writeApi instanceof BatchingWriter ? $writeApi->getBatchOptions()->onFailure : null;
 
+        if ($store instanceof QueueFailureStore) {
+            throw new InvalidArgumentException("InfluxDB connection [{$name}] has no failure store that can replay its batches: its queue driver leaves the replaying to the queue's workers.");
+        }
+
         if (! $store instanceof ReplayableFailureStore) {
             throw new InvalidArgumentException("InfluxDB connection [{$name}] has no failure store that can replay its batches: set write.onFailure to a ReplayableFailureStore.");
         }
 
         $maxAttempts = $writeApi->getBatchOptions()->maxAttempts;
-        $replayApi = $this->replayApis[$name] ??= $this->connection($name)->createWriteApi(['writeType' => WriteType::SYNCHRONOUS]);
         $written = 0;
 
-        $store->replay(function (FailedBatch $batch) use ($replayApi, $store, $maxAttempts, &$written): void {
+        $store->replay(function (FailedBatch $batch) use ($name, $store, $maxAttempts, &$written): void {
             try {
-                $replayApi->writeRaw($batch->payload, $batch->precision, $batch->bucket, $batch->org);
+                $this->writeFailed($batch, $name);
                 ++$written;
             } catch (Throwable $exception) {
                 $again = $batch->replayFailed($exception);
@@ -174,6 +178,23 @@ class InfluxDBManager
         }, $limit);
 
         return $written;
+    }
+
+    /**
+     * Write a failed batch through a synchronous WriteApi of its connection, to the bucket, org and precision it was going to.
+     *
+     * @param null|string $name the connection to write through; the one that buffered the batch when left out
+     *
+     * @throws Throwable when the write fails
+     *
+     * @see docs/writing.md#the-queue-driver
+     */
+    public function writeFailed(FailedBatch $batch, ?string $name = null): void
+    {
+        $name ??= $batch->connection;
+        $replayApi = $this->replayApis[$name] ??= $this->connection($name)->createWriteApi(['writeType' => WriteType::SYNCHRONOUS]);
+
+        $replayApi->writeRaw($batch->payload, $batch->precision, $batch->bucket, $batch->org);
     }
 
     /**

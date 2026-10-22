@@ -125,7 +125,7 @@ The `write` block takes these options for batching:
 | `maxBuffered` | 10 × `batchSize` | The points a writer [holds](#how-much-a-worker-holds), buffered or being sent |
 | `overflow` | `'flush'` | What a write past `maxBuffered` does: `'flush'` or `'refuse'` (`BatchOptions::FLUSH`, `BatchOptions::REFUSE`) |
 | `maxAttempts` | `5` | The sends a batch a [store kept](#replaying-failed-batches) gets, replays included, before a replay drops it |
-| `onFailure` | `'log'` | `'log'`, `'filesystem'`, `'redis'`, `'database'`, a [driver array](#the-filesystem-driver), a callable, or the name of an invokable class, handed each batch that [cannot be written](#when-a-batch-cannot-be-written) |
+| `onFailure` | `'log'` | `'log'`, `'filesystem'`, `'redis'`, `'database'`, `'queue'`, a [driver array](#the-filesystem-driver), a callable, or the name of an invokable class, handed each batch that [cannot be written](#when-a-batch-cannot-be-written) |
 | `maxRetries` | `3` | The client's option: the retries a batch gets |
 
 The client's other retry options, `retryInterval`, `maxRetryDelay`,
@@ -352,6 +352,35 @@ string throws an `InvalidArgumentException` naming the connection and the
 option. A row that is not a batch ends a replay with a `RuntimeException`, and
 stays in the table until you remove it. If you name another `table`, publish the
 migration and change the name in it.
+
+### The queue driver
+
+`queue` dispatches each failed batch as a job, so the queue's own tries and
+backoff replay it, and no `influxdb:replay-failed` is needed:
+
+```php
+'write' => [
+    'writeType' => WriteType::BATCHING,
+    'onFailure' => ['driver' => 'queue', 'connection' => 'redis', 'queue' => 'influxdb'],
+],
+```
+
+| Option | Default | |
+|---|---|---|
+| `connection` | the application's default queue connection | The name of a connection in `config/queue.php` |
+| `queue` | the connection's default queue | The queue the jobs are pushed onto |
+
+The job is `Ipsocode\InfluxDB\Jobs\ReplayFailedBatch`, carrying the
+`FailedBatch`. A worker writes it through a synchronous `WriteApi` of the
+InfluxDB connection that buffered it, to the bucket, org and precision it was
+going to, and the job throws when the write fails, so the queue retries it by
+its own `tries`, `backoff` and failed-job handling. Run a worker for the queue
+as for any other. The driver is not a `ReplayableFailureStore`: the batches
+live in the queue, so [replaying](#replaying-failed-batches) a connection that
+uses it throws an `InvalidArgumentException`, and the command fails, saying the
+queue's workers do the replaying. A `connection` or `queue` that is not a
+non-empty string throws an `InvalidArgumentException` naming the connection and
+the option.
 
 ### Replaying failed batches
 
