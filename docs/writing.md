@@ -242,7 +242,7 @@ The `write` block takes these options for batching:
 | `flushInterval` | `1` | The seconds after the buffer's first point that it is sent at the latest |
 | `maxBuffered` | 10 × `batchSize` | The points a writer [holds](#how-much-a-worker-holds), buffered or being sent |
 | `overflow` | `'flush'` | What a write past `maxBuffered` does: `'flush'` or `'refuse'` (`BatchOptions::FLUSH`, `BatchOptions::REFUSE`) |
-| `maxAttempts` | `5` | The sends a batch a [store kept](#replaying-failed-batches) gets, replays included, before a replay drops it |
+| `maxAttempts` | `10` | The sends a batch a [store kept](#replaying-failed-batches) gets, replays included, before a replay drops it |
 | `onFailure` | `'log'` | `'log'`, `'filesystem'`, `'redis'`, `'database'`, `'queue'`, a [driver array](#the-filesystem-driver), a callable, or the name of an invokable class, handed each batch that [cannot be written](#when-a-batch-cannot-be-written) |
 | `maxRetries` | `3` | The client's option: the retries a batch gets |
 | `fallback` | None | The connections a batch this one cannot take [falls back to](#falling-back-to-other-connections), in order |
@@ -508,7 +508,11 @@ The job is `Ipsocode\InfluxDB\Jobs\ReplayFailedBatch`, carrying the
 InfluxDB connection that buffered it, to the bucket, org and precision it was
 going to, sending it once, and the job throws when the write fails, so the queue retries it by
 its own `tries`, `backoff` and failed-job handling. Run a worker for the queue
-as for any other. The driver is not a `ReplayableFailureStore`: the batches
+as for any other. A worker tries a job once unless it is told otherwise, and
+the job is pushed the moment the batch fails, so a worker usually runs it while
+InfluxDB is still down: start it with
+`php artisan queue:work --queue=influxdb --tries=10 --backoff=30`. A job that
+runs out of tries goes to the failed jobs, where `queue:retry` sends it again. The driver is not a `ReplayableFailureStore`: the batches
 live in the queue, so [replaying](#replaying-failed-batches) a connection that
 uses it throws an `InvalidArgumentException`, and the command fails, saying the
 queue's workers do the replaying. A `connection` or `queue` that is not a
@@ -537,10 +541,23 @@ Both write each batch through a synchronous `WriteApi` to the bucket, org and
 precision it was going to, sending it once: the connection's `maxRetries` does not
 apply to a replay, which counts as one attempt. A batch that fails again is stored again with its
 `attempts` plus one, and once that reaches the connection's `maxAttempts`
-(`5` by default) it is logged as the `log` driver logs a batch, and dropped.
+(`10` by default) it is logged as the `log` driver logs a batch, and dropped.
 A connection whose `onFailure` is not a `ReplayableFailureStore`, such as the
 `log` driver or a callable, cannot replay: the manager throws an
 `InvalidArgumentException` and the command fails, saying so.
+
+The count starts from the sends the batch already had (up to `maxRetries` + 1,
+so 4 with the defaults), so a batch gets 6 replays with the defaults, and
+`maxAttempts` must be above `maxRetries` + 1 for more than one replay.
+
+Replays of one connection must not overlap: two replays at once can write the
+same batches twice. Schedule the command without overlapping, and on one server
+only when several hosts share the Redis list or the table:
+
+```php
+Schedule::command('influxdb:replay-failed main')->everyFiveMinutes()->withoutOverlapping();
+// Schedule::command('influxdb:replay-failed main')->everyFiveMinutes()->withoutOverlapping()->onOneServer();
+```
 
 A point written without a timestamp receives the server's time when its batch
 is replayed, not the time it was recorded; give points a timestamp when that

@@ -46,7 +46,7 @@ final class BatchOptions
     /**
      * The times a failed batch is sent, replays included, before it is dropped when `maxAttempts` is not set.
      */
-    public const int DEFAULT_MAX_ATTEMPTS = 5;
+    public const int DEFAULT_MAX_ATTEMPTS = 10;
 
     /**
      * @param int $batchSize the lines of line protocol a batch is sent at

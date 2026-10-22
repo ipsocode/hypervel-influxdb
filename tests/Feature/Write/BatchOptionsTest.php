@@ -87,7 +87,7 @@ class BatchOptionsTest extends TestCase
     #[UnitTest]
     public function testMaxAttemptsDefaultsToFiveAndMayBeSet(): void
     {
-        $this->assertSame(5, BatchOptions::fromConfig([], Version::V2, 'main')->maxAttempts);
+        $this->assertSame(10, BatchOptions::fromConfig([], Version::V2, 'main')->maxAttempts);
         $this->assertSame(2, BatchOptions::fromConfig(['maxAttempts' => '2'], Version::V2, 'main')->maxAttempts);
     }
 
