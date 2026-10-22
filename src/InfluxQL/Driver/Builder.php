@@ -6,8 +6,6 @@ namespace Ipsocode\InfluxDB\InfluxQL\Driver;
 
 use Closure;
 use DatePeriod;
-use DateTimeZone;
-use Exception;
 use Hypervel\Contracts\Database\Query\ConditionExpression;
 use Hypervel\Contracts\Database\Query\Expression as ExpressionContract;
 use Hypervel\Contracts\Support\Arrayable;
@@ -16,6 +14,8 @@ use Hypervel\Database\Eloquent\Relations\Relation;
 use Hypervel\Database\MultipleRecordsFoundException;
 use Hypervel\Database\Query\Builder as QueryBuilder;
 use Hypervel\Database\RecordsNotFoundException;
+use Hypervel\Pagination\Cursor;
+use Hypervel\Pagination\CursorPaginator;
 use Hypervel\Support\Arr;
 use Hypervel\Support\Collection;
 use InvalidArgumentException;
@@ -135,11 +135,7 @@ class Builder extends QueryBuilder
      */
     public function groupByTime(string $interval, ?string $offset = null): static
     {
-        foreach (array_filter([$interval, $offset], fn (?string $duration): bool => $duration !== null) as $duration) {
-            if (preg_match(Dialect::DURATION, $duration) !== 1) {
-                throw new InvalidArgumentException(sprintf('[%s] is not an InfluxQL duration literal, such as 10m or 1h.', $duration));
-            }
-        }
+        Dialect::ensureGroupByTime($interval, $offset);
 
         return $this->groupByRaw('time(' . $interval . ($offset === null ? '' : ', ' . $offset) . ')');
     }
@@ -189,7 +185,7 @@ class Builder extends QueryBuilder
      */
     public function soffset(?int $value): static
     {
-        $this->soffset = max(0, (int) $value);
+        $this->soffset = is_null($value) ? null : max(0, $value);
 
         return $this;
     }
@@ -197,15 +193,11 @@ class Builder extends QueryBuilder
     /**
      * Localise the returned timestamps to a time zone: InfluxQL's `tz()` clause.
      *
-     * @throws InvalidArgumentException for a name PHP does not know either
+     * @throws InvalidArgumentException for an offset, an abbreviation or a name InfluxDB's time zone database lacks
      */
     public function tz(string $timezone): static
     {
-        try {
-            new DateTimeZone($timezone);
-        } catch (Exception) {
-            throw new InvalidArgumentException(sprintf('[%s] is not a time zone name.', $timezone));
-        }
+        Dialect::ensureTimeZone($timezone);
 
         $this->timezone = $timezone;
 
@@ -220,10 +212,14 @@ class Builder extends QueryBuilder
      * Regex value turns `=` and `!=` into their regex forms.
      *
      * @param Closure|QueryBuilder|EloquentBuilder<*>|Relation<*, *, *>|ExpressionContract|array<int|string, mixed>|string $column
-     * @throws InvalidArgumentException for an operator InfluxQL does not have, or one that cannot take a regular expression
+     * @throws InvalidArgumentException for an operator InfluxQL does not have, one that cannot take a regular expression, or a sub-select as the column
      */
     public function where(Closure|QueryBuilder|EloquentBuilder|Relation|ExpressionContract|array|string $column, mixed $operator = null, mixed $value = null, string $boolean = 'and'): static
     {
+        if ($this->isQueryable($column) && ! is_null($operator)) {
+            throw new InvalidArgumentException('InfluxQL cannot compare a sub-select; pass where() a column.');
+        }
+
         if ($column instanceof ConditionExpression || is_array($column) || $column instanceof Closure) {
             return parent::where($column, $operator, $value, $boolean);
         }
@@ -323,7 +319,8 @@ class Builder extends QueryBuilder
      *
      * An Eloquent relation adds `fk is not null`, which InfluxQL cannot write, beside
      * `fk = key`. A point matching the `=` has the value, so a not-null check on columns
-     * the query compares with `=`, both ANDed, is dropped; the grammar refuses any other.
+     * the query compares with `=`, all ANDed, is dropped; the grammar refuses any other.
+     * An `or` anywhere in the query keeps it: the equality may then be one branch of it.
      *
      * @param array<int|string, string>|ExpressionContract|string $columns
      */
@@ -342,9 +339,9 @@ class Builder extends QueryBuilder
      * Add an "order by" clause to the query.
      *
      * InfluxQL sorts by time only, so the column is `time`, qualified or
-     * not, unless a raw expression is given.
+     * not, unless a raw expression is given, and the query can be ordered by it once.
      *
-     * @throws InvalidArgumentException for another column, or a sub-select
+     * @throws InvalidArgumentException for another column, a second order by time, or a sub-select
      */
     public function orderBy(Closure|QueryBuilder|EloquentBuilder|Relation|ExpressionContract|string $column, SortDirection|string $direction = SortDirection::Ascending): static
     {
@@ -352,6 +349,16 @@ class Builder extends QueryBuilder
 
         if ($this->isQueryable($column) || (is_string($column) && strtolower($column) !== 'time')) {
             throw new InvalidArgumentException('InfluxQL sorts by time only; orderBy() takes "time" or a raw expression.');
+        }
+
+        if (is_string($column)) {
+            $column = 'time';
+
+            foreach ($this->orders ?? [] as $order) {
+                if (($order['column'] ?? null) === 'time') {
+                    throw new InvalidArgumentException('InfluxQL sorts by time only; the query is already ordered by time.');
+                }
+            }
         }
 
         return parent::orderBy($column, $direction);
@@ -499,15 +506,76 @@ class Builder extends QueryBuilder
     }
 
     /**
+     * Chunk the results of the query.
+     *
+     * InfluxQL applies LIMIT and OFFSET to each series, so a query grouped by tags pages through up to
+     * $count points of every series: the paging stops on a page shorter than $count, not on one of exactly $count.
+     *
+     * @param callable(Collection<int, stdClass>, int): mixed $callback
+     *
+     * @throws InvalidArgumentException
+     */
+    public function chunk(int $count, callable $callback): bool
+    {
+        if ($count < 1) {
+            throw new InvalidArgumentException('The chunk size should be at least 1');
+        }
+
+        $clone = clone $this;
+
+        $clone->enforceOrderBy();
+
+        $skip = $clone->getOffset();
+        $remaining = $clone->getLimit();
+
+        $page = 1;
+
+        do {
+            $offset = (($page - 1) * $count) + (int) $skip;
+
+            $limit = is_null($remaining) ? $count : min($count, $remaining);
+
+            if ($limit === 0) {
+                break;
+            }
+
+            $results = $clone->offset($offset)->limit($limit)->get();
+
+            $countResults = $results->count();
+
+            if ($countResults === 0) {
+                break;
+            }
+
+            if (! is_null($remaining)) {
+                $remaining = max($remaining - $countResults, 0);
+            }
+
+            if ($callback($results, $page) === false) {
+                return false;
+            }
+
+            unset($results);
+
+            ++$page;
+        } while ($countResults >= $count);
+
+        return true;
+    }
+
+    /**
      * Execute an aggregate function on the database.
      *
      * The result is the column the grammar names `aggregate`, or else the first after `time`:
      * InfluxQL names each count of `count(*)` after its field.
      *
      * @param array<ExpressionContract|string> $columns
+     * @throws InvalidArgumentException for a function name that is not an identifier
      */
     public function aggregate(string $function, array $columns = ['*']): mixed
     {
+        Dialect::ensureFunctionName($function);
+
         return $this->withoutFetchUsing(fn (): mixed => $this->valueOf(
             $this->cloneWithout(['columns'])->cloneWithoutBindings(['select'])->setAggregate($function, $columns)->get($columns)->first(),
             'aggregate',
@@ -561,6 +629,68 @@ class Builder extends QueryBuilder
         if (empty($this->orders)) {
             $this->orderBy('time');
         }
+    }
+
+    /**
+     * Paginate the query using a cursor, reading an integer `time` in the connection's epoch.
+     *
+     * InfluxQL reads a bare integer compared with `time` as nanoseconds, so with an `epoch` the cursor's
+     * `time` is turned back into the RFC3339 timestamp it stands for.
+     *
+     * @param array<string>|string $columns
+     * @return CursorPaginator<int, stdClass>
+     */
+    protected function paginateUsingCursor(
+        int $perPage,
+        array|string $columns = ['*'],
+        string $cursorName = 'cursor',
+        Cursor|string|null $cursor = null,
+    ): CursorPaginator {
+        if (! $cursor instanceof Cursor) {
+            $cursor = is_string($cursor)
+                ? Cursor::fromEncoded($cursor)
+                : CursorPaginator::resolveCurrentCursor($cursorName, $cursor);
+        }
+
+        /** @var Connection $connection */
+        $connection = $this->connection;
+        $epoch = $connection->getInfluxQL()->getEpoch();
+
+        if ($cursor !== null && $epoch !== null && $epoch !== 'ns') {
+            $parameters = $cursor->toArray();
+            $time = $parameters['time'] ?? null;
+
+            if (is_int($time)) {
+                unset($parameters['_pointsToNextItems']);
+                $parameters['time'] = $this->timestampFromEpoch($time, $epoch);
+                $cursor = new Cursor($parameters, $cursor->pointsToNextItems());
+            }
+        }
+
+        return parent::paginateUsingCursor($perPage, $columns, $cursorName, $cursor);
+    }
+
+    /**
+     * Turn an integer time in the given epoch into an RFC3339 timestamp, in UTC.
+     */
+    protected function timestampFromEpoch(int $time, string $epoch): string
+    {
+        $perSecond = ['u' => 1_000_000, 'ms' => 1_000][$epoch] ?? null;
+
+        if ($perSecond === null) {
+            $seconds = $time * ['s' => 1, 'm' => 60, 'h' => 3600, 'd' => 86400, 'w' => 604800][$epoch];
+
+            return gmdate('Y-m-d\TH:i:s\Z', $seconds);
+        }
+
+        // Floor, not truncate: a time before 1970 keeps a positive fraction of the second before it.
+        $fraction = (($time % $perSecond) + $perSecond) % $perSecond;
+
+        return sprintf(
+            '%s.%09dZ',
+            gmdate('Y-m-d\TH:i:s', intdiv($time - $fraction, $perSecond)),
+            $fraction * intdiv(1_000_000_000, $perSecond),
+        );
     }
 
     /**
@@ -662,13 +792,11 @@ class Builder extends QueryBuilder
      */
     protected function comparesForEquality(mixed $column): bool
     {
-        foreach ($this->wheres as $where) {
-            if ($where['type'] === 'Basic' && $where['boolean'] === 'and' && $where['operator'] === '=' && $where['column'] === $column) {
-                return true;
-            }
+        if (array_any($this->wheres, fn (array $where): bool => $where['boolean'] === 'or')) {
+            return false;
         }
 
-        return false;
+        return array_any($this->wheres, fn (array $where): bool => $where['type'] === 'Basic' && $where['operator'] === '=' && $where['column'] === $column);
     }
 
     /**

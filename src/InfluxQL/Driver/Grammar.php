@@ -84,6 +84,8 @@ class Grammar extends QueryGrammar
      * `count(*)` into one column per field and refuses an alias on it.
      *
      * @param array{function: string, columns: array<Expression|string>} $aggregate
+     *
+     * @throws RuntimeException for distinct() given more than one column: InfluxQL has no DISTINCT ON
      */
     protected function compileAggregate(Builder $query, array $aggregate): string
     {
@@ -92,6 +94,11 @@ class Grammar extends QueryGrammar
         $column = $this->columnize($aggregate['columns']);
 
         if (is_array($query->distinct)) {
+            // distinct('host') aggregates that one column; DISTINCT() takes no more.
+            if (count($query->distinct) > 1) {
+                $this->refuseDistinctOn();
+            }
+
             $column = 'distinct(' . $this->columnize($query->distinct) . ')';
         } elseif ($query->distinct && $column !== '*') {
             $column = 'distinct(' . $column . ')';
@@ -100,6 +107,16 @@ class Grammar extends QueryGrammar
         $call = ($function === 'avg' ? 'mean' : $function) . '(' . $column . ')';
 
         return 'select ' . ($column === '*' ? $call : $call . ' as ' . $this->wrap('aggregate'));
+    }
+
+    /**
+     * Refuse distinct() given columns: InfluxQL has no DISTINCT ON.
+     *
+     * @throws RuntimeException
+     */
+    protected function refuseDistinctOn(): never
+    {
+        throw new RuntimeException('InfluxQL has no DISTINCT ON; call distinct() without columns, and it applies to each selected field.');
     }
 
     /**
@@ -119,7 +136,7 @@ class Grammar extends QueryGrammar
         }
 
         if (is_array($query->distinct)) {
-            throw new RuntimeException('InfluxQL has no DISTINCT ON; call distinct() without columns, and it applies to each selected field.');
+            $this->refuseDistinctOn();
         }
 
         return 'select ' . implode(', ', array_map(
@@ -598,7 +615,7 @@ class Grammar extends QueryGrammar
         $this->ensureDeleteTakesABareMeasurement($query->from);
 
         $this->ensureDeleteTakesNoLimitOrOffset(
-            (bool) $query->joins || isset($query->limit) || isset($query->offset) || isset($query->slimit) || isset($query->soffset),
+            (bool) $query->joins || isset($query->limit) || ($query->offset ?? 0) > 0 || isset($query->slimit) || ($query->soffset ?? 0) > 0,
             withJoins: true,
         );
 
@@ -629,8 +646,8 @@ class Grammar extends QueryGrammar
     /**
      * Substitute the given bindings into the given raw InfluxQL query.
      *
-     * The connection sends the result, so values are written by Dialect::escape(): the
-     * connection's escape() has no literal for a regular expression or a date. A `?` in
+     * The connection sends the result, so values are written by Dialect::escape(), which
+     * writes a regular expression and a date as the connection's escape() does. A `?` in
      * a raw regular expression is read as a placeholder too: pass a Regex as a binding.
      *
      * @param array<mixed> $bindings

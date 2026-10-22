@@ -100,6 +100,18 @@ class GrammarTest extends TestCase
     }
 
     #[UnitTest]
+    public function testDistinctOnSeveralColumnsIsRefusedUnderAnAggregateToo(): void
+    {
+        $query = $this->table()->distinct(['host', 'dc']);
+        $query->aggregate = ['function' => 'count', 'columns' => ['*']];
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageIs('InfluxQL has no DISTINCT ON; call distinct() without columns, and it applies to each selected field.');
+
+        $query->toSql();
+    }
+
+    #[UnitTest]
     public function testDistinctOnColumnsIsRefused(): void
     {
         $query = $this->table()->select('host', 'value')->distinct('host');

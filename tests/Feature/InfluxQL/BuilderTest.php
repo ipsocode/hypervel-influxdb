@@ -439,6 +439,34 @@ class BuilderTest extends TestCase
     }
 
     #[UnitTest]
+    public function testChunkOfAQueryGroupedByATagKeepsPagingWhileEverySeriesFillsAPage(): void
+    {
+        $connection = $this->connection([
+            self::seriesResponse([
+                self::series('cpu', ['time', 'value'], [['t1', 1], ['t2', 2]], ['host' => 'web1']),
+                self::series('cpu', ['time', 'value'], [['t1', 3], ['t2', 4]], ['host' => 'web2']),
+            ]),
+            self::seriesResponse([
+                self::series('cpu', ['time', 'value'], [['t3', 5], ['t4', 6]], ['host' => 'web1']),
+                self::series('cpu', ['time', 'value'], [['t3', 7]], ['host' => 'web2']),
+            ]),
+            self::seriesResponse([self::series('cpu', ['time', 'value'], [['t5', 8]], ['host' => 'web1'])]),
+        ]);
+
+        $pages = [];
+
+        $this->assertTrue($connection->table('cpu')->groupBy('host')->chunk(2, function (Collection $rows, int $page) use (&$pages): void {
+            $pages[$page] = $rows->pluck('value')->all();
+        }));
+        $this->assertSame([1 => [1, 2, 3, 4], 2 => [5, 6, 7], 3 => [8]], $pages);
+        $this->assertSame([
+            'select * from "cpu" group by "host" limit 2 offset 0',
+            'select * from "cpu" group by "host" limit 2 offset 2',
+            'select * from "cpu" group by "host" limit 2 offset 4',
+        ], $this->statements());
+    }
+
+    #[UnitTest]
     public function testChunkStopsAtAnEmptyPage(): void
     {
         $connection = $this->connection([

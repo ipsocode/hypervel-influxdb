@@ -73,9 +73,13 @@ class InfluxDBServiceProvider extends ServiceProvider
         });
 
         // Send a console command's batches when it finishes and when the console application
-        // terminates outside any coroutine. HTTP requests terminate inside one: the timer sends theirs.
+        // terminates outside any coroutine. HTTP requests terminate inside one: the timer sends theirs,
+        // and so for a command a request or a job calls. The console's own command runs in a root
+        // coroutine, or outside any; a job runs in a child coroutine and must not wait on every connection's sends.
         $events->listen(AfterExecute::class, function (): void {
-            $this->app->make(InfluxDBManager::class)->flushAll();
+            if ($this->app->runningInConsole() && (! Coroutine::inCoroutine() || Coroutine::parentId() === 0)) {
+                $this->app->make(InfluxDBManager::class)->flushAll();
+            }
         });
 
         $events->listen(Terminating::class, function (): void {

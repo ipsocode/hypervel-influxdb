@@ -390,6 +390,13 @@ storage or a queue rather than retrying the server from it. An exception it
 throws is reported through the exception handler too, and an exception the
 handler cannot report goes to PHP's `error_log()`.
 
+A batch whose send is cancelled, such as by a queued job that times out while
+it flushes, is not dropped or reported: the cancellation is thrown on, and the
+batch goes back in the buffer with the flush timer armed again, so the next
+flush sends it. The same holds for a batch whose coroutine cannot start
+because the worker is at `max_coroutine`: the failure is reported, and the
+batch stays pending.
+
 ### The filesystem driver
 
 `filesystem` keeps each failed batch as a file on a disk, so a restart or an

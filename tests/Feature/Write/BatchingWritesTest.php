@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace Ipsocode\InfluxDB\Tests\Feature\Write;
 
 use GuzzleHttp\Psr7\Response;
+use Hypervel\Console\Command;
+use Hypervel\Console\Events\AfterExecute;
+use Hypervel\Coroutine\Coroutine;
+use Hypervel\Coroutine\WaitGroup;
 use Hypervel\Foundation\Events\Terminating;
 use InfluxDB2\WriteApi;
 use InfluxDB2\WriteType;
@@ -15,6 +19,7 @@ use Ipsocode\InfluxDB\Tests\Concerns\MocksWrites;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use Ipsocode\InfluxDB\Write\BatchingWriter;
 use Ipsocode\InfluxDB\Write\BatchOptions;
+use Symfony\Component\Console\Input\ArrayInput;
 
 /**
  * Batching writes as an application turns them on: through a connection's `write` block, or the
@@ -167,6 +172,54 @@ class BatchingWritesTest extends TestCase
 
         $this->assertSame([], $this->history);
         $this->assertSame(1, $writeApi->getPendingPoints());
+    }
+
+    public function testACommandCalledFromARequestLeavesTheBufferToTheFlushTimer(): void
+    {
+        $this->batching('main', responses: self::accepted());
+
+        $writeApi = $this->app->get(InfluxDBManager::class)->writeApi();
+        $writeApi->write('cpu load=1i 1');
+
+        // A server worker does not run in the console: Artisan::call() from a request must not wait on every send.
+        $this->app->setRunningInConsole(false);
+        $this->app->get('events')->dispatch(new AfterExecute(new class extends Command {}, null, new ArrayInput([]), 0));
+
+        $this->assertSame([], $this->history);
+        $this->assertSame(1, $writeApi->getPendingPoints());
+    }
+
+    public function testACommandCalledFromAJobLeavesTheBufferToTheFlushTimer(): void
+    {
+        $this->batching('main', responses: self::accepted());
+
+        $writeApi = $this->app->get(InfluxDBManager::class)->writeApi();
+        $writeApi->write('cpu load=1i 1');
+
+        // A queue worker runs in the console, but each job runs in a child coroutine: its Artisan::call() must not wait on every send.
+        $this->app->setRunningInConsole(true);
+        $group = new WaitGroup;
+        $group->add();
+        Coroutine::create(function () use ($group): void {
+            $this->app->get('events')->dispatch(new AfterExecute(new class extends Command {}, null, new ArrayInput([]), 0));
+            $group->done();
+        });
+        $group->wait();
+
+        $this->assertSame([], $this->history);
+        $this->assertSame(1, $writeApi->getPendingPoints());
+    }
+
+    public function testACommandTheConsoleRunsSendsWhatItBuffered(): void
+    {
+        $this->batching('main', responses: self::accepted());
+
+        $this->app->get(InfluxDBManager::class)->writeApi()->write('cpu load=1i 1');
+
+        $this->app->setRunningInConsole(true);
+        $this->app->get('events')->dispatch(new AfterExecute(new class extends Command {}, null, new ArrayInput([]), 0));
+
+        $this->assertSame([['cpu load=1i 1']], $this->sentBatches());
     }
 
     /**

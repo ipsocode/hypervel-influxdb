@@ -14,6 +14,7 @@ use Hypervel\Database\Query\Builder as QueryBuilder;
 use Hypervel\Database\Query\Expression;
 use Hypervel\Database\Query\Processors\Processor;
 use Hypervel\Foundation\Testing\Attributes\UnitTest;
+use Hypervel\Pagination\Cursor;
 use Hypervel\Support\Collection;
 use Hypervel\Support\Facades\DB;
 use InvalidArgumentException;
@@ -141,13 +142,14 @@ class BuilderTest extends TestCase
         $this->assertSame('select * from "cpu" group by * slimit 2', $this->table()->groupBy('*')->slimit(2)->slimit(-1)->toSql());
         $this->assertSame('select * from "cpu" group by *', $this->table()->groupBy('*')->slimit(2)->slimit(null)->toSql());
         $this->assertSame('select * from "cpu" group by * soffset 0', $this->table()->groupBy('*')->soffset(-3)->toSql());
+        $this->assertSame('select * from "cpu" group by *', $this->table()->groupBy('*')->soffset(2)->soffset(null)->toSql());
     }
 
     #[UnitTest]
     public function testTzRefusesANameThatIsNotATimeZone(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIs('[Mars/Olympus_Mons] is not a time zone name.');
+        $this->expectExceptionMessageIs('[Mars/Olympus_Mons] is not a time zone name, such as Europe/Amsterdam; offsets and abbreviations are not accepted.');
 
         $this->table()->tz('Mars/Olympus_Mons');
     }
@@ -339,6 +341,24 @@ class BuilderTest extends TestCase
     }
 
     #[UnitTest]
+    public function testWhereRefusesASubSelectAsTheColumn(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIs('InfluxQL cannot compare a sub-select; pass where() a column.');
+
+        $this->table()->where(static fn (Builder $query) => $query->selectRaw('max("v")')->from('cpu'), '=', 1);
+    }
+
+    #[UnitTest]
+    public function testAggregateRefusesAFunctionNameThatIsNotAnIdentifier(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIs('aggregate() takes the name of a function, not [mean("x")) from "secrets" --].');
+
+        $this->table()->aggregate('mean("x")) from "secrets" --', ['value']);
+    }
+
+    #[UnitTest]
     public function testWhereInRefusesASubSelect(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -432,6 +452,7 @@ class BuilderTest extends TestCase
             'on its own' => [static fn (Builder $query): Builder => $query->whereNotNull('host'), $isNotNull],
             'after an inequality' => [static fn (Builder $query): Builder => $query->where('host', '!=', 'web1')->whereNotNull('host'), $isNotNull],
             'after an equality or-ed' => [static fn (Builder $query): Builder => $query->where('region', 'eu')->orWhere('host', 'web1')->whereNotNull('host'), $isNotNull],
+            'after an equality with an or between them' => [static fn (Builder $query): Builder => $query->where('host', 'web1')->orWhere('region', 'eu')->whereNotNull('host'), $isNotNull],
             'or-ed itself' => [static fn (Builder $query): Builder => $query->where('host', 'web1')->orWhereNotNull('host'), $isNotNull],
             'on a column not compared' => [static fn (Builder $query): Builder => $query->where('host', 'web1')->whereNotNull(['host', 'region']), $isNotNull],
             'whereNull, after an equality' => [static fn (Builder $query): Builder => $query->where('host', 'web1')->whereNull('host'), 'InfluxQL has no IS NULL; a field or tag cannot be compared with null.'],
@@ -442,7 +463,7 @@ class BuilderTest extends TestCase
     public function testOrderByTakesTimeQualifiedOrNot(): void
     {
         $this->assertSame('select * from "cpu" order by "time" asc', $this->table()->orderBy('cpu.time')->toSql());
-        $this->assertSame('select * from "cpu" order by "TIME" desc', $this->table()->orderByDesc('TIME')->toSql());
+        $this->assertSame('select * from "cpu" order by "time" desc', $this->table()->orderByDesc('TIME')->toSql());
         $this->assertSame('select * from "cpu" order by time desc', $this->table()->orderBy(new Expression('time'), 'desc')->toSql());
     }
 
@@ -940,6 +961,133 @@ class BuilderTest extends TestCase
             'select * from "cpu" order by "time" asc limit 3',
             'select * from "cpu" where ("time" > \'2024-01-01T00:00:10Z\') order by "time" asc limit 3',
         ], $this->statements());
+    }
+
+    public function testChunkOfAQueryGroupedByATagKeepsPagingWhileEverySeriesFillsAPage(): void
+    {
+        $this->responses->append(
+            self::seriesResponse([
+                self::series('cpu', ['time', 'usage_user'], [['2024-01-01T00:00:00Z', 1], ['2024-01-01T00:00:10Z', 2]], ['host' => 'web1']),
+                self::series('cpu', ['time', 'usage_user'], [['2024-01-01T00:00:00Z', 3], ['2024-01-01T00:00:10Z', 4]], ['host' => 'web2']),
+            ]),
+            self::seriesResponse([
+                self::series('cpu', ['time', 'usage_user'], [['2024-01-01T00:00:20Z', 5], ['2024-01-01T00:00:30Z', 6]], ['host' => 'web1']),
+                self::series('cpu', ['time', 'usage_user'], [['2024-01-01T00:00:20Z', 7]], ['host' => 'web2']),
+            ]),
+            self::seriesResponse([self::series('cpu', ['time', 'usage_user'], [['2024-01-01T00:00:40Z', 8]], ['host' => 'web1'])]),
+        );
+
+        $chunks = [];
+
+        $completed = DB::connection('influxql')->table('cpu')->groupBy('host')->chunk(2, static function (Collection $rows, int $page) use (&$chunks): void {
+            $chunks[$page] = $rows->pluck('usage_user')->all();
+        });
+
+        $this->assertTrue($completed);
+        $this->assertSame([1 => [1, 2, 3, 4], 2 => [5, 6, 7], 3 => [8]], $chunks);
+        $this->assertSame([
+            'select * from "cpu" group by "host" order by "time" asc limit 2 offset 0',
+            'select * from "cpu" group by "host" order by "time" asc limit 2 offset 2',
+            'select * from "cpu" group by "host" order by "time" asc limit 2 offset 4',
+        ], $this->statements());
+    }
+
+    #[DataProvider('epochCursors')]
+    public function testCursorPaginationAsksForTheTimeAfterTheLastPointInTheConnectionsEpoch(string $epoch, int $time, string $timestamp): void
+    {
+        $this->app->get('config')->set('influxdb.connections.v1.influxql.epoch', $epoch);
+
+        $this->responses->append(
+            self::seriesResponse([self::series('cpu', ['time', 'usage_user'], [[1, 0.1], [$time, 0.2], [$time + 1, 0.3]])]),
+            self::seriesResponse([self::series('cpu', ['time', 'usage_user'], [[$time + 1, 0.3]])]),
+        );
+
+        $connection = DB::connection('influxql');
+
+        $first = $connection->table('cpu')->cursorPaginate(2);
+        $second = $connection->table('cpu')->cursorPaginate(2, cursor: $first->nextCursor());
+
+        $this->assertSame([0.3], array_column($second->items(), 'usage_user'));
+        $this->assertSame([
+            'select * from "cpu" order by "time" asc limit 3',
+            'select * from "cpu" where ("time" > \'' . $timestamp . '\') order by "time" asc limit 3',
+        ], $this->statements());
+    }
+
+    /**
+     * @return array<string, array{string, int, string}>
+     */
+    public static function epochCursors(): array
+    {
+        return [
+            'microseconds' => ['u', 1_704_067_210_000_002, '2024-01-01T00:00:10.000002000Z'],
+            'milliseconds' => ['ms', 1_704_067_210_003, '2024-01-01T00:00:10.003000000Z'],
+            'milliseconds before 1970' => ['ms', -1_500, '1969-12-31T23:59:58.500000000Z'],
+            'seconds' => ['s', 1_704_067_210, '2024-01-01T00:00:10Z'],
+            'minutes' => ['m', 28_401_120, '2024-01-01T00:00:00Z'],
+            'hours' => ['h', 473_352, '2024-01-01T00:00:00Z'],
+        ];
+    }
+
+    public function testChunkStopsWhenThePageIsEmptyOrTheCallbackReturnsFalse(): void
+    {
+        $this->responses->append(
+            self::seriesResponse([self::series('cpu', ['time', 'usage_user'], [['2024-01-01T00:00:00Z', 1], ['2024-01-01T00:00:10Z', 2]])]),
+            self::emptyResponse(),
+            self::seriesResponse([self::series('cpu', ['time', 'usage_user'], [['2024-01-01T00:00:00Z', 1], ['2024-01-01T00:00:10Z', 2]])]),
+        );
+
+        $table = static fn (): Builder => DB::connection('influxql')->table('cpu');
+
+        $this->assertTrue($table()->chunk(2, static fn (): null => null));
+        $this->assertFalse($table()->chunk(2, static fn (): bool => false));
+        $this->assertCount(3, $this->queries());
+    }
+
+    public function testChunkStaysInsideTheLimitAndOffsetTheQueryHas(): void
+    {
+        $this->responses->append(
+            self::seriesResponse([self::series('cpu', ['time', 'usage_user'], [['2024-01-01T00:00:10Z', 2], ['2024-01-01T00:00:20Z', 3]])]),
+            self::seriesResponse([self::series('cpu', ['time', 'usage_user'], [['2024-01-01T00:00:30Z', 4]])]),
+        );
+
+        DB::connection('influxql')->table('cpu')->offset(1)->limit(3)->chunk(2, static fn (): null => null);
+
+        $this->assertSame([
+            'select * from "cpu" order by "time" asc limit 2 offset 1',
+            'select * from "cpu" order by "time" asc limit 1 offset 3',
+        ], $this->statements());
+    }
+
+    public function testChunkSendsNothingOnceTheLimitIsUsedUp(): void
+    {
+        $this->responses->append(
+            self::seriesResponse([self::series('cpu', ['time', 'usage_user'], [['2024-01-01T00:00:00Z', 1], ['2024-01-01T00:00:10Z', 2]])]),
+        );
+
+        DB::connection('influxql')->table('cpu')->limit(2)->chunk(2, static fn (): null => null);
+
+        $this->assertSame(['select * from "cpu" order by "time" asc limit 2 offset 0'], $this->statements());
+    }
+
+    public function testChunkRefusesASizeBelowOne(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        DB::connection('influxql')->table('cpu')->chunk(0, static fn (): null => null);
+    }
+
+    public function testCursorPaginationTakesAnEncodedCursorInTheConnectionsEpoch(): void
+    {
+        $this->app->get('config')->set('influxdb.connections.v1.influxql.epoch', 's');
+
+        $this->responses->append(self::seriesResponse([self::series('cpu', ['time', 'usage_user'], [[1_704_067_220, 0.3]])]));
+
+        $cursor = new Cursor(['time' => 1_704_067_210], true);
+
+        DB::connection('influxql')->table('cpu')->cursorPaginate(2, cursor: $cursor->encode());
+
+        $this->assertSame(['select * from "cpu" where ("time" > \'2024-01-01T00:00:10Z\') order by "time" asc limit 3'], $this->statements());
     }
 
     public function testChunkPagesThroughThePointsInTimeOrder(): void
