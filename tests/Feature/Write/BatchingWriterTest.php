@@ -6,6 +6,7 @@ namespace Ipsocode\InfluxDB\Tests\Feature\Write;
 
 use Closure;
 use GuzzleHttp\Psr7\Response;
+use Hypervel\Context\CoroutineContext;
 use Hypervel\Contracts\Debug\ExceptionHandler;
 use Hypervel\Coordinator\Constants;
 use Hypervel\Coordinator\CoordinatorManager;
@@ -225,7 +226,7 @@ class BatchingWriterTest extends TestCase
         $writer->write([]);
         $writer->write("\n");
         $writer->write(Point::measurement('cpu'));
-        $writer->writeRaw("\n\n");
+        $writer->writeRaw("\n \n");
         $writer->flush();
 
         $this->assertSame(0, $writer->getPendingPoints());
@@ -276,6 +277,33 @@ class BatchingWriterTest extends TestCase
         $this->waitUntil(fn (): bool => count($this->history) === 2);
 
         $this->assertSame([['cpu load=1i 1', 'cpu load=2i 2'], ['cpu load=3i 3']], $this->sentBatches());
+    }
+
+    public function testASendDoesNotInheritTheContextOfTheWriteThatFilledItsBatch(): void
+    {
+        $writer = $this->writer(['batchSize' => 1], self::accepted(), class: ContextRecordingBatchingWriter::class);
+        $this->assertInstanceOf(ContextRecordingBatchingWriter::class, $writer);
+
+        CoroutineContext::set('request.scope', 'request-1');
+        $writer->write('cpu load=1i 1');
+
+        $this->waitUntil(fn (): bool => count($this->history) === 1);
+
+        $this->assertSame([null], $writer->seen);
+        $this->assertSame('request-1', CoroutineContext::get('request.scope'));
+    }
+
+    public function testBlankLinesAreNotPoints(): void
+    {
+        $writer = $this->writer(['batchSize' => 100], self::accepted());
+
+        $writer->writeRaw("\ncpu load=1i 1\n\n \ncpu load=2i 2\n");
+
+        $this->assertSame(2, $writer->getPendingPoints());
+
+        $writer->writeRaw("\n \n");
+
+        $this->assertSame(2, $writer->getPendingPoints());
     }
 
     public function testAFlushCancelsTheFlushTimer(): void
@@ -915,5 +943,21 @@ class UnstartableBatchingWriter extends BatchingWriter
     protected function spawn(Closure $send): void
     {
         throw new RuntimeException('Too many coroutines.');
+    }
+}
+
+/**
+ * A writer that records, for each send, the request context its coroutine can see.
+ */
+class ContextRecordingBatchingWriter extends BatchingWriter
+{
+    /** @var list<mixed> */
+    public array $seen = [];
+
+    protected function send(Batch $batch): void
+    {
+        $this->seen[] = CoroutineContext::get('request.scope');
+
+        parent::send($batch);
     }
 }
