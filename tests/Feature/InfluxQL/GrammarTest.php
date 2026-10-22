@@ -651,7 +651,7 @@ class GrammarTest extends TestCase
     public function testTzRefusesAnUnknownTimeZone(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIs('[Nowhere/Land] is not a time zone name.');
+        $this->expectExceptionMessageIs('[Nowhere/Land] is not a time zone name, such as Europe/Amsterdam; offsets and abbreviations are not accepted.');
 
         $this->table()->tz('Nowhere/Land');
     }

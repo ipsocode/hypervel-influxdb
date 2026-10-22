@@ -149,7 +149,7 @@ class BuilderTest extends TestCase
     public function testTzRefusesANameThatIsNotATimeZone(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIs('[Mars/Olympus_Mons] is not a time zone name.');
+        $this->expectExceptionMessageIs('[Mars/Olympus_Mons] is not a time zone name, such as Europe/Amsterdam; offsets and abbreviations are not accepted.');
 
         $this->table()->tz('Mars/Olympus_Mons');
     }
@@ -463,7 +463,7 @@ class BuilderTest extends TestCase
     public function testOrderByTakesTimeQualifiedOrNot(): void
     {
         $this->assertSame('select * from "cpu" order by "time" asc', $this->table()->orderBy('cpu.time')->toSql());
-        $this->assertSame('select * from "cpu" order by "TIME" desc', $this->table()->orderByDesc('TIME')->toSql());
+        $this->assertSame('select * from "cpu" order by "time" desc', $this->table()->orderByDesc('TIME')->toSql());
         $this->assertSame('select * from "cpu" order by time desc', $this->table()->orderBy(new Expression('time'), 'desc')->toSql());
     }
 

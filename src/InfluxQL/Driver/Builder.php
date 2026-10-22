@@ -6,8 +6,6 @@ namespace Ipsocode\InfluxDB\InfluxQL\Driver;
 
 use Closure;
 use DatePeriod;
-use DateTimeZone;
-use Exception;
 use Hypervel\Contracts\Database\Query\ConditionExpression;
 use Hypervel\Contracts\Database\Query\Expression as ExpressionContract;
 use Hypervel\Contracts\Support\Arrayable;
@@ -137,11 +135,7 @@ class Builder extends QueryBuilder
      */
     public function groupByTime(string $interval, ?string $offset = null): static
     {
-        foreach (array_filter([$interval, $offset], fn (?string $duration): bool => $duration !== null) as $duration) {
-            if (preg_match(Dialect::DURATION, $duration) !== 1) {
-                throw new InvalidArgumentException(sprintf('[%s] is not an InfluxQL duration literal, such as 10m or 1h.', $duration));
-            }
-        }
+        Dialect::ensureGroupByTime($interval, $offset);
 
         return $this->groupByRaw('time(' . $interval . ($offset === null ? '' : ', ' . $offset) . ')');
     }
@@ -199,15 +193,11 @@ class Builder extends QueryBuilder
     /**
      * Localise the returned timestamps to a time zone: InfluxQL's `tz()` clause.
      *
-     * @throws InvalidArgumentException for a name PHP does not know either
+     * @throws InvalidArgumentException for an offset, an abbreviation or a name InfluxDB's time zone database lacks
      */
     public function tz(string $timezone): static
     {
-        try {
-            new DateTimeZone($timezone);
-        } catch (Exception) {
-            throw new InvalidArgumentException(sprintf('[%s] is not a time zone name.', $timezone));
-        }
+        Dialect::ensureTimeZone($timezone);
 
         $this->timezone = $timezone;
 
@@ -349,9 +339,9 @@ class Builder extends QueryBuilder
      * Add an "order by" clause to the query.
      *
      * InfluxQL sorts by time only, so the column is `time`, qualified or
-     * not, unless a raw expression is given.
+     * not, unless a raw expression is given, and the query can be ordered by it once.
      *
-     * @throws InvalidArgumentException for another column, or a sub-select
+     * @throws InvalidArgumentException for another column, a second order by time, or a sub-select
      */
     public function orderBy(Closure|QueryBuilder|EloquentBuilder|Relation|ExpressionContract|string $column, SortDirection|string $direction = SortDirection::Ascending): static
     {
@@ -359,6 +349,16 @@ class Builder extends QueryBuilder
 
         if ($this->isQueryable($column) || (is_string($column) && strtolower($column) !== 'time')) {
             throw new InvalidArgumentException('InfluxQL sorts by time only; orderBy() takes "time" or a raw expression.');
+        }
+
+        if (is_string($column)) {
+            $column = 'time';
+
+            foreach ($this->orders ?? [] as $order) {
+                if (($order['column'] ?? null) === 'time') {
+                    throw new InvalidArgumentException('InfluxQL sorts by time only; the query is already ordered by time.');
+                }
+            }
         }
 
         return parent::orderBy($column, $direction);

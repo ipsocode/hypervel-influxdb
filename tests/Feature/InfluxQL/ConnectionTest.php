@@ -354,6 +354,32 @@ class ConnectionTest extends TestCase
     }
 
     #[UnitTest]
+    public function testSelectReturnsThePointsOfATruncatedResultUnlessTheConnectionThrowsOnPartial(): void
+    {
+        $partial = fn (): Response => self::response([['statement_id' => 0, 'partial' => true, 'series' => [self::series('cpu', ['time', 'value'], [['2024-01-01T00:00:00Z', 1]])]]]);
+
+        $this->assertCount(1, $this->connection([$partial()])->select('SELECT * FROM "cpu"'));
+
+        $this->expectException(QueryException::class);
+        $this->expectExceptionMessage('The server truncated the result');
+
+        $this->connection([$partial()], ['influxql' => ['throwOnPartial' => true]])->select('SELECT * FROM "cpu"');
+    }
+
+    #[UnitTest]
+    public function testSelectThrowsForATruncatedSeriesAndNotForACompleteResult(): void
+    {
+        $complete = fn (): Response => self::seriesResponse([self::series('cpu', ['time', 'value'], [['2024-01-01T00:00:00Z', 1]])]);
+        $config = ['influxql' => ['throwOnPartial' => true]];
+
+        $this->assertCount(1, $this->connection([$complete()], $config)->select('SELECT * FROM "cpu"'));
+
+        $this->expectException(QueryException::class);
+
+        $this->connection([self::seriesResponse([self::series('cpu', ['time', 'value'], [], []) + ['partial' => true]])], $config)->select('SELECT * FROM "cpu"');
+    }
+
+    #[UnitTest]
     public function testSelectOneReturnsTheFirstRowOrNull(): void
     {
         $connection = $this->connection([

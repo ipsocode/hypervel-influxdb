@@ -446,9 +446,9 @@ Otherwise the statement is embedded, then the server's version checked, then
 the statement sent:
 
 1. The grammar's `substituteBindingsIntoRawSql()` embeds a Hypervel expression
-   as written and every other value with `Dialect::escape()`, since the
-   connection's `escape()` is typed for SQL's scalars, with no literal for a
-   regular expression or a date. `prepareBindings()` has already written a
+   as written and every other value with `Dialect::escape()`, which is typed
+   for every value InfluxQL has a literal for; the connection's `escape()`
+   writes a regular expression and a date the same way. `prepareBindings()` has already written a
    date as RFC3339 in UTC, and kept a boolean rather than casting it to 0 or 1
    as Hypervel does for PDO. A value InfluxQL has no literal for fails here,
    before anything is sent, a `/ping` included.
