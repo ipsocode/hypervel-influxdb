@@ -234,7 +234,13 @@ class BatchingWriter extends WriteApi
             return;
         }
 
-        $points = substr_count($lines, "\n") + 1;
+        // Blank lines are not points: the server skips them.
+        $points = preg_match_all('/^[^\n]*\S[^\n]*$/m', $lines);
+
+        if ($points === 0) {
+            return;
+        }
+
         $waiting = $this->buffered + $this->sending;
         $overflowing = $waiting + $points > $this->batching->maxBuffered;
 
@@ -325,10 +331,12 @@ class BatchingWriter extends WriteApi
 
     /**
      * Start a coroutine to send a batch.
+     *
+     * Detached, as the timer's are: it must not inherit the context of the request that filled the batch.
      */
     protected function spawn(Closure $send): void
     {
-        Coroutine::create($send);
+        Coroutine::createOwned($send, static fn (Closure $run) => $run(), detached: true);
     }
 
     /**
