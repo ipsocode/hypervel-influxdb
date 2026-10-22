@@ -110,7 +110,7 @@ final class BatchOptions
             throw self::invalid($connection, 'overflow', $overflow, sprintf('%s or %s', self::FLUSH, self::REFUSE));
         }
 
-        if ($onFailure === LogFailureStore::DRIVER || (is_array($onFailure) && array_key_exists('driver', $onFailure))) {
+        if (in_array($onFailure, [LogFailureStore::DRIVER, FilesystemFailureStore::DRIVER], true) || (is_array($onFailure) && array_key_exists('driver', $onFailure))) {
             $onFailure = self::store($onFailure, $connection);
         }
 
@@ -134,7 +134,7 @@ final class BatchOptions
      *
      * @param array<array-key, mixed>|string $driver
      *
-     * @throws InvalidArgumentException when the driver is unknown
+     * @throws InvalidArgumentException when the driver is unknown, or an option of it is of the wrong kind
      */
     private static function store(array|string $driver, string $connection): FailureStore
     {
@@ -144,7 +144,32 @@ final class BatchOptions
             return new LogFailureStore;
         }
 
-        throw self::invalid($connection, 'onFailure', $name, sprintf('a callable, the name of an invokable class, or the driver %s', LogFailureStore::DRIVER));
+        if ($name === FilesystemFailureStore::DRIVER) {
+            $options = is_array($driver) ? $driver : [];
+
+            return new FilesystemFailureStore(
+                self::storeOption($options, 'path', "influxdb/failed/{$connection}", $connection),
+                self::storeOption($options, 'disk', null, $connection),
+            );
+        }
+
+        throw self::invalid($connection, 'onFailure', $name, sprintf('a callable, the name of an invokable class, or the driver %s or %s', LogFailureStore::DRIVER, FilesystemFailureStore::DRIVER));
+    }
+
+    /**
+     * Read an option of a failure store driver that must be a non-empty string.
+     *
+     * @param array<array-key, mixed> $options
+     */
+    private static function storeOption(array $options, string $key, ?string $default, string $connection): ?string
+    {
+        $value = $options[$key] ?? $default;
+
+        if ($value === $default || (is_string($value) && $value !== '')) {
+            return $value;
+        }
+
+        throw self::invalid($connection, "onFailure.{$key}", $value, 'a non-empty string');
     }
 
     /**

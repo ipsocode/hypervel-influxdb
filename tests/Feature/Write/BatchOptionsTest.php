@@ -14,6 +14,7 @@ use Ipsocode\InfluxDB\Write\Batch;
 use Ipsocode\InfluxDB\Write\BatchOptions;
 use Ipsocode\InfluxDB\Write\BatchWriteException;
 use Ipsocode\InfluxDB\Write\BufferFullException;
+use Ipsocode\InfluxDB\Write\FilesystemFailureStore;
 use Ipsocode\InfluxDB\Write\LogFailureStore;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
@@ -128,10 +129,41 @@ class BatchOptionsTest extends TestCase
     }
 
     #[UnitTest]
+    public function testOnFailureMayNameTheFilesystemDriverWithAPathAndADisk(): void
+    {
+        foreach (['filesystem', ['driver' => 'filesystem'], ['driver' => 'filesystem', 'path' => 'spill', 'disk' => 'local'], ['driver' => 'filesystem', 'path' => null, 'disk' => null]] as $onFailure) {
+            $this->assertInstanceOf(FilesystemFailureStore::class, BatchOptions::fromConfig(['onFailure' => $onFailure], Version::V1, 'main')->onFailure);
+        }
+    }
+
+    #[UnitTest]
+    #[DataProvider('invalidStoreOptions')]
+    public function testAFilesystemOptionOfTheWrongKindIsRefusedWithTheConnectionAndKey(string $key, mixed $value, string $message): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage("InfluxDB connection [analytics] has an invalid write.onFailure.{$key} {$message}; expected a non-empty string.");
+
+        BatchOptions::fromConfig(['onFailure' => ['driver' => 'filesystem', $key => $value]], Version::V1, 'analytics');
+    }
+
+    /**
+     * @return array<string, array{string, mixed, string}>
+     */
+    public static function invalidStoreOptions(): array
+    {
+        return [
+            'an empty path' => ['path', '', '[]'],
+            'a path that is a number' => ['path', 5, '[5]'],
+            'a disk that is a list' => ['disk', ['local'], '[array]'],
+            'an empty disk' => ['disk', '', '[]'],
+        ];
+    }
+
+    #[UnitTest]
     public function testAnUnknownFailureDriverIsRefusedWithTheConnection(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('InfluxDB connection [analytics] has an invalid write.onFailure [redis]; expected a callable, the name of an invokable class, or the driver log.');
+        $this->expectExceptionMessage('InfluxDB connection [analytics] has an invalid write.onFailure [redis]; expected a callable, the name of an invokable class, or the driver log or filesystem.');
 
         BatchOptions::fromConfig(['onFailure' => ['driver' => 'redis']], Version::V1, 'analytics');
     }
