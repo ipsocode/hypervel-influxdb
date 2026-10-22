@@ -14,7 +14,7 @@ use LogicException;
  * Points are keyed by `time`, which is not unique: find() returns one of the points at that time, so refresh()
  * and fresh() are refused, as are chunkById() and lazyById() (and, on SQL, a cursorPaginate() ordered by time alone).
  * save() and delete() throw, and every model write built on them: write through InfluxDB::writeApi().
- * A `datetime` cast on `time` breaks chunkById() and lazyById(), and reads an `epoch` integer as seconds.
+ * A `datetime` cast on `time` reads an `epoch` integer as seconds.
  * On influxql, findMany() and whereKey() with several keys find nothing: InfluxQL cannot OR times.
  *
  * @see docs/eloquent.md#the-settings-a-time-series-needs
