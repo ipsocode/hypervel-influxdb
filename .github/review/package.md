@@ -2,7 +2,8 @@ This package, hypervel-influxdb, gives Hypervel 0.4 (PHP 8.4+, Swoole) InfluxDB
 connections on top of influxdata/influxdb-client-php: a connection manager, a facade and
 a publishable config; an InfluxQL query builder for InfluxDB 1.x, 2.x and 3; database
 drivers that run Hypervel's own query builder on InfluxQL, and on SQL for InfluxDB 3; a
-read-only Eloquent model of a measurement; and a batching writer.
+read-only Eloquent model of a measurement; a batching writer; and writes that fall back to
+other connections, skipping one that failed for a cooldown.
 
 In src/, in order:
 1. The query that reaches InfluxDB: identifiers quoted, values bound rather than

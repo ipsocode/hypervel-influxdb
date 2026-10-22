@@ -6,13 +6,13 @@ namespace Ipsocode\InfluxDB\Write;
 
 use Closure;
 use Hypervel\Container\Container;
-use Hypervel\Contracts\Debug\ExceptionHandler;
 use Hypervel\Coordinator\Coordinator;
 use Hypervel\Coordinator\Timer;
 use Hypervel\Coroutine\Coroutine;
 use InfluxDB2\WriteApi;
 use InfluxDB2\WriteType;
 use InvalidArgumentException;
+use Ipsocode\InfluxDB\Write\Concerns\ReportsFailures;
 use Psr\Http\Message\ResponseInterface;
 use Swoole\Coroutine\CanceledException;
 use Throwable;
@@ -22,13 +22,16 @@ use Throwable;
  *
  * Its `writeOptions` report SYNCHRONOUS so that the parent's write() serialises
  * each point as a synchronous write does and hands the line protocol to
- * writeRaw(), which buffers it instead of posting it.
+ * writeRaw(), which buffers it instead of posting it. A batch its connection
+ * cannot take goes to the connection's fallbacks, when it has any.
  *
  * @see docs/writing.md#batching-writes
  * @see docs/internals.md#the-batching-writer
  */
 class BatchingWriter extends WriteApi
 {
+    use ReportsFailures;
+
     /**
      * The batches being filled, keyed by the bucket, org and precision their points go to.
      *
@@ -79,6 +82,11 @@ class BatchingWriter extends WriteApi
     protected Timer $timer;
 
     /**
+     * The connections a batch falls back to, with this writer's write options, when the connection has any.
+     */
+    protected ?Failover $failover;
+
+    /**
      * The times each batch being sent has been posted so far, keyed by the ID of the coroutine sending it.
      *
      * A coroutine sends one batch at a time, and the client retries a batch
@@ -94,6 +102,7 @@ class BatchingWriter extends WriteApi
      * @param BatchOptions $batching when a batch is sent, and what happens when it cannot be
      * @param null|array<string, mixed> $writeOptions the client's write options, whose retry settings apply to each batch
      * @param null|Timer $timer the timer to arm the flush interval on
+     * @param null|Failover $failover the connections a batch this connection cannot take falls back to
      */
     public function __construct(
         array $options,
@@ -101,6 +110,7 @@ class BatchingWriter extends WriteApi
         protected BatchOptions $batching,
         ?array $writeOptions = null,
         ?Timer $timer = null,
+        ?Failover $failover = null,
     ) {
         $writeOptions['writeType'] = WriteType::SYNCHRONOUS;
         $writeOptions['maxRetries'] ??= BatchOptions::DEFAULT_MAX_RETRIES;
@@ -108,6 +118,7 @@ class BatchingWriter extends WriteApi
         parent::__construct($options, $writeOptions);
 
         $this->timer = $timer ?? new Timer;
+        $this->failover = $failover?->withWriteOptions($writeOptions);
     }
 
     /**
@@ -213,6 +224,14 @@ class BatchingWriter extends WriteApi
     public function getBatchOptions(): BatchOptions
     {
         return $this->batching;
+    }
+
+    /**
+     * Get the connections a batch falls back to, or null when this connection has none.
+     */
+    public function getFailover(): ?Failover
+    {
+        return $this->failover;
     }
 
     /**
@@ -357,7 +376,7 @@ class BatchingWriter extends WriteApi
     }
 
     /**
-     * Send a batch through the client, with its retries; report it if it still fails.
+     * Send a batch through the client, with its retries, and its fallbacks; report it if it still fails.
      */
     protected function send(Batch $batch): void
     {
@@ -374,7 +393,7 @@ class BatchingWriter extends WriteApi
 
         try {
             try {
-                $failure = self::attempt(fn () => parent::writeRaw($batch->payload, $batch->precision, $batch->bucket, $batch->org));
+                $failure = self::attempt(fn () => $this->deliver($batch));
             } catch (CanceledException $exception) {
                 // Cancelled mid-send, the batch is neither reported nor lost: it waits for the next flush.
                 $this->restore($batch);
@@ -401,6 +420,24 @@ class BatchingWriter extends WriteApi
                 $done->resume();
             }
         }
+    }
+
+    /**
+     * Post a batch through this connection, or, when it cannot take it, through the first fallback that can.
+     *
+     * @throws Throwable the connection's own failure, or a FailoverException when no fallback took the batch either
+     */
+    protected function deliver(Batch $batch): void
+    {
+        $through = fn () => parent::writeRaw($batch->payload, $batch->precision, $batch->bucket, $batch->org);
+
+        if ($this->failover === null) {
+            $through();
+
+            return;
+        }
+
+        $this->failover->write($batch->payload, $batch->precision, $batch->bucket, $batch->org, $through);
     }
 
     /**
@@ -431,16 +468,6 @@ class BatchingWriter extends WriteApi
     protected function failed(BatchWriteException $exception, int $attempts): FailedBatch
     {
         return FailedBatch::from($exception, $attempts);
-    }
-
-    /**
-     * Report an exception through the application's exception handler, or, failing that, to the error log.
-     */
-    protected function report(Throwable $exception): void
-    {
-        if (self::attempt(fn () => Container::getInstance()->make(ExceptionHandler::class)->report($exception)) !== null) {
-            error_log((string) $exception);
-        }
     }
 
     /**
@@ -521,24 +548,5 @@ class BatchingWriter extends WriteApi
         foreach ($sends as $done) {
             $done->yield();
         }
-    }
-
-    /**
-     * Run a callback, and return what it throws instead of throwing it.
-     *
-     * A coroutine's cancellation is thrown on, as Hypervel expects, rather
-     * than taken for a failure.
-     */
-    private static function attempt(callable $callback): ?Throwable
-    {
-        try {
-            $callback();
-        } catch (CanceledException $exception) {
-            throw $exception;
-        } catch (Throwable $exception) {
-            return $exception;
-        }
-
-        return null;
     }
 }
