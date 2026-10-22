@@ -16,6 +16,7 @@ use Ipsocode\InfluxDB\Write\BatchWriteException;
 use Ipsocode\InfluxDB\Write\BufferFullException;
 use Ipsocode\InfluxDB\Write\FilesystemFailureStore;
 use Ipsocode\InfluxDB\Write\LogFailureStore;
+use Ipsocode\InfluxDB\Write\RedisFailureStore;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use stdClass;
@@ -137,6 +138,23 @@ class BatchOptionsTest extends TestCase
     }
 
     #[UnitTest]
+    public function testOnFailureMayNameTheRedisDriverWithAConnection(): void
+    {
+        foreach (['redis', ['driver' => 'redis'], ['driver' => 'redis', 'connection' => 'cache'], ['driver' => 'redis', 'connection' => null]] as $onFailure) {
+            $this->assertInstanceOf(RedisFailureStore::class, BatchOptions::fromConfig(['onFailure' => $onFailure], Version::V1, 'main')->onFailure);
+        }
+    }
+
+    #[UnitTest]
+    public function testARedisConnectionOfTheWrongKindIsRefusedWithTheConnectionAndKey(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('InfluxDB connection [analytics] has an invalid write.onFailure.connection [5]; expected a non-empty string.');
+
+        BatchOptions::fromConfig(['onFailure' => ['driver' => 'redis', 'connection' => 5]], Version::V1, 'analytics');
+    }
+
+    #[UnitTest]
     #[DataProvider('invalidStoreOptions')]
     public function testAFilesystemOptionOfTheWrongKindIsRefusedWithTheConnectionAndKey(string $key, mixed $value, string $message): void
     {
@@ -163,9 +181,9 @@ class BatchOptionsTest extends TestCase
     public function testAnUnknownFailureDriverIsRefusedWithTheConnection(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('InfluxDB connection [analytics] has an invalid write.onFailure [redis]; expected a callable, the name of an invokable class, or the driver log or filesystem.');
+        $this->expectExceptionMessage('InfluxDB connection [analytics] has an invalid write.onFailure [sqs]; expected a callable, the name of an invokable class, or the driver log, filesystem or redis.');
 
-        BatchOptions::fromConfig(['onFailure' => ['driver' => 'redis']], Version::V1, 'analytics');
+        BatchOptions::fromConfig(['onFailure' => ['driver' => 'sqs']], Version::V1, 'analytics');
     }
 
     #[UnitTest]
