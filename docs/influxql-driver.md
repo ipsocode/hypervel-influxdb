@@ -223,7 +223,11 @@ sent, as it is for the builder's statements. That differs from
   `lazy()` and `cursorPaginate()` order by it when the query has no order.
   Points of different series can share a timestamp. `cursorPaginate()` pages
   by `time`, so it skips any point that shares the timestamp the page before
-  ended on. `chunk()` and `lazy()` page by offset and see every point.
+  ended on. With an `epoch` on the connection, it asks for the points after the
+  last one's `time` as an RFC3339 timestamp, since InfluxQL reads a bare integer
+  as nanoseconds. `chunk()` and `lazy()` page by offset and see every point. On
+  a query grouped by a tag, `LIMIT` and `OFFSET` apply to each series, so a chunk
+  holds up to the chunk size of every series.
   `chunkById()` and `lazyById()` are refused.
 - **`delete()`** deletes as [`InfluxDB::table()`'s does](influxql.md#deleting-points)
   on each version. It takes no id, and returns 0, since InfluxQL reports no

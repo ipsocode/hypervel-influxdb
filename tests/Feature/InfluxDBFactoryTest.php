@@ -85,6 +85,28 @@ class InfluxDBFactoryTest extends TestCase
         $this->assertFalse($options['debug']);
     }
 
+    #[DataProvider('emptyPrecisions')]
+    public function testMakeFallsBackToNsForAnEmptyPrecision(mixed $precision): void
+    {
+        $client = (new InfluxDBFactory)->make([
+            'url' => 'http://localhost:8086',
+            'token' => 'my-token',
+            'bucket' => 'my-bucket',
+            'org' => 'my-org',
+            'precision' => $precision,
+        ]);
+
+        $this->assertSame('ns', $this->getClientOptions($client)['precision']);
+    }
+
+    /**
+     * @return array<string, array{mixed}>
+     */
+    public static function emptyPrecisions(): array
+    {
+        return ['an empty string' => [''], 'null' => [null]];
+    }
+
     public function testMakeHonoursAnExplicitFalseVerifySSL(): void
     {
         $client = (new InfluxDBFactory)->make([

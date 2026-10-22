@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace Ipsocode\InfluxDB\Write;
 
+use Closure;
 use Hypervel\Container\Container;
 use Hypervel\Coordinator\Coordinator;
 use Hypervel\Coordinator\Timer;
 use Hypervel\Coroutine\Coroutine;
 use InfluxDB2\WriteApi;
 use InfluxDB2\WriteType;
+use InvalidArgumentException;
 use Ipsocode\InfluxDB\Write\Concerns\ReportsFailures;
 use Psr\Http\Message\ResponseInterface;
+use Swoole\Coroutine\CanceledException;
 use Throwable;
 
 /**
@@ -52,10 +55,11 @@ class BatchingWriter extends WriteApi
     protected ?int $bufferedSince = null;
 
     /**
-     * The sends running in coroutines of their own, keyed by coroutine ID.
+     * The sends running in coroutines, keyed by coroutine ID.
      *
-     * Each one's coordinator is resumed when it finishes, which is what
-     * flush() waits for.
+     * Every send registers here, whichever coroutine runs it: one dispatched
+     * for a full batch, the flush timer's, or a flush() caller's. Each one's
+     * coordinator is resumed when it finishes, which is what flush() waits for.
      *
      * @var array<int, Coordinator>
      */
@@ -152,13 +156,16 @@ class BatchingWriter extends WriteApi
      */
     public function writeRaw(string $data, ?string $precision = null, ?string $bucket = null, ?string $org = null): void
     {
-        $precision ??= $this->options['precision'] ?? null;
-        $bucket ??= $this->options['bucket'] ?? null;
-        $org ??= $this->options['org'] ?? null;
+        $precision = $precision ?: ($this->options['precision'] ?? null);
+        $bucket = $bucket ?: ($this->options['bucket'] ?? null);
+        $org = $org ?: ($this->options['org'] ?? null);
 
-        $this->check('precision', $precision);
-        $this->check('bucket', $bucket);
-        $this->check('org', $org);
+        foreach (['precision' => $precision, 'bucket' => $bucket, 'org' => $org] as $option => $value) {
+            // The client's own check() lists every option, the token included, in its message.
+            if (trim((string) $value) === '') {
+                throw new InvalidArgumentException("The '{$option}' should be defined as argument or default option.");
+            }
+        }
 
         $this->buffer(rtrim($data, "\n"), (string) $precision, (string) $bucket, (string) $org);
     }
@@ -246,7 +253,13 @@ class BatchingWriter extends WriteApi
             return;
         }
 
-        $points = substr_count($lines, "\n") + 1;
+        // Blank lines are not points: the server skips them.
+        $points = preg_match_all('/^[^\n]*\S[^\n]*$/m', $lines);
+
+        if ($points === 0) {
+            return;
+        }
+
         $waiting = $this->buffered + $this->sending;
         $overflowing = $waiting + $points > $this->batching->maxBuffered;
 
@@ -275,7 +288,8 @@ class BatchingWriter extends WriteApi
             $this->dispatch($this->take($key));
         }
 
-        if ($overflowing) {
+        // A send coroutine never flushes: its own batch is still counted, and it would wait on sends that wait on it.
+        if ($overflowing && ! $this->sendingHere()) {
             $this->flush();
         } else {
             $this->scheduleFlush();
@@ -324,17 +338,41 @@ class BatchingWriter extends WriteApi
             return;
         }
 
-        Coroutine::create(function () use ($batch): void {
-            $id = Coroutine::id();
-            $done = $this->sends[$id] = new Coordinator;
+        try {
+            $this->spawn(fn () => $this->send($batch));
+        } catch (Throwable $exception) {
+            // A worker at max_coroutine cannot start the send: the batch goes back, for the next flush.
+            $this->restore($batch);
+            $this->report($exception);
+            $this->scheduleFlush();
+        }
+    }
 
-            try {
-                $this->send($batch);
-            } finally {
-                unset($this->sends[$id]);
-                $done->resume();
-            }
-        });
+    /**
+     * Start a coroutine to send a batch.
+     *
+     * Detached, as the timer's are: it must not inherit the context of the request that filled the batch.
+     */
+    protected function spawn(Closure $send): void
+    {
+        Coroutine::createOwned($send, static fn (Closure $run) => $run(), detached: true);
+    }
+
+    /**
+     * Put a batch that was taken but not sent back in the buffer, ahead of the points buffered since.
+     */
+    protected function restore(Batch $batch): void
+    {
+        $key = serialize([$batch->bucket, $batch->org, $batch->precision]);
+
+        $this->sending -= $batch->points;
+        $this->buffered += $batch->points;
+        $this->bufferedSince ??= hrtime(true);
+
+        $this->batches[$key] ??= ['bucket' => $batch->bucket, 'org' => $batch->org, 'precision' => $batch->precision, 'lines' => [], 'points' => 0, 'bytes' => -1];
+        $this->batches[$key]['lines'] = [$batch->payload, ...$this->batches[$key]['lines']];
+        $this->batches[$key]['points'] += $batch->points;
+        $this->batches[$key]['bytes'] += 1 + strlen($batch->payload);
     }
 
     /**
@@ -345,8 +383,26 @@ class BatchingWriter extends WriteApi
         $id = Coroutine::id();
         $this->attempts[$id] = 0;
 
+        $done = null;
+
+        if (Coroutine::inCoroutine() && ! isset($this->sends[$id])) {
+            $done = $this->sends[$id] = new Coordinator;
+        }
+
+        $restored = false;
+
         try {
-            $failure = self::attempt(fn () => $this->deliver($batch));
+            try {
+                $failure = self::attempt(fn () => $this->deliver($batch));
+            } catch (CanceledException $exception) {
+                // Cancelled mid-send, the batch is neither reported nor lost: it waits for the next flush.
+                $this->restore($batch);
+                $restored = true;
+                $this->scheduleFlush();
+
+                throw $exception;
+            }
+
             $attempts = $this->attempts[$id];
 
             if ($failure !== null) {
@@ -354,7 +410,15 @@ class BatchingWriter extends WriteApi
             }
         } finally {
             unset($this->attempts[$id]);
-            $this->sending -= $batch->points;
+
+            if (! $restored) {
+                $this->sending -= $batch->points;
+            }
+
+            if ($done !== null) {
+                unset($this->sends[$id]);
+                $done->resume();
+            }
         }
     }
 
@@ -461,11 +525,19 @@ class BatchingWriter extends WriteApi
     }
 
     /**
-     * Wait for the batches being sent in coroutines of their own, but the calling one's.
+     * Whether the calling coroutine is sending a batch.
+     */
+    protected function sendingHere(): bool
+    {
+        return Coroutine::inCoroutine() && isset($this->sends[Coroutine::id()]);
+    }
+
+    /**
+     * Wait for the batches being sent in other coroutines, unless the calling one is sending.
      */
     protected function awaitSends(): void
     {
-        if (! Coroutine::inCoroutine()) {
+        if (! Coroutine::inCoroutine() || $this->sendingHere()) {
             return;
         }
 

@@ -44,6 +44,14 @@ final class Result
     }
 
     /**
+     * Whether the server truncated the result, or any of its series (`max-row-limit`).
+     */
+    public function isPartial(): bool
+    {
+        return $this->partial || array_any($this->series, fn (Series $series): bool => $series->partial);
+    }
+
+    /**
      * Get the rows of every series, flattened in series order.
      *
      * @return list<stdClass>

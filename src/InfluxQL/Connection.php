@@ -46,13 +46,18 @@ abstract class Connection
     protected ?string $epoch;
 
     /**
+     * Whether select() throws, rather than return rows, when the server truncated the result.
+     */
+    protected bool $throwOnPartial;
+
+    /**
      * The version the server reported on /ping, once it has named one.
      */
     protected ?string $serverVersion = null;
 
     /**
      * @param Client $client the InfluxDB client the statements run on
-     * @param array<string, mixed> $config the connection's config as the manager resolves it — `name`, `bucket` and the optional `influxql` block
+     * @param array<string, mixed> $config the connection's config as the manager resolves it — `name`, `bucket` and the optional `influxql` block, whose `throwOnPartial` makes select() refuse a truncated result
      * @param null|QueryApi $api a transport to use instead of one built from the client's options
      * @param null|Grammar $grammar a grammar to use instead of the version's own
      *
@@ -73,6 +78,7 @@ abstract class Connection
             $this->stringOrNull($config['bucket'] ?? $client->options['bucket'] ?? null),
         );
         $this->epoch = $this->resolveEpoch($this->stringOrNull($options['epoch'] ?? null));
+        $this->throwOnPartial = (bool) ($options['throwOnPartial'] ?? false);
 
         $this->api = $api ?? new QueryApi($client->options);
         $this->grammar = $grammar ?? $this->getDefaultQueryGrammar();
@@ -117,16 +123,28 @@ abstract class Connection
      * Every series is flattened into one list of rows, each with its series'
      * GROUP BY tags appended; results() keeps the series apart.
      *
+     * With `max-row-limit` set on the server, the rows can be cut short: the
+     * result is then `partial`, which results() and series() report. With the
+     * connection's `throwOnPartial` set, select() throws instead of returning them.
+     *
      * @param list<mixed> $bindings
      * @return list<stdClass>
      *
-     * @throws QueryException
+     * @throws QueryException also for a partial result, when `throwOnPartial` is set
      */
     public function select(string $query, array $bindings = []): array
     {
         $results = $this->results($query, $bindings);
 
-        return $results === [] ? [] : $results[0]->rows();
+        if ($results === []) {
+            return [];
+        }
+
+        if ($this->throwOnPartial && $results[0]->isPartial()) {
+            throw new QueryException($this->name, $query, $bindings, 'The server truncated the result (max-row-limit); the rows would be incomplete.');
+        }
+
+        return $results[0]->rows();
     }
 
     /**

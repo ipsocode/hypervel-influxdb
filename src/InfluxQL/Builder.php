@@ -9,7 +9,6 @@ use BadMethodCallException;
 use Closure;
 use DatePeriod;
 use DateTimeInterface;
-use DateTimeZone;
 use Exception;
 use Hypervel\Contracts\Support\Arrayable;
 use Hypervel\Support\Arr;
@@ -787,11 +786,7 @@ class Builder
      */
     public function groupByTime(string $interval, ?string $offset = null): static
     {
-        foreach (array_filter([$interval, $offset], fn (?string $duration): bool => $duration !== null) as $duration) {
-            if (preg_match(Dialect::DURATION, $duration) !== 1) {
-                throw new InvalidArgumentException(sprintf('[%s] is not an InfluxQL duration literal, such as 10m or 1h.', $duration));
-            }
-        }
+        Dialect::ensureGroupByTime($interval, $offset);
 
         return $this->groupByRaw('time(' . $interval . ($offset === null ? '' : ', ' . $offset) . ')');
     }
@@ -824,7 +819,7 @@ class Builder
      * Add an "order by" clause to the query.
      *
      * InfluxQL sorts by time only, so the column is `time` unless a raw
-     * expression is given.
+     * expression is given, and the query can be ordered by it once.
      *
      * @throws InvalidArgumentException
      */
@@ -832,6 +827,16 @@ class Builder
     {
         if (! $column instanceof Expression && strtolower($column) !== 'time') {
             throw new InvalidArgumentException('InfluxQL sorts by time only; orderBy() takes "time" or a raw expression.');
+        }
+
+        if (! $column instanceof Expression) {
+            $column = 'time';
+
+            foreach ($this->orders ?? [] as $order) {
+                if (($order['column'] ?? null) === 'time') {
+                    throw new InvalidArgumentException('InfluxQL sorts by time only; the query is already ordered by time.');
+                }
+            }
         }
 
         $direction = match (true) {
@@ -964,7 +969,7 @@ class Builder
      */
     public function soffset(?int $value): static
     {
-        $this->soffset = max(0, (int) $value);
+        $this->soffset = is_null($value) ? null : max(0, $value);
 
         return $this;
     }
@@ -972,15 +977,11 @@ class Builder
     /**
      * Localise the returned timestamps to a time zone: InfluxQL's `tz()` clause.
      *
-     * @throws InvalidArgumentException for a name PHP does not know either
+     * @throws InvalidArgumentException for an offset, an abbreviation or a name InfluxDB's time zone database lacks
      */
     public function tz(string $timezone): static
     {
-        try {
-            new DateTimeZone($timezone);
-        } catch (Exception) {
-            throw new InvalidArgumentException(sprintf('[%s] is not a time zone name.', $timezone));
-        }
+        Dialect::ensureTimeZone($timezone);
 
         $this->timezone = $timezone;
 
@@ -1284,10 +1285,13 @@ class Builder
      *
      * @param array<Expression|string> $columns
      *
+     * @throws InvalidArgumentException for a function name that is not an identifier
      * @throws QueryException for a function the server lacks, such as SAMPLE() on InfluxDB 3
      */
     public function aggregate(string $function, array $columns = ['*']): mixed
     {
+        Dialect::ensureFunctionName($function);
+
         $results = $this->cloneWithout(['columns'])
             ->cloneWithoutBindings(['select'])
             ->setAggregate($function, $columns)
@@ -1377,6 +1381,8 @@ class Builder
      * Chunk the results of the query.
      *
      * InfluxQL returns points in time order anyway, so no order is enforced, unlike Hypervel's chunk().
+     * It applies LIMIT and OFFSET to each series, so a query grouped by tags pages through up to $count
+     * points of every series: the paging stops on a page shorter than $count, not on one of exactly $count.
      *
      * @param callable(Collection<int, stdClass>, int): mixed $callback
      *
@@ -1421,7 +1427,7 @@ class Builder
             unset($results);
 
             ++$page;
-        } while ($countResults === $count);
+        } while ($countResults >= $count);
 
         return true;
     }

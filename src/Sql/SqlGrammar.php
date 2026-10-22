@@ -8,6 +8,7 @@ use DateTimeInterface;
 use Hypervel\Database\BinaryParameter;
 use Hypervel\Database\Query\Builder;
 use Hypervel\Database\Query\Grammars\PostgresGrammar;
+use LogicException;
 
 /**
  * Compiles Hypervel's query builder into the SQL InfluxDB 3 runs.
@@ -35,6 +36,21 @@ class SqlGrammar extends PostgresGrammar
             $query,
             "select true as {$this->wrap('exists')} where exists({$select})",
         );
+    }
+
+    /**
+     * Refuse an insert-or-ignore-returning statement before it is sent.
+     *
+     * Hypervel runs it as a select, which the connection would send; InfluxDB 3 SQL is read-only.
+     *
+     * @param array<int|string, mixed> $values
+     * @param list<string> $returning
+     * @param null|list<string> $uniqueBy
+     * @throws LogicException
+     */
+    public function compileInsertOrIgnoreReturning(Builder $query, array $values, array $returning, ?array $uniqueBy): string
+    {
+        throw new LogicException('InfluxDB 3 SQL is read-only; write points through InfluxDB::writeApi().');
     }
 
     /**

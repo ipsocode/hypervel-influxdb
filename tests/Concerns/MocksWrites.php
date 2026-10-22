@@ -71,10 +71,11 @@ trait MocksWrites
      * @param array<string, mixed> $writeOptions the client's write options
      * @param array<string, mixed> $options client options, over the fixture's
      * @param null|Failover $failover the connections a batch the `main` connection cannot take falls back to
+     * @param class-string<BatchingWriter> $class the writer to build
      */
-    protected function writer(array $batching = [], array $responses = [], int $delay = 0, array $writeOptions = [], array $options = [], ?Failover $failover = null): BatchingWriter
+    protected function writer(array $batching = [], array $responses = [], int $delay = 0, array $writeOptions = [], array $options = [], ?Failover $failover = null, string $class = BatchingWriter::class): BatchingWriter
     {
-        return new BatchingWriter(
+        return new $class(
             $options + self::clientOptions('main', $this->transport($responses, $delay)),
             'main',
             new BatchOptions(...$batching + [

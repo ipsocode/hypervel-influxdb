@@ -79,7 +79,22 @@ can say what that driver's builder can: see What to expect for
   several series can each hold a point at the same time, and `find()` returns
   one of them. InfluxQL answers an `OR` between times with no points, so on
   the `influxql` driver `findMany()`, and `whereKey()` given several keys,
-  find none.
+  find none. A date given to `find()` or `whereKey()` is compared as the
+  instant it names, offset and fraction included, rather than cast to a
+  string.
+- **A point cannot be reloaded by its `time`.** Because that point can belong
+  to another series, `refresh()` and `fresh()` throw a `LogicException`
+  before anything is sent: query the point again with its tags. The
+  collection methods that key by `time`, such as `unique()`, `find()` and
+  `fresh()` on an Eloquent collection, merge the points that share one.
+- **Paging that compares `time` is refused.** `chunkById()`, `chunkByIdDesc()`,
+  `eachById()`, `lazyById()` and `lazyByIdDesc()` throw a `LogicException`
+  unless you pass another column to page on, since the next page would skip
+  every other series' point at the timestamp a page ended on. Page with
+  `chunk()` or `lazy()`. On the `influxdb` driver, `cursorPaginate()` throws
+  as well when `time` alone orders the query: order by another column too.
+  On `influxql` it still works, with the caveat in
+  [What to expect](influxql-driver.md#what-to-expect).
 - **It writes nothing.** InfluxDB takes points through its write API rather
   than a query, so `save()` and `delete()` throw a `LogicException`, and with
   them `create()`, `push()`, `destroy()`, `forceDelete()`, their quiet
@@ -112,14 +127,11 @@ can say what that driver's builder can: see What to expect for
   [`influxql` driver's builder](influxql-driver.md#what-to-expect) returns
   them, so no cast or accessor reads them. It needs the `influxql` driver, and
   throws a `LogicException` on `influxdb`.
-- **`time` is not cast.** A `datetime` cast makes the key an object, which
-  `chunkById()` and `lazyById()` cannot page on. It also reads an integer as
+- **`time` is not cast.** A `datetime` cast makes the key an object. It also reads an integer as
   seconds, whatever precision the connection's
   [`epoch`](influxql.md#configuring-influxql) returns. Cast `time`, as
   `protected array $casts = ['time' => 'datetime'];`, only on a connection
-  without `epoch`, and page with `chunk()`, `lazy()` or `cursorPaginate()`.
-  On `influxql`, `chunkById()` and `lazyById()` are refused either way: their
-  first page asks for a `time` that is not null, which InfluxQL cannot say.
+  without `epoch`, and page with `chunk()` or `lazy()`.
 
 ## Custom builders
 

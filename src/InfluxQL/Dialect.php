@@ -42,13 +42,68 @@ final class Dialect
 
     /**
      * A duration literal: an integer followed by one of InfluxQL's units.
+     *
+     * The `D` modifier keeps `$` from matching before a trailing newline.
      */
-    public const string DURATION = '/^-?\d+(?:ns|u|µ|ms|s|m|h|d|w)$/u';
+    public const string DURATION = '/^\d+(?:ns|u|µ|ms|s|m|h|d|w)$/uD';
+
+    /**
+     * A GROUP BY time() offset: a duration literal, which may be negative.
+     */
+    public const string OFFSET = '/^-?\d+(?:ns|u|µ|ms|s|m|h|d|w)$/uD';
+
+    /**
+     * An aggregate function's name: an identifier, written into the statement as given.
+     */
+    private const string FUNCTION_NAME = '/^[A-Za-z_][A-Za-z0-9_]*$/';
 
     /**
      * A column followed by its type hint, such as `host::tag`: the name, then the hint.
      */
     private const string TYPE_HINT = '/^(.+)::(tag|field|float|integer|unsigned|string|boolean)$/i';
+
+    /**
+     * Refuse an aggregate function name that is not an identifier, before it is written into a statement.
+     *
+     * @throws InvalidArgumentException
+     */
+    public static function ensureFunctionName(string $function): void
+    {
+        if (preg_match(self::FUNCTION_NAME, $function) !== 1) {
+            throw new InvalidArgumentException(sprintf('aggregate() takes the name of a function, not [%s].', $function));
+        }
+    }
+
+    /**
+     * Refuse a GROUP BY time() interval or offset that is not a duration literal, before it is written into a statement.
+     *
+     * The interval is positive; the offset may be negative.
+     *
+     * @throws InvalidArgumentException
+     */
+    public static function ensureGroupByTime(string $interval, ?string $offset): void
+    {
+        foreach ([[$interval, self::DURATION], [$offset, self::OFFSET]] as [$duration, $pattern]) {
+            if ($duration !== null && preg_match($pattern, $duration) !== 1) {
+                throw new InvalidArgumentException(sprintf('[%s] is not an InfluxQL duration literal, such as 10m or 1h.', $duration));
+            }
+        }
+    }
+
+    /**
+     * Refuse a time zone InfluxDB's tz() does not know, before it is written into a statement.
+     *
+     * InfluxDB reads Go's time zone database, which has no UTC offsets such as
+     * `+02:00` and no abbreviations such as `CEST`, though PHP accepts both.
+     *
+     * @throws InvalidArgumentException
+     */
+    public static function ensureTimeZone(string $timezone): void
+    {
+        if (! in_array($timezone, DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC), true)) {
+            throw new InvalidArgumentException(sprintf('[%s] is not a time zone name, such as Europe/Amsterdam; offsets and abbreviations are not accepted.', $timezone));
+        }
+    }
 
     /**
      * Quote an identifier: a column, or one segment of a measurement.
