@@ -102,10 +102,12 @@ class InfluxDBServiceProvider extends ServiceProvider
     protected function registerAboutSection(): void
     {
         if ($this->app->runningInConsole()) {
+            $config = $this->app->get('config');
+
             AboutCommand::add('InfluxDB', static fn (): array => [
                 'Version' => InstalledVersions::getPrettyVersion('ipsocode/hypervel-influxdb'),
-                'Default connection' => config('influxdb.default'),
-                'Connections' => implode(', ', array_keys(config('influxdb.connections', []))),
+                'Default connection' => $config->get('influxdb.default'),
+                'Connections' => implode(', ', array_keys($config->get('influxdb.connections', []))),
             ]);
         }
     }

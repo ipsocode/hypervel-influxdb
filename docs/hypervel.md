@@ -153,6 +153,15 @@ The manager has no `extend()` and no `getConfig()`.
 connection's config with a `name` key holding the name, and throws an
 `InvalidArgumentException` when the connection is not configured.
 
+## `php artisan about`
+
+When running in the console, the package adds an `InfluxDB` section to
+`php artisan about`: `Version` (the installed package version), `Default
+connection` (`influxdb.default`) and `Connections` (the names under
+`influxdb.connections`). It never shows a url, token, username or password,
+and makes no request to a server. `php artisan about --only=influxdb` shows
+only that section.
+
 ## Testing an application that uses it
 
 `RefPoint` caches its reflection in a static, and the InfluxQL builder keeps

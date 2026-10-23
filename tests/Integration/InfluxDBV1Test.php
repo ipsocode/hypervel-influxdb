@@ -324,6 +324,31 @@ class InfluxDBV1Test extends IntegrationTestCase
         }
     }
 
+    public function testABatchIsRetriedAfterTheServerRefusesTheConnection(): void
+    {
+        $proxy = $this->proxy();
+        $port = $proxy->start();
+        $proxy->stop();
+
+        Coroutine::create(function () use ($proxy, $port): void {
+            usleep(300_000);
+
+            $proxy->start($port);
+        });
+
+        try {
+            $this->app->get('config')->set('influxdb.connections.proxied', $this->proxiedConfig($proxy, [
+                'write' => ['writeType' => WriteType::BATCHING, 'flushInterval' => 0.1, 'maxRetries' => 5, 'retryInterval' => 200, 'maxRetryDelay' => 400],
+            ], $port));
+
+            $this->manager()->writeApi('proxied')->write('refusedbatch v=1i 1700000000000000000');
+
+            $this->eventually(fn (): bool => $this->manager()->table('refusedbatch', 'integration')->count() === 1);
+        } finally {
+            $proxy->stop();
+        }
+    }
+
     public function testAStatementTheServerRejectsRaisesAQueryExceptionWithItsMessage(): void
     {
         try {
