@@ -27,6 +27,7 @@ use Ipsocode\InfluxDB\Write\FailoverWriter;
 use Ipsocode\InfluxDB\Write\LogFailureStore;
 use Ipsocode\InfluxDB\Write\QueueFailureStore;
 use Ipsocode\InfluxDB\Write\ReplayableFailureStore;
+use Ipsocode\InfluxDB\Write\ReplayStopped;
 use Throwable;
 
 /**
@@ -151,7 +152,8 @@ class InfluxDBManager
      *
      * A batch that fails again is stored again with one more attempt, and dropped and logged
      * once that reaches `write.maxAttempts`. Each batch is removed from the store only after
-     * it was written, stored again or dropped.
+     * it was written, stored again or dropped. The replay ends at the first batch that fails
+     * again, and leaves the later ones untouched for the next run.
      *
      * @return int the batches written
      *
@@ -175,17 +177,26 @@ class InfluxDBManager
 
         $maxAttempts = $writeApi->getBatchOptions()->maxAttempts;
         $written = 0;
+        $stopped = false;
 
-        $store->replay(function (FailedBatch $batch) use ($name, $store, $maxAttempts, &$written): void {
-            try {
-                $this->writeFailed($batch, $name);
-                ++$written;
-            } catch (Throwable $exception) {
-                $again = $batch->replayFailed($exception);
+        try {
+            $store->replay(function (FailedBatch $batch) use ($name, $store, $maxAttempts, &$written, &$stopped): void {
+                if ($stopped) {
+                    throw new ReplayStopped;
+                }
 
-                ($again->attempts >= $maxAttempts ? new LogFailureStore : $store)->store($again);
-            }
-        }, $limit);
+                try {
+                    $this->writeFailed($batch, $name);
+                    ++$written;
+                } catch (Throwable $exception) {
+                    $again = $batch->replayFailed($exception);
+
+                    ($again->attempts >= $maxAttempts ? new LogFailureStore : $store)->store($again);
+                    $stopped = true;
+                }
+            }, $limit);
+        } catch (ReplayStopped) {
+        }
 
         return $written;
     }

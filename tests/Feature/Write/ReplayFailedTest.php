@@ -68,6 +68,38 @@ class ReplayFailedTest extends TestCase
         $this->assertSame(3, $store->batches[0]->attempts);
     }
 
+    public function testAReplayEndsAtTheFirstBatchThatFailsAgain(): void
+    {
+        $store = $this->store([$this->failed('cpu a=1i 1', 1), $this->failed('cpu b=1i 2', 1)]);
+        $this->connection($store, [new Response(503)]);
+
+        $this->assertSame(0, $this->app->get(InfluxDBManager::class)->replayFailed('main'));
+
+        $this->assertCount(1, $this->sentTo());
+        $this->assertSame(['cpu b=1i 2', 1], [$store->batches[0]->payload, $store->batches[0]->attempts]);
+        $this->assertSame(['cpu a=1i 1', 2], [$store->batches[1]->payload, $store->batches[1]->attempts]);
+    }
+
+    public function testBatchesAfterTheOneThatFailedAgainAreLeftUntouched(): void
+    {
+        $store = $this->store([$this->failed('cpu a=1i 1'), $this->failed('cpu b=1i 2'), $this->failed('cpu c=1i 3')]);
+        $this->connection($store, [new Response(204), new Response(503)]);
+
+        $this->assertSame(1, $this->app->get(InfluxDBManager::class)->replayFailed('main'));
+
+        $this->assertCount(2, $this->sentTo());
+        $this->assertSame(['cpu c=1i 3', 1], [$store->batches[0]->payload, $store->batches[0]->attempts]);
+    }
+
+    public function testTheCommandPrintsTheCountForAStoppedReplayAndSucceeds(): void
+    {
+        $this->connection($this->store([$this->failed('cpu a=1i 1'), $this->failed('cpu b=1i 2')]), [new Response(503)]);
+
+        $this->artisan('influxdb:replay-failed', ['connection' => 'main'])
+            ->expectsOutputToContain('Replayed 0 batches on InfluxDB connection [main].')
+            ->assertExitCode(0);
+    }
+
     public function testABatchThatReachesMaxAttemptsIsLoggedAndDropped(): void
     {
         $store = $this->store([$this->failed('cpu load=1i 1', 1)]);

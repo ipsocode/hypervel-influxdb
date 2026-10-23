@@ -546,6 +546,10 @@ A connection whose `onFailure` is not a `ReplayableFailureStore`, such as the
 `log` driver or a callable, cannot replay: the manager throws an
 `InvalidArgumentException` and the command fails, saying so.
 
+A replay ends at the first batch that fails again: that batch is stored again or
+dropped as above, and the batches after it are not touched, so an outage costs
+one attempt of the oldest batch per run and the rest wait for the next run.
+
 The count starts from the sends the batch already had (up to `maxRetries` + 1,
 so 4 with the defaults). A batch that used all its retries gets `maxAttempts` −
 (`maxRetries` + 1) replays, 6 with the defaults, and always at least one, so
