@@ -1,0 +1,70 @@
+# Imported from ipsocode/hypervel-packages github/workflows/branches.yml. Edit it there.
+name: branches
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: branches-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  link:
+    name: Create the umbrella's feature branch
+    if: github.event.label.name == 'tracking' && github.event.issue.state == 'open' && !github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Create the linked branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+
+          issue=$(gh api "repos/${REPO}/issues/${NUMBER}")
+
+          if jq -e '(.body // "") | test("Base branch: `")' <<< "${issue}" > /dev/null; then
+            echo "#${NUMBER} already names its base branch; nothing to do."
+            exit 0
+          fi
+
+          for prefix in feature bug-fixes; do
+            existing=$(gh api "repos/${REPO}/git/matching-refs/heads/${prefix}/${NUMBER}-" --jq '.[0].ref // empty')
+            if [ -n "${existing}" ]; then
+              echo "#${NUMBER} already has ${existing#refs/heads/}; nothing to do."
+              exit 0
+            fi
+          done
+
+          kind=$(jq -r '
+            [.labels[].name]
+            | map(select(IN("bug", "coroutine-safety", "security", "performance", "conformance", "enhancement", "documentation", "breaking-change")))
+            | if length > 0 and all(IN("bug", "coroutine-safety", "security")) then "bug-fixes" else "feature" end
+          ' <<< "${issue}")
+
+          slug=$(jq -r '
+            .title
+            | sub("^\\s*\\[tracking\\]\\s*"; ""; "i")
+            | ascii_downcase
+            | gsub("[^a-z0-9]+"; "-")
+            | gsub("^-+|-+$"; "")
+          ' <<< "${issue}")
+          if [ "${#slug}" -gt 40 ]; then
+            slug="${slug:0:41}"
+            slug="${slug%-*}"
+            slug="${slug:0:40}"
+          fi
+          slug="${slug%-}"
+          slug="${slug:-umbrella}"
+
+          branch="${kind}/${NUMBER}-${slug}"
+          gh issue develop "${NUMBER}" --repo "${REPO}" --base main --name "${branch}"
+          echo "Created ${branch}, linked to #${NUMBER}."
+          echo "Created \`${branch}\`, linked to #${NUMBER}." >> "${GITHUB_STEP_SUMMARY}"

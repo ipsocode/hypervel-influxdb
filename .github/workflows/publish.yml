@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: Part of the latest v* tag to bump (ignored when `version` is given). `auto` = minor if a merged PR since the previous tag is labelled breaking-change, else patch
+        description: Part of the latest v* tag to bump (ignored when `version` is given). `auto` = minor if a merged PR since the previous tag is labelled breaking-change or enhancement, else patch
         type: choice
         options: [auto, patch, minor, major]
         default: auto
@@ -42,6 +42,7 @@ jobs:
       sha: ${{ steps.plan.outputs.sha }}
       previous: ${{ steps.plan.outputs.previous }}
       breaking: ${{ steps.plan.outputs.breaking }}
+      features: ${{ steps.plan.outputs.features }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -65,8 +66,8 @@ jobs:
             git tag --list 'v*' --merged "$1" --sort=-v:refname | grep -vx "${2:-}" | head -n 1 || true
           }
 
-          breaking_since() {
-            local previous="$1" sha="$2" found='' merge_sha number
+          labelled_since() {
+            local label="$1" previous="$2" sha="$3" found='' merge_sha number
             while read -r merge_sha number; do
               [ -n "${merge_sha}" ] || continue
               git cat-file -e "${merge_sha}^{commit}" 2> /dev/null || continue
@@ -75,9 +76,21 @@ jobs:
                 continue
               fi
               found="${found:+${found} }#${number}"
-            done < <(gh pr list --repo "${GITHUB_REPOSITORY}" --state merged --base main --label breaking-change \
+            done < <(gh pr list --repo "${GITHUB_REPOSITORY}" --state merged --base main --label "${label}" \
                        --limit 200 --json number,mergeCommit --jq '.[] | "\(.mergeCommit.oid) \(.number)"')
             echo "${found}"
+          }
+
+          ships_since() {
+            local previous="$1" sha="$2" dir
+            [ -n "${previous}" ] || return 0
+            dir=$(mktemp -d)
+            mkdir "${dir}/previous" "${dir}/next"
+            git archive "${previous}^{commit}" | tar -x -C "${dir}/previous"
+            git archive "${sha}" | tar -x -C "${dir}/next"
+            if diff -rq "${dir}/previous" "${dir}/next" > /dev/null; then
+              return 1
+            fi
           }
 
           same_minor_line() {
@@ -103,11 +116,16 @@ jobs:
             }
 
             previous=$(baseline "${sha}" "${tag}")
-            breaking=$(breaking_since "${previous}" "${sha}")
+            breaking=$(labelled_since breaking-change "${previous}" "${sha}")
+            features=$(labelled_since enhancement "${previous}" "${sha}")
             bump='(hand-made tag)'
 
             if [ -n "${breaking}" ] && [ -n "${previous}" ] && same_minor_line "${tag}" "${previous}"; then
               echo "::error::${tag} is only a patch above ${previous}, but pull requests merged since then are labelled breaking-change (${breaking}). A breaking change needs at least a minor bump — delete this tag and dispatch the workflow with bump=auto or minor, which gives $(next_minor "${previous}")."
+              exit 1
+            fi
+            if [ -n "${features}" ] && [ -n "${previous}" ] && same_minor_line "${tag}" "${previous}"; then
+              echo "::error::${tag} is only a patch above ${previous}, but pull requests merged since then are labelled enhancement (${features}). A feature ships in a minor release — delete this tag and dispatch the workflow with bump=auto or minor, which gives $(next_minor "${previous}")."
               exit 1
             fi
 
@@ -116,6 +134,10 @@ jobs:
               mode='already-released'
             else
               mode='release-existing-tag'
+              if ! ships_since "${previous}" "${sha}"; then
+                echo "::error::${tag} ships nothing that ${previous} did not: the release archives of the two commits are identical. Delete this tag; the next release waits for a change that ships."
+                exit 1
+              fi
             fi
           else
             [ "${REF}" = "refs/heads/main" ] || {
@@ -124,7 +146,8 @@ jobs:
             }
             sha="${GITHUB_SHA}"
             previous=$(baseline "${sha}")
-            breaking=$(breaking_since "${previous}" "${sha}")
+            breaking=$(labelled_since breaking-change "${previous}" "${sha}")
+            features=$(labelled_since enhancement "${previous}" "${sha}")
 
             latest=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
 
@@ -140,7 +163,7 @@ jobs:
               IFS=. read -r major minor patch <<< "${base}"
               bump="${BUMP}"
               if [ "${bump}" = "auto" ]; then
-                if [ -n "${breaking}" ]; then bump='auto → minor'; else bump='auto → patch'; fi
+                if [ -n "${breaking}${features}" ]; then bump='auto → minor'; else bump='auto → patch'; fi
               fi
               case "${bump##* }" in
                 major) version="$((major + 1)).0.0" ;;
@@ -163,6 +186,14 @@ jobs:
               echo "::error::${tag} is only a patch above ${previous}, but pull requests merged since then are labelled breaking-change (${breaking}). A breaking change needs at least a minor bump — use bump=auto or minor (gives $(next_minor "${previous}")), or a version at least that high."
               exit 1
             fi
+            if [ -n "${features}" ] && [ -n "${previous}" ] && same_minor_line "${tag}" "${previous}"; then
+              echo "::error::${tag} is only a patch above ${previous}, but pull requests merged since then are labelled enhancement (${features}). A feature ships in a minor release — use bump=auto or minor (gives $(next_minor "${previous}")), or a version at least that high."
+              exit 1
+            fi
+            if ! ships_since "${previous}" "${sha}"; then
+              echo "::error::Nothing ships since ${previous}: the release archives of ${previous} and ${sha} are identical, so a new tag would publish the same package again."
+              exit 1
+            fi
 
             if [ "${DRY_RUN}" = "true" ]; then
               mode='dry-run'
@@ -177,6 +208,7 @@ jobs:
             echo "sha=${sha}"
             echo "previous=${previous}"
             echo "breaking=${breaking}"
+            echo "features=${features}"
           } >> "${GITHUB_OUTPUT}"
 
           {
@@ -190,6 +222,7 @@ jobs:
             echo "| Commit | \`${sha}\` — $(git log -1 --format=%s "${sha}") |"
             echo "| Notes since | \`${previous:-(first release)}\` |"
             echo "| Breaking changes | ${breaking:-none} |"
+            echo "| Features | ${features:-none} |"
           } >> "${GITHUB_STEP_SUMMARY}"
 
   tests:
