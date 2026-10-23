@@ -3,7 +3,7 @@
 # Run PHP in the CI image
 
 Run every `php`, `composer`, `vendor/bin/*` and `testbench` command in the CI image,
-`ghcr.io/ipsocode/hypervel/ci:8.4-latest`, never with a PHP on the host. The suite runs on
+`ghcr.io/ipsocode/hypervel/ci-alpine:8.4-latest`, never with a PHP on the host. The suite runs on
 Swoole and its coverage gate needs PCOV, which a host PHP rarely has, so a result from one
 says nothing about CI. `git` runs on the host.
 

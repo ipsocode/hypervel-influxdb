@@ -31,7 +31,7 @@ jobs:
       cancel-in-progress: true
 
     container:
-      image: ghcr.io/ipsocode/hypervel/ci:${{ matrix.php }}-latest
+      image: ghcr.io/ipsocode/hypervel/ci-alpine:${{ matrix.php }}-latest
 
     steps:
       - name: Checkout code
