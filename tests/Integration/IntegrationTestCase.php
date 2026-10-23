@@ -8,6 +8,7 @@ use Hypervel\Contracts\Foundation\Application as ApplicationContract;
 use InfluxDB2\WriteType;
 use Ipsocode\InfluxDB\InfluxDBManager;
 use Ipsocode\InfluxDB\InfluxQL\QueryApi;
+use Ipsocode\InfluxDB\Tests\Integration\Support\FaultyProxy;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use Throwable;
 
@@ -125,6 +126,27 @@ abstract class IntegrationTestCase extends TestCase
             ->make($this->app->get(InfluxDBManager::class)->getConnectionConfig('integration'))->options;
 
         (new QueryApi($options))->query($statement);
+    }
+
+    /**
+     * A proxy in front of the server under test, listening in this coroutine.
+     */
+    protected function proxy(int $drop = 0): FaultyProxy
+    {
+        $url = parse_url((string) $this->serverUrl());
+
+        return new FaultyProxy((string) $url['host'], (int) $url['port'], $drop);
+    }
+
+    /**
+     * The `integration` connection pointed at the proxy.
+     *
+     * @param array<string, mixed> $extra
+     * @return array<string, mixed>
+     */
+    protected function proxiedConfig(FaultyProxy $proxy, array $extra = [], ?int $port = null): array
+    {
+        return $extra + $this->connectionConfig('http://127.0.0.1:' . ($port ?? $proxy->start()));
     }
 
     /**
