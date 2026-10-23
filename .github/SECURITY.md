@@ -6,7 +6,10 @@
 
 Until Hypervel 0.4 is released, this package is development-only and not
 supported for production use (see the [README](../README.md)). Fixes land on
-`main` and ship in the next tag; earlier tags are not patched.
+`main`. A security fix, or any other high-priority fix, is released as soon as
+it merges; other fixes ship in the weekly release on Tuesdays, and new
+features in the monthly release on the first Tuesday of the month. Earlier
+tags are not patched.
 
 ## Reporting a vulnerability
 
