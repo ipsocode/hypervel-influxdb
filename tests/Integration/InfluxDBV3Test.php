@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ipsocode\InfluxDB\Tests\Integration;
 
 use Carbon\CarbonImmutable;
+use Hypervel\Database\QueryException as DatabaseQueryException;
 use Hypervel\Support\Facades\DB;
 use InfluxDB2\Model\WritePrecision;
 use InfluxDB2\Point;
@@ -118,6 +119,72 @@ class InfluxDBV3Test extends V3IntegrationTestCase
         $this->assertSame($raw, $logged[0]['query']);
         $this->assertSame([3, 4, 5], array_map(static fn (object $row): int => $row->value, $connection->select($raw)));
         $this->assertSame([3, 4, 5], $query()->pluck('value')->all());
+    }
+
+    public function testAFloatTheSqlDriverEmbedsIsTheValueWritten(): void
+    {
+        $floats = [0.1 + 0.2, 1.0E-7, 123456789.12345678, 1.5E+300, -2.5, 0.1];
+
+        $this->manager()->writeApi('integration')->writeRaw(
+            implode("\n", array_map(static fn (float $load, int $i): string => 'floats,i=' . $i . ' load=' . var_export($load, true) . ' ' . (1_700_000_000 + $i), $floats, array_keys($floats))),
+            WritePrecision::S,
+        );
+
+        $table = fn () => DB::connection('sql')->table('floats');
+
+        $this->assertSame($floats, $table()->orderBy('time')->pluck('load')->all());
+
+        foreach ($floats as $i => $load) {
+            $this->assertSame([(string) $i], $table()->where('load', $load)->pluck('i')->all(), 'where load = ' . var_export($load, true));
+        }
+    }
+
+    public function testASqlConnectionKeepsTheDatabaseSetDatabaseNameChoseAcrossAReconnect(): void
+    {
+        $other = $this->database . '_other';
+
+        $this->manager()->writeApi('integration')->writeRaw('pings v=1i 1700000000', WritePrecision::S);
+        $this->manager()->writeApi('integration')->writeRaw('pings v=2i 1700000000', WritePrecision::S, $other);
+
+        $connection = DB::connection('sql');
+
+        $this->assertSame([1], $connection->table('pings')->pluck('v')->all());
+
+        $connection->setDatabaseName($other);
+        $connection->reconnect();
+
+        $this->assertSame($other, $connection->getDatabaseName());
+        $this->assertSame([2], $connection->table('pings')->pluck('v')->all());
+    }
+
+    public function testAStatementTheServerRejectsIsSentOnceWhateverItsMessageQuotes(): void
+    {
+        $this->manager()->writeApi('integration')->writeRaw('probe v=1i 1700000000', WritePrecision::S);
+
+        $proxy = $this->proxy();
+
+        try {
+            $this->app->get('config')->set('influxdb.connections.proxied', $this->proxiedConfig($proxy));
+            $this->app->get('config')->set('database.connections.proxied-sql', ['driver' => 'influxdb', 'connection' => 'proxied']);
+
+            $connection = DB::connection('proxied-sql');
+
+            $this->assertSame([1], $connection->table('probe')->pluck('v')->all());
+
+            $before = $proxy->forwarded;
+
+            try {
+                $connection->select('SELECT "server has gone away"("v") FROM "probe"');
+
+                $this->fail('The server accepted a statement that calls an undefined function.');
+            } catch (DatabaseQueryException $exception) {
+                $this->assertStringContainsString('server has gone away', $exception->getMessage());
+            }
+
+            $this->assertSame(1, $proxy->forwarded - $before);
+        } finally {
+            $proxy->stop();
+        }
     }
 
     public function testTheGrammarRefusesSelectIntoAsTheServerDoes(): void

@@ -56,6 +56,7 @@ abstract class V3IntegrationTestCase extends IntegrationTestCase
     protected function dropDatabase(): void
     {
         $this->http()->delete('/api/v3/configure/database', ['query' => ['db' => $this->database]]);
+        $this->http()->delete('/api/v3/configure/database', ['query' => ['db' => $this->database . '_other']]);
     }
 
     /**
