@@ -344,6 +344,8 @@ class InfluxDBV1Test extends IntegrationTestCase
             $this->manager()->writeApi('proxied')->write('refusedbatch v=1i 1700000000000000000');
 
             $this->eventually(fn (): bool => $this->manager()->table('refusedbatch', 'integration')->count() === 1);
+
+            $this->assertSame([1], $this->manager()->table('refusedbatch', 'integration')->pluck('v')->all());
         } finally {
             $proxy->stop();
         }
