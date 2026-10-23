@@ -27,7 +27,7 @@ jobs:
       cancel-in-progress: ${{ github.ref_name != 'main' }}
 
     container:
-      image: ghcr.io/ipsocode/hypervel/ci:8.4-latest
+      image: ghcr.io/ipsocode/hypervel/ci-alpine:8.4-latest
 
     services:
       influxdb:
@@ -72,7 +72,7 @@ jobs:
       cancel-in-progress: ${{ github.ref_name != 'main' }}
 
     container:
-      image: ghcr.io/ipsocode/hypervel/ci:8.4-latest
+      image: ghcr.io/ipsocode/hypervel/ci-alpine:8.4-latest
 
     services:
       influxdb:
@@ -124,7 +124,7 @@ jobs:
       cancel-in-progress: ${{ github.ref_name != 'main' }}
 
     container:
-      image: ghcr.io/ipsocode/hypervel/ci:8.4-latest
+      image: ghcr.io/ipsocode/hypervel/ci-alpine:8.4-latest
 
     services:
       influxdb:

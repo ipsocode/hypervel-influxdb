@@ -57,7 +57,7 @@ A change is done when all four of these pass. CI runs them on every pull request
 | `composer analyse` | PHPStan, at the level `phpstan.neon` sets |
 | `composer test:coverage` | The suite, failing below 100% line coverage |
 
-Run them in CI's image, `ghcr.io/ipsocode/hypervel/ci:8.4-latest` (or `8.5-latest`), not on the
+Run them in CI's image, `ghcr.io/ipsocode/hypervel/ci-alpine:8.4-latest` (or `8.5-latest`), not on the
 host. It has Swoole, Redis and PCOV, and `CONTRIBUTING.md` gives the `docker run` for it.
 
 - Never lower the coverage gate or add `@codeCoverageIgnore`: cover the line instead.

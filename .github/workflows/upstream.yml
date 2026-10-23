@@ -62,7 +62,7 @@ jobs:
       ref: ${{ steps.components.outputs.ref }}
 
     container:
-      image: ghcr.io/ipsocode/hypervel/ci:8.4-latest
+      image: ghcr.io/ipsocode/hypervel/ci-alpine:8.4-latest
 
     steps:
       - name: Checkout code

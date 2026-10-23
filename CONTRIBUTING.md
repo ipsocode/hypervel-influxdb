@@ -13,12 +13,12 @@ The suite needs PHP 8.4 or 8.5 with the Swoole and Redis extensions that
 `hypervel/components` requires, plus PCOV for the coverage gate. It needs no
 InfluxDB server: `InfluxDB2\Client` opens no connection when it is
 constructed, so the suite resolves and inspects clients without ever writing a
-point. CI runs in `ghcr.io/ipsocode/hypervel/ci:<php>-latest`, which has all of
+point. CI runs in `ghcr.io/ipsocode/hypervel/ci-alpine:<php>-latest`, which has all of
 the extensions, and is the simplest way to match it:
 
 ```sh
 docker run --rm -it -v "$PWD":/app -w /app -e OTEL_SDK_DISABLED=true \
-    ghcr.io/ipsocode/hypervel/ci:8.4-latest bash
+    ghcr.io/ipsocode/hypervel/ci-alpine:8.4-latest bash
 composer update
 ```
 
@@ -100,7 +100,7 @@ docker network create influx
 docker run -d --rm --name influxdb --network influx influxdb:1.11
 docker run --rm -v "$PWD":/app -w /app --network influx -e OTEL_SDK_DISABLED=true \
     -e INFLUXDB_V1_URL=http://influxdb:8086 \
-    ghcr.io/ipsocode/hypervel/ci:8.4-latest composer test:integration
+    ghcr.io/ipsocode/hypervel/ci-alpine:8.4-latest composer test:integration
 ```
 
 InfluxDB 2.x runs the same way, with the setup variables that create its organization, bucket and token:
@@ -113,7 +113,7 @@ docker run -d --rm --name influxdb2 --network influx \
     influxdb:2.7
 docker run --rm -v "$PWD":/app -w /app --network influx -e OTEL_SDK_DISABLED=true \
     -e INFLUXDB_V2_URL=http://influxdb2:8086 \
-    ghcr.io/ipsocode/hypervel/ci:8.4-latest composer test:integration
+    ghcr.io/ipsocode/hypervel/ci-alpine:8.4-latest composer test:integration
 ```
 
 InfluxDB 3 Core needs no setup: it creates a database on its first write, and the 3 tests make and drop their
@@ -126,7 +126,7 @@ docker run -d --rm --name influxdb3 --network influx \
     -e INFLUXDB3_START_WITHOUT_AUTH=true influxdb:3-core
 docker run --rm -v "$PWD":/app -w /app --network influx -e OTEL_SDK_DISABLED=true \
     -e INFLUXDB_V3_URL=http://influxdb3:8181 \
-    ghcr.io/ipsocode/hypervel/ci:8.4-latest composer test:integration
+    ghcr.io/ipsocode/hypervel/ci-alpine:8.4-latest composer test:integration
 ```
 
 `.github/workflows/integration.yml` runs the same on pull requests, with the server as a service container.
