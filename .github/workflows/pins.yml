@@ -1,0 +1,47 @@
+# Imported from ipsocode/hypervel-packages github/workflows/pins.yml. Edit it there.
+name: pins
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  issues: write
+
+concurrency:
+  group: pins-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  unpin:
+    name: Unpin the closed issue
+    if: ${{ !github.event.issue.pull_request }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Unpin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+          NAME: ${{ github.event.repository.name }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+
+          # shellcheck disable=SC2016
+          read -r id pinned < <(gh api graphql \
+            -f query='query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { issue(number: $number) { id isPinned } } }' \
+            -f owner="${OWNER}" -f name="${NAME}" -F number="${NUMBER}" \
+            --jq '.data.repository.issue | "\(.id) \(.isPinned)"')
+
+          if [ "${pinned}" != "true" ]; then
+            echo "#${NUMBER} is not pinned; nothing to do."
+            exit 0
+          fi
+
+          # shellcheck disable=SC2016
+          gh api graphql \
+            -f query='mutation($id: ID!) { unpinIssue(input: { issueId: $id }) { issue { isPinned } } }' \
+            -f id="${id}" --jq '.data.unpinIssue.issue.isPinned' > /dev/null
+          echo "Unpinned #${NUMBER}."
+          echo "Unpinned #${NUMBER}." >> "${GITHUB_STEP_SUMMARY}"
