@@ -21,5 +21,25 @@
     </source>
     <php>
         <env name="LOG_CHANNEL" value="null"/>
+
+        <!-- Pin terminal dimensions so Symfony Console never shells out to `stty`
+             to detect them. Every artisan call builds a SymfonyStyle that asks for
+             the terminal width, and a test worker's stdout is a pipe, so Symfony
+             runs `stty` for every lookup: 95 times in one parallel run. Each test
+             runs inside a Swoole coroutine with every hook on, which hooks that
+             subprocess wait; under ParaTest's concurrent workers the wait can lose
+             the child's exit (a SIGCHLD reaping race) and hang one worker for
+             good. See #104. The values and `force` match hypervel/components' own
+             phpunit.xml.dist.
+
+             PHPUnit-only, deliberately not in testbench.yaml: a Testbench CLI
+             command already runs with both set, because Symfony's
+             Application::run() exports them before the command starts. The
+             ParaTest workers `composer test` starts do not inherit them, and
+             Testbench boots a test's application with its own bootstrapper list,
+             which leaves out the framework's ConfigureTerminalDimensions, so
+             without these a worker sees neither. -->
+        <env name="COLUMNS" value="80" force="true"/>
+        <env name="LINES" value="24" force="true"/>
     </php>
 </phpunit>
