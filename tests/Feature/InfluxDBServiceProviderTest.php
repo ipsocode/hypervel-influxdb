@@ -72,4 +72,19 @@ class InfluxDBServiceProviderTest extends TestCase
         $this->assertIsArray(config('influxdb.connections.main'));
         $this->assertSame('ns', config('influxdb.connections.main.precision'));
     }
+
+    public function testAboutShowsTheInfluxDbSectionWithoutCredentials(): void
+    {
+        $this->app->get('config')->set('influxdb.connections.main.token', 'secret-token');
+        $this->app->get('config')->set('influxdb.connections.main.password', 'secret-password');
+
+        $this->artisan('about', ['--only' => 'influxdb'])
+            ->expectsOutputToContain('InfluxDB')
+            ->expectsOutputToContain('Default connection')
+            ->expectsOutputToContain('main, analytics')
+            ->doesntExpectOutputToContain('secret-token')
+            ->doesntExpectOutputToContain('secret-password')
+            ->doesntExpectOutputToContain('Environment')
+            ->assertExitCode(0);
+    }
 }

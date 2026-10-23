@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Ipsocode\InfluxDB;
 
+use Composer\InstalledVersions;
 use Hypervel\Console\Events\AfterExecute;
 use Hypervel\Contracts\Foundation\Application;
 use Hypervel\Core\Events\BeforeServerFork;
 use Hypervel\Coroutine\Coroutine;
 use Hypervel\Database\DatabaseManager;
+use Hypervel\Foundation\Console\AboutCommand;
 use Hypervel\Foundation\Events\Terminating;
 use Hypervel\Support\ServiceProvider;
 use InfluxDB2\Client;
@@ -64,6 +66,8 @@ class InfluxDBServiceProvider extends ServiceProvider
 
         $this->commands([ReplayFailedCommand::class]);
 
+        $this->registerAboutSection();
+
         $events = $this->app->make('events');
 
         // Ask each connection's server for its version once, in the master
@@ -87,6 +91,23 @@ class InfluxDBServiceProvider extends ServiceProvider
                 $this->app->make(InfluxDBManager::class)->flushAll();
             }
         });
+    }
+
+    /**
+     * Add the InfluxDB section to `about`.
+     *
+     * The closure runs only when `about` does, reads configuration then and makes no request;
+     * it lists connection names only, never a url, token or credentials.
+     */
+    protected function registerAboutSection(): void
+    {
+        if ($this->app->runningInConsole()) {
+            AboutCommand::add('InfluxDB', static fn (): array => [
+                'Version' => InstalledVersions::getPrettyVersion('ipsocode/hypervel-influxdb'),
+                'Default connection' => config('influxdb.default'),
+                'Connections' => implode(', ', array_keys(config('influxdb.connections', []))),
+            ]);
+        }
     }
 
     /**
