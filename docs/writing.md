@@ -547,8 +547,9 @@ A connection whose `onFailure` is not a `ReplayableFailureStore`, such as the
 `InvalidArgumentException` and the command fails, saying so.
 
 The count starts from the sends the batch already had (up to `maxRetries` + 1,
-so 4 with the defaults), so a batch gets 6 replays with the defaults, and
-`maxAttempts` must be above `maxRetries` + 1 for more than one replay.
+so 4 with the defaults). A batch that used all its retries gets `maxAttempts` −
+(`maxRetries` + 1) replays, 6 with the defaults, and always at least one, so
+`maxAttempts` must be above `maxRetries` + 2 for more than one replay.
 
 Replays of one connection must not overlap: two replays at once can write the
 same batches twice. Schedule the command without overlapping, and on one server
