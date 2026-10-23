@@ -51,7 +51,8 @@ return [
 
             // INFLUXDB_BATCHING=true holds points in worker memory and sends them in batches,
             // sized for the server version unless set here; `maxBuffered`, `overflow`, `onFailure`
-            // ('log' by default: a batch that cannot be written is logged and dropped) and the
+            // ('log' by default: a batch that cannot be written is logged and dropped), `maxAttempts`
+            // (the sends a replayed batch gets before it is dropped) and the
             // InfluxDB client's write options, such as `maxRetries`, can be added too.
             // https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/writing.md#batching-writes
             //

@@ -242,7 +242,8 @@ The `write` block takes these options for batching:
 | `flushInterval` | `1` | The seconds after the buffer's first point that it is sent at the latest |
 | `maxBuffered` | 10 × `batchSize` | The points a writer [holds](#how-much-a-worker-holds), buffered or being sent |
 | `overflow` | `'flush'` | What a write past `maxBuffered` does: `'flush'` or `'refuse'` (`BatchOptions::FLUSH`, `BatchOptions::REFUSE`) |
-| `onFailure` | `'log'` | `'log'`, `['driver' => 'log']`, a callable, or the name of an invokable class, handed each batch that [cannot be written](#when-a-batch-cannot-be-written) |
+| `maxAttempts` | `10` | The sends a batch a [store kept](#replaying-failed-batches) gets, replays included, before a replay drops it |
+| `onFailure` | `'log'` | `'log'`, `'filesystem'`, `'redis'`, `'database'`, `'queue'`, a [driver array](#the-filesystem-driver), a callable, or the name of an invokable class, handed each batch that [cannot be written](#when-a-batch-cannot-be-written) |
 | `maxRetries` | `3` | The client's option: the retries a batch gets |
 | `fallback` | None | The connections a batch this one cannot take [falls back to](#falling-back-to-other-connections), in order |
 | `cooldown` | `30` | The seconds a connection that failed to take a batch is skipped |
@@ -354,7 +355,9 @@ class SpillFailedBatch
 }
 ```
 
-Name the driver as `'onFailure' => 'log'` or `['driver' => 'log']`; an
+Name the driver as `'onFailure' => 'log'` or `['driver' => 'log']`, or use the
+[`filesystem`](#the-filesystem-driver), [`redis`](#the-redis-driver),
+[`database`](#the-database-driver) or [`queue`](#the-queue-driver) driver; an
 unknown driver throws an `InvalidArgumentException` when the connection is
 resolved. A driver is a `FailureStore`, handed a `FailedBatch` that carries the
 `connection`, `bucket`, `org`, `precision` and `payload` of the batch, its
@@ -362,8 +365,7 @@ resolved. A driver is a `FailureStore`, handed a `FailedBatch` that carries the
 does not retry, such as a 400, counts once), when it `failedAt`, and the
 `exception` that failed it. On a connection with fallbacks, `attempts` counts
 the batch's posts through its own connection, 0 when that was cooling down,
-and the `exception` names what each fallback did. Durable drivers are to
-follow.
+and the `exception` names what each fallback did.
 
 A class name is resolved from the container, and keeps the config cacheable,
 which a closure does not. A batch the server refuses may still have been
@@ -394,6 +396,177 @@ batch goes back in the buffer with the flush timer armed again, so the next
 flush sends it. The same holds for a batch whose coroutine cannot start
 because the worker is at `max_coroutine`: the failure is reported, and the
 batch stays pending.
+
+### The filesystem driver
+
+`filesystem` keeps each failed batch as a file on a disk, so a restart or an
+InfluxDB outage does not lose it, and [replays](#replaying-failed-batches) them
+oldest first:
+
+```php
+'write' => [
+    'writeType' => WriteType::BATCHING,
+    'onFailure' => ['driver' => 'filesystem', 'disk' => 'local', 'path' => 'influxdb/failed/main'],
+],
+```
+
+| Option | Default | |
+|---|---|---|
+| `disk` | the application's default disk | The name of a disk in `config/filesystems.php` |
+| `path` | `influxdb/failed/<connection>` | The directory on the disk the files are kept in |
+
+`'onFailure' => 'filesystem'` takes both defaults. Each batch is one JSON file
+that starts with when the batch failed, in UTC, so the names sort in failure order, and
+carries the `FailedBatch` with its payload of line protocol unchanged. A file is
+deleted only after the writer returns for it. A `disk` or `path` that is not a
+non-empty string throws an `InvalidArgumentException` naming the connection and
+the option. A file in the directory that is not a batch ends a replay with a
+`RuntimeException` naming it, and stays where it is until you remove it. Give
+each connection its own `path`; two sharing one replay each other's batches to
+their own servers.
+
+### The redis driver
+
+`redis` keeps each failed batch as an entry of a Redis list, so a restart or an
+InfluxDB outage does not lose it, and [replays](#replaying-failed-batches) them
+oldest first:
+
+```php
+'write' => [
+    'writeType' => WriteType::BATCHING,
+    'onFailure' => ['driver' => 'redis', 'connection' => 'default'],
+],
+```
+
+| Option | Default | |
+|---|---|---|
+| `connection` | the application's default Redis connection | The name of a connection in `config/database.php` |
+
+The list is `influxdb:failed:<connection>`, named after the InfluxDB
+connection, so connections do not replay each other's batches. Each entry is
+the `FailedBatch` as JSON, with its payload of line protocol unchanged, appended
+at the end of the list. An entry is removed only after the writer returns for
+it. A `connection` that is not a non-empty string throws an
+`InvalidArgumentException` naming the connection and the option. An entry that
+is not a batch ends a replay with a `RuntimeException`, and stays in the list
+until you remove it.
+
+### The database driver
+
+`database` keeps each failed batch as a row of a table, so a restart or an
+InfluxDB outage does not lose it, and [replays](#replaying-failed-batches) them
+oldest first:
+
+```php
+'write' => [
+    'writeType' => WriteType::BATCHING,
+    'onFailure' => ['driver' => 'database', 'connection' => 'mysql', 'table' => 'influxdb_failed_batches'],
+],
+```
+
+| Option | Default | |
+|---|---|---|
+| `connection` | the application's default database connection | The name of a connection in `config/database.php` |
+| `table` | `influxdb_failed_batches` | The table the batches are kept in |
+
+Publish the table's migration and run it:
+
+```bash
+php artisan vendor:publish --tag=influxdb-migrations
+php artisan migrate
+```
+
+Each row is the `FailedBatch` with its payload of line protocol unchanged, the
+InfluxDB connection that buffered it in `connection`, and `failed_at` in UTC. A
+replay reads the oldest rows of the InfluxDB connection first, and deletes a row
+only after the writer returns for it, so connections sharing a table do not
+replay each other's batches. A `connection` or `table` that is not a non-empty
+string throws an `InvalidArgumentException` naming the connection and the
+option. A row that is not a batch ends a replay with a `RuntimeException`, and
+stays in the table until you remove it. If you name another `table`, publish the
+migration and change the name in it.
+
+### The queue driver
+
+`queue` dispatches each failed batch as a job, so the queue's own tries and
+backoff replay it, and no `influxdb:replay-failed` is needed:
+
+```php
+'write' => [
+    'writeType' => WriteType::BATCHING,
+    'onFailure' => ['driver' => 'queue', 'connection' => 'redis', 'queue' => 'influxdb'],
+],
+```
+
+| Option | Default | |
+|---|---|---|
+| `connection` | the application's default queue connection | The name of a connection in `config/queue.php` |
+| `queue` | the connection's default queue | The queue the jobs are pushed onto |
+
+The job is `Ipsocode\InfluxDB\Jobs\ReplayFailedBatch`, carrying the
+`FailedBatch`. A worker writes it through a synchronous `WriteApi` of the
+InfluxDB connection that buffered it, to the bucket, org and precision it was
+going to, sending it once, and the job throws when the write fails, so the queue retries it by
+its own `tries`, `backoff` and failed-job handling. Run a worker for the queue
+as for any other. A worker tries a job once unless it is told otherwise, and
+the job is pushed the moment the batch fails, so a worker usually runs it while
+InfluxDB is still down: start it with
+`php artisan queue:work --queue=influxdb --tries=10 --backoff=30`. A job that
+runs out of tries goes to the failed jobs, where `queue:retry` sends it again. The driver is not a `ReplayableFailureStore`: the batches
+live in the queue, so [replaying](#replaying-failed-batches) a connection that
+uses it throws an `InvalidArgumentException`, and the command fails, saying the
+queue's workers do the replaying. A `connection` or `queue` that is not a
+non-empty string throws an `InvalidArgumentException` naming the connection and
+the option.
+
+### Replaying failed batches
+
+A `FailureStore` that also implements `Ipsocode\InfluxDB\Write\ReplayableFailureStore`
+can hand its batches back: `replay(callable $writer, int $limit = 100): int`
+gives up to `$limit` of them, oldest first, to `$writer(FailedBatch $batch)`,
+and removes each one only after the writer returns. A store of your own that
+does not implement it keeps working, but cannot be replayed.
+
+```php
+use Ipsocode\InfluxDB\Facades\InfluxDB;
+
+$written = InfluxDB::replayFailed('main', limit: 100); // the batches written
+```
+
+```
+php artisan influxdb:replay-failed main --limit=100
+```
+
+Both write each batch through a synchronous `WriteApi` to the bucket, org and
+precision it was going to, sending it once: the connection's `maxRetries` does not
+apply to a replay, which counts as one attempt. A batch that fails again is stored again with its
+`attempts` plus one, and once that reaches the connection's `maxAttempts`
+(`10` by default) it is logged as the `log` driver logs a batch, and dropped.
+A connection whose `onFailure` is not a `ReplayableFailureStore`, such as the
+`log` driver or a callable, cannot replay: the manager throws an
+`InvalidArgumentException` and the command fails, saying so.
+
+A replay ends at the first batch that fails again: that batch is stored again or
+dropped as above, and the batches after it are not touched, so an outage costs
+one attempt of the oldest batch per run and the rest wait for the next run.
+
+The count starts from the sends the batch already had (up to `maxRetries` + 1,
+so 4 with the defaults). A batch that used all its retries gets `maxAttempts` −
+(`maxRetries` + 1) replays, 6 with the defaults, and always at least one, so
+`maxAttempts` must be above `maxRetries` + 2 for more than one replay.
+
+Replays of one connection must not overlap: two replays at once can write the
+same batches twice. Schedule the command without overlapping, and on one server
+only when several hosts share the Redis list or the table:
+
+```php
+Schedule::command('influxdb:replay-failed main')->everyFiveMinutes()->withoutOverlapping();
+// Schedule::command('influxdb:replay-failed main')->everyFiveMinutes()->withoutOverlapping()->onOneServer();
+```
+
+A point written without a timestamp receives the server's time when its batch
+is replayed, not the time it was recorded; give points a timestamp when that
+matters.
 
 ### How much a worker holds
 

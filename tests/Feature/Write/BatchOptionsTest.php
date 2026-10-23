@@ -14,7 +14,11 @@ use Ipsocode\InfluxDB\Write\Batch;
 use Ipsocode\InfluxDB\Write\BatchOptions;
 use Ipsocode\InfluxDB\Write\BatchWriteException;
 use Ipsocode\InfluxDB\Write\BufferFullException;
+use Ipsocode\InfluxDB\Write\DatabaseFailureStore;
+use Ipsocode\InfluxDB\Write\FilesystemFailureStore;
 use Ipsocode\InfluxDB\Write\LogFailureStore;
+use Ipsocode\InfluxDB\Write\QueueFailureStore;
+use Ipsocode\InfluxDB\Write\RedisFailureStore;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use stdClass;
@@ -81,6 +85,13 @@ class BatchOptionsTest extends TestCase
     }
 
     #[UnitTest]
+    public function testMaxAttemptsDefaultsToTenAndMayBeSet(): void
+    {
+        $this->assertSame(10, BatchOptions::fromConfig([], Version::V2, 'main')->maxAttempts);
+        $this->assertSame(2, BatchOptions::fromConfig(['maxAttempts' => '2'], Version::V2, 'main')->maxAttempts);
+    }
+
+    #[UnitTest]
     public function testMaxBufferedDefaultsToTenBatches(): void
     {
         $this->assertSame(1_230, BatchOptions::fromConfig(['batchSize' => 123], Version::V2, 'main')->maxBuffered);
@@ -121,12 +132,94 @@ class BatchOptionsTest extends TestCase
     }
 
     #[UnitTest]
+    public function testOnFailureMayNameTheFilesystemDriverWithAPathAndADisk(): void
+    {
+        foreach (['filesystem', ['driver' => 'filesystem'], ['driver' => 'filesystem', 'path' => 'spill', 'disk' => 'local'], ['driver' => 'filesystem', 'path' => null, 'disk' => null]] as $onFailure) {
+            $this->assertInstanceOf(FilesystemFailureStore::class, BatchOptions::fromConfig(['onFailure' => $onFailure], Version::V1, 'main')->onFailure);
+        }
+    }
+
+    #[UnitTest]
+    public function testOnFailureMayNameTheRedisDriverWithAConnection(): void
+    {
+        foreach (['redis', ['driver' => 'redis'], ['driver' => 'redis', 'connection' => 'cache'], ['driver' => 'redis', 'connection' => null]] as $onFailure) {
+            $this->assertInstanceOf(RedisFailureStore::class, BatchOptions::fromConfig(['onFailure' => $onFailure], Version::V1, 'main')->onFailure);
+        }
+    }
+
+    #[UnitTest]
+    public function testARedisConnectionOfTheWrongKindIsRefusedWithTheConnectionAndKey(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('InfluxDB connection [analytics] has an invalid write.onFailure.connection [5]; expected a non-empty string.');
+
+        BatchOptions::fromConfig(['onFailure' => ['driver' => 'redis', 'connection' => 5]], Version::V1, 'analytics');
+    }
+
+    #[UnitTest]
+    public function testOnFailureMayNameTheDatabaseDriverWithATableAndAConnection(): void
+    {
+        foreach (['database', ['driver' => 'database'], ['driver' => 'database', 'table' => 'spill', 'connection' => 'testing'], ['driver' => 'database', 'table' => null, 'connection' => null]] as $onFailure) {
+            $this->assertInstanceOf(DatabaseFailureStore::class, BatchOptions::fromConfig(['onFailure' => $onFailure], Version::V1, 'main')->onFailure);
+        }
+    }
+
+    #[UnitTest]
+    public function testOnFailureMayNameTheQueueDriverWithAConnectionAndAQueue(): void
+    {
+        foreach (['queue', ['driver' => 'queue'], ['driver' => 'queue', 'connection' => 'redis', 'queue' => 'influxdb'], ['driver' => 'queue', 'connection' => null, 'queue' => null]] as $onFailure) {
+            $this->assertInstanceOf(QueueFailureStore::class, BatchOptions::fromConfig(['onFailure' => $onFailure], Version::V1, 'main')->onFailure);
+        }
+    }
+
+    #[UnitTest]
+    public function testAQueueNameOfTheWrongKindIsRefusedWithTheConnectionAndKey(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('InfluxDB connection [analytics] has an invalid write.onFailure.queue []; expected a non-empty string.');
+
+        BatchOptions::fromConfig(['onFailure' => ['driver' => 'queue', 'queue' => '']], Version::V1, 'analytics');
+    }
+
+    #[UnitTest]
+    public function testADatabaseTableOfTheWrongKindIsRefusedWithTheConnectionAndKey(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('InfluxDB connection [analytics] has an invalid write.onFailure.table []; expected a non-empty string.');
+
+        BatchOptions::fromConfig(['onFailure' => ['driver' => 'database', 'table' => '']], Version::V1, 'analytics');
+    }
+
+    #[UnitTest]
+    #[DataProvider('invalidStoreOptions')]
+    public function testAFilesystemOptionOfTheWrongKindIsRefusedWithTheConnectionAndKey(string $key, mixed $value, string $message): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage("InfluxDB connection [analytics] has an invalid write.onFailure.{$key} {$message}; expected a non-empty string.");
+
+        BatchOptions::fromConfig(['onFailure' => ['driver' => 'filesystem', $key => $value]], Version::V1, 'analytics');
+    }
+
+    /**
+     * @return array<string, array{string, mixed, string}>
+     */
+    public static function invalidStoreOptions(): array
+    {
+        return [
+            'an empty path' => ['path', '', '[]'],
+            'a path that is a number' => ['path', 5, '[5]'],
+            'a disk that is a list' => ['disk', ['local'], '[array]'],
+            'an empty disk' => ['disk', '', '[]'],
+        ];
+    }
+
+    #[UnitTest]
     public function testAnUnknownFailureDriverIsRefusedWithTheConnection(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('InfluxDB connection [analytics] has an invalid write.onFailure [redis]; expected a callable, the name of an invokable class, or the driver log.');
+        $this->expectExceptionMessage('InfluxDB connection [analytics] has an invalid write.onFailure [sqs]; expected a callable, the name of an invokable class, or the driver log, filesystem, redis, database or queue.');
 
-        BatchOptions::fromConfig(['onFailure' => ['driver' => 'redis']], Version::V1, 'analytics');
+        BatchOptions::fromConfig(['onFailure' => ['driver' => 'sqs']], Version::V1, 'analytics');
     }
 
     #[UnitTest]
@@ -155,6 +248,7 @@ class BatchOptionsTest extends TestCase
             'flushInterval of 0' => ['flushInterval', 0, '[0]; expected a number above zero'],
             'flushInterval below 0' => ['flushInterval', -1, '[-1]; expected a number above zero'],
             'maxBuffered of 0' => ['maxBuffered', 0, '[0]; expected a whole number above zero'],
+            'maxAttempts of 0' => ['maxAttempts', 0, '[0]; expected a whole number above zero'],
             'an unknown overflow' => ['overflow', 'drop', '[drop]; expected flush or refuse'],
             'an overflow that is not a string' => ['overflow', [], '[array]; expected flush or refuse'],
             'onFailure naming no class' => ['onFailure', 'App\Missing', '[App\Missing]; expected a callable or the name of an invokable class'],

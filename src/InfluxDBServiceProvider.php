@@ -12,6 +12,7 @@ use Hypervel\Database\DatabaseManager;
 use Hypervel\Foundation\Events\Terminating;
 use Hypervel\Support\ServiceProvider;
 use InfluxDB2\Client;
+use Ipsocode\InfluxDB\Console\ReplayFailedCommand;
 use Ipsocode\InfluxDB\InfluxQL\Driver\Connection as InfluxQLDriverConnection;
 use Ipsocode\InfluxDB\Sql\SqlConnection;
 
@@ -56,6 +57,12 @@ class InfluxDBServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__ . '/../config/influxdb.php' => config_path('influxdb.php'),
         ], 'influxdb-config');
+
+        $this->publishesMigrations([
+            __DIR__ . '/../database/migrations' => database_path('migrations'),
+        ], 'influxdb-migrations');
+
+        $this->commands([ReplayFailedCommand::class]);
 
         $events = $this->app->make('events');
 
