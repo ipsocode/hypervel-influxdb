@@ -74,9 +74,11 @@ and yields only where Swoole's hooks cover what it sends through.
 
 `Ipsocode\InfluxDB\InfluxDBManager` is what the `InfluxDB` facade proxies to
 and what the container's `influxdb` binding holds; the bindings are listed
-under [Usage](../../README.md#usage). The provider registers it as a singleton,
-so one manager serves every coroutine of a worker, and what it builds lasts
-the worker's life.
+under [Using a connection](getting-started.md#using-a-connection). The provider
+registers it as a singleton, so one manager serves every coroutine of a worker,
+and what it builds lasts the worker's life. The manager is built on Hypervel's
+own components, so the package requires nothing beyond Hypervel and the
+InfluxDB client.
 
 ### What it keeps
 

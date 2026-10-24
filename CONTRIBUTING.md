@@ -6,7 +6,9 @@ pull requests.
 
 ## Development setup
 
-User documentation lives in `src/docs/`, which ships with the package. Notes
+User documentation lives in `src/docs/`, which ships with the package. A new
+page there gets a line in [`src/docs/index.md`](src/docs/index.md), which lists
+every page in reading order and is what the README links to. Notes
 for contributors on how the package is built are in
 [`docs/ai/internals.md`](docs/ai/internals.md), beside the other pages for
 coding agents in `docs/ai/`, none of which ships.

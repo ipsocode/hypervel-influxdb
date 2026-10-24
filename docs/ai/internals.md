@@ -6,8 +6,8 @@ keeps state.
 This page is for contributors. It maps `src/`, lists where the package keeps
 state in a long-lived worker, and explains how server version detection, the
 batching writer, the InfluxQL dialect and the two database drivers work. How
-to use the package is under [Usage](../../README.md#usage) and on the pages in
-[`src/docs/`](../../src/docs/).
+to use the package is on the pages in [`src/docs/`](../../src/docs/index.md),
+starting with [Getting started](../../src/docs/getting-started.md).
 
 ## Layout of `src/`
 
