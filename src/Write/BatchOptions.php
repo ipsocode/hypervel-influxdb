@@ -14,7 +14,7 @@ use Ipsocode\InfluxDB\InfluxQL\Version;
  * A megabyte of `batchSizeMb` is 1,000,000 bytes, so a size limit stays under
  * a server's limit whichever way the server counts it.
  *
- * @see docs/writing.md#when-a-batch-is-sent
+ * @see src/docs/writing.md#when-a-batch-is-sent
  */
 final class BatchOptions
 {

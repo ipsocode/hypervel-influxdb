@@ -74,14 +74,14 @@ and yields only where Swoole's hooks cover what it sends through.
 
 `Ipsocode\InfluxDB\InfluxDBManager` is what the `InfluxDB` facade proxies to
 and what the container's `influxdb` binding holds; the bindings are listed
-under [Usage](../README.md#usage). The provider registers it as a singleton,
+under [Usage](../../README.md#usage). The provider registers it as a singleton,
 so one manager serves every coroutine of a worker, and what it builds lasts
 the worker's life.
 
 ### What it keeps
 
 Each of these is built on a connection's first call in the worker and
-memoised by connection name. Called without a name, they use the default
+memoized by connection name. Called without a name, they use the default
 connection, the config's `default` (see [Connections](configuration.md#connections)).
 
 | Method | Returns |
@@ -91,7 +91,7 @@ connection, the config's `default` (see [Connections](configuration.md#connectio
 | `influxql($name)` | The connection's `InfluxQL\Connection`, compiled for its `version`; see [Running statements](influxql.md#running-statements) |
 
 `query($name)` and `table($measurement, $name)` start a new builder on that
-memoised InfluxQL connection on every call. Any other method called on the
+memoized InfluxQL connection on every call. Any other method called on the
 manager, or on the facade, goes to the default connection's client:
 `InfluxDB::createQueryApi()` is `InfluxDB::connection()->createQueryApi()`.
 `getConnections()` returns the clients built so far, keyed by name,
@@ -109,7 +109,7 @@ named when the Hypervel server started, which `influxql()` hands its InfluxQL
 connection, or `null` when there is none. The provider reads the versions with
 `detectServerVersions()` as the server starts, before it forks the workers;
 that method is for boot only (see
-[Server version detection](internals.md#server-version-detection)).
+[Server version detection](../../docs/ai/internals.md#server-version-detection)).
 
 ### Boot or tests only
 
@@ -198,5 +198,5 @@ DB::connection('metrics')->getInfluxQL()->setServerVersion('1.8.10'); // an infl
 
 On a connection that batches its writes, points a test leaves buffered are
 sent as the test ends, when Hypervel's test harness wakes the flush timer
-([Where the package keeps state](internals.md#where-the-package-keeps-state)):
+([Where the package keeps state](../../docs/ai/internals.md#where-the-package-keeps-state)):
 give the test's transport a response for that request too.

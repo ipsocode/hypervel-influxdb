@@ -12,7 +12,7 @@ use RuntimeException;
  *
  * @internal
  *
- * @see docs/writing.md#replaying-failed-batches
+ * @see src/docs/writing.md#replaying-failed-batches
  */
 final class ReplayStopped extends RuntimeException
 {

@@ -20,7 +20,7 @@ use Swoole\Coroutine;
 /**
  * The package against a real InfluxDB 1.x: `INFLUXDB_V1_URL` names the server.
  *
- * @see docs/influxql.md
+ * @see src/docs/influxql.md
  */
 class InfluxDBV1Test extends IntegrationTestCase
 {

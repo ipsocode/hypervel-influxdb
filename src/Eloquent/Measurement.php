@@ -17,7 +17,7 @@ use LogicException;
  * A `datetime` cast on `time` reads an `epoch` integer as seconds.
  * On influxql, findMany() and whereKey() with several keys find nothing: InfluxQL cannot OR times.
  *
- * @see docs/eloquent.md#the-settings-a-time-series-needs
+ * @see src/docs/eloquent.md#the-settings-a-time-series-needs
  */
 abstract class Measurement extends Model
 {

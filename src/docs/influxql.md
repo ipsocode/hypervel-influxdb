@@ -71,7 +71,7 @@ the server runs, so a statement the version does not run comes back refused by
 the server, as a `QueryException`. Each `?` outside a string literal or a
 quoted identifier is filled with the next binding, escaped as the builder
 escapes its values. A regular expression literal you write out is not
-recognised, though: a `?` inside one, as in `/^web-?1/`, is taken for a
+recognized, though: a `?` inside one, as in `/^web-?1/`, is taken for a
 placeholder, so pass such a pattern as a `Regex` binding instead. A binding
 can be a string, a number, a boolean, a date, a `Regex`, a `Stringable`, or an
 `Expression`, which is embedded as written. `null`, `NAN`, `INF`, an array, an
@@ -330,7 +330,7 @@ before its first statement instead. Once the server names a version, the
 worker keeps it; a server that names none is asked again before the next
 statement. A server that does not answer holds the start for up to the
 connection's `timeout`, 10 seconds by default.
-[Server version detection](internals.md#server-version-detection) explains
+[Server version detection](../../docs/ai/internals.md#server-version-detection) explains
 how.
 
 A value InfluxQL has no literal for throws its `InvalidArgumentException`

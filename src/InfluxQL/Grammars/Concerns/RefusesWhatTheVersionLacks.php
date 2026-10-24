@@ -14,7 +14,7 @@ use RuntimeException;
  * Shared by both InfluxQL grammars, so a refusal reads the same whichever one
  * compiles the statement, and comes before anything is sent.
  *
- * @see docs/configuration.md#choosing-the-server-version
+ * @see src/docs/configuration.md#choosing-the-server-version
  */
 trait RefusesWhatTheVersionLacks
 {

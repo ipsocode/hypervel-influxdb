@@ -33,7 +33,7 @@ use stdClass;
  * as Eloquent qualifies `cpu.time`, is taken unqualified, and what InfluxQL cannot express is
  * refused here or by the grammar as the statement compiles, before anything is sent.
  *
- * @see docs/influxql-driver.md#what-to-expect
+ * @see src/docs/influxql-driver.md#what-to-expect
  */
 class Builder extends QueryBuilder
 {
@@ -65,7 +65,7 @@ class Builder extends QueryBuilder
     public ?int $soffset = null;
 
     /**
-     * The time zone the returned timestamps are localised to.
+     * The time zone the returned timestamps are localized to.
      */
     public ?string $timezone = null;
 
@@ -191,7 +191,7 @@ class Builder extends QueryBuilder
     }
 
     /**
-     * Localise the returned timestamps to a time zone: InfluxQL's `tz()` clause.
+     * Localize the returned timestamps to a time zone: InfluxQL's `tz()` clause.
      *
      * @throws InvalidArgumentException for an offset, an abbreviation or a name InfluxDB's time zone database lacks
      */
@@ -590,7 +590,7 @@ class Builder extends QueryBuilder
      * @throws InvalidArgumentException for an id, which a point does not have
      * @throws RuntimeException on InfluxDB 3, on 2.x when the connection addresses a retention policy, or for a join, limit, offset, slimit or soffset
      *
-     * @see docs/influxql.md#deleting-points
+     * @see src/docs/influxql.md#deleting-points
      */
     public function delete(mixed $id = null): int
     {

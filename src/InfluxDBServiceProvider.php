@@ -22,7 +22,7 @@ use Ipsocode\InfluxDB\Sql\SqlConnection;
  * Registers the InfluxDB connection manager, the default client and the
  * `influxdb` and `influxql` database drivers.
  *
- * @see docs/hypervel.md#the-connection-manager
+ * @see src/docs/hypervel.md#the-connection-manager
  */
 class InfluxDBServiceProvider extends ServiceProvider
 {

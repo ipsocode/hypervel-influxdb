@@ -18,7 +18,7 @@ use Throwable;
  * The table is `influxdb_failed_batches` unless named otherwise, on the named database connection, which
  * is resolved on each call. Its rows are told apart by the InfluxDB connection that buffered them.
  *
- * @see docs/writing.md#the-database-driver
+ * @see src/docs/writing.md#the-database-driver
  */
 final class DatabaseFailureStore implements ReplayableFailureStore
 {

@@ -11,7 +11,7 @@ namespace Ipsocode\InfluxDB\Write;
  * driver array, and a store is resolved once per connection. It runs in the
  * coroutine that sent the batch, so it holds no request state.
  *
- * @see docs/writing.md#when-a-batch-cannot-be-written
+ * @see src/docs/writing.md#when-a-batch-cannot-be-written
  */
 interface FailureStore
 {

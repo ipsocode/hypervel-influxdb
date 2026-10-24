@@ -33,7 +33,7 @@ class InfluxDBFactory
      *
      * @throws InvalidArgumentException when a required config key is missing
      *
-     * @see docs/configuration.md#passing-options-to-the-client
+     * @see src/docs/configuration.md#passing-options-to-the-client
      */
     public function make(array $config): Client
     {

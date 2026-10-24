@@ -16,13 +16,13 @@ use stdClass;
 /**
  * Runs InfluxQL statements on one InfluxDB connection.
  *
- * One per connection, memoised by InfluxDBManager::influxql(), since its
+ * One per connection, memoized by InfluxDBManager::influxql(), since its
  * QueryApi holds one HTTP client: never build one on a request path. A
  * statement run on it directly is sent as written; only the Builder refuses
  * what the connection's version lacks.
  *
- * @see docs/influxql.md#running-statements
- * @see docs/influxql.md#configuring-influxql
+ * @see src/docs/influxql.md#running-statements
+ * @see src/docs/influxql.md#configuring-influxql
  */
 abstract class Connection
 {

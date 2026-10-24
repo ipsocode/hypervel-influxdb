@@ -16,7 +16,7 @@ use Throwable;
  * previous exception is the connection's own failure, when the connection was
  * tried rather than skipped.
  *
- * @see docs/writing.md#falling-back-to-other-connections
+ * @see src/docs/writing.md#falling-back-to-other-connections
  */
 class FailoverException extends RuntimeException
 {

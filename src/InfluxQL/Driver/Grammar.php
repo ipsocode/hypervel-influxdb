@@ -24,7 +24,7 @@ use RuntimeException;
  * What InfluxQL cannot express is refused as the statement compiles, not dropped
  * or approximated. Keywords are lowercase, as in Hypervel; InfluxQL reads any case.
  *
- * @see docs/influxql-driver.md#what-to-expect
+ * @see src/docs/influxql-driver.md#what-to-expect
  */
 class Grammar extends QueryGrammar
 {
@@ -476,7 +476,7 @@ class Grammar extends QueryGrammar
     }
 
     /**
-     * Compile the "tz()" clause that localises the returned timestamps.
+     * Compile the "tz()" clause that localizes the returned timestamps.
      */
     protected function compileTimezone(Builder $query, string $timezone): string
     {
@@ -606,7 +606,7 @@ class Grammar extends QueryGrammar
      * @throws InvalidArgumentException when the query has no measurement, or a qualified or aliased one
      * @throws RuntimeException on InfluxDB 3, on 2.x when the connection addresses a retention policy, or when the query joins, limits, offsets, slimits or soffsets
      *
-     * @see docs/influxql.md#deleting-points
+     * @see src/docs/influxql.md#deleting-points
      */
     public function compileDelete(Builder $query): string
     {

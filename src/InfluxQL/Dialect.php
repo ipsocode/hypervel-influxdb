@@ -17,7 +17,7 @@ use Stringable;
  * Expression type: a grammar embeds its own as written and hands every other
  * value to escape().
  *
- * @see docs/internals.md#the-influxql-dialect
+ * @see docs/ai/internals.md#the-influxql-dialect
  */
 final class Dialect
 {
@@ -236,7 +236,7 @@ final class Dialect
      *
      * The values are embedded as given, in order whatever their keys, and are not
      * scanned again; a `?` left without one stays. A raw regular expression literal
-     * is not recognised, so a `?` in one is a placeholder: bind a Regex instead.
+     * is not recognized, so a `?` in one is a placeholder: bind a Regex instead.
      *
      * @param array<string> $escaped the literals to embed, each already escaped
      */

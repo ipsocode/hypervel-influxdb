@@ -6,8 +6,10 @@ pull requests.
 
 ## Development setup
 
-User documentation lives in `docs/`, and notes for contributors on how the
-package is built in [`docs/internals.md`](docs/internals.md).
+User documentation lives in `src/docs/`, which ships with the package. Notes
+for contributors on how the package is built are in
+[`docs/ai/internals.md`](docs/ai/internals.md), beside the other pages for
+coding agents in `docs/ai/`, none of which ships.
 
 The suite needs PHP 8.4 or 8.5 with the Swoole and Redis extensions that
 `hypervel/components` requires, plus PCOV for the coverage gate. It needs no
@@ -32,11 +34,12 @@ No `composer.lock` is committed. Every install resolves against the current
 downloads GitHub-hosted packages through GitHub's API; give it a GitHub token
 (for example through `COMPOSER_AUTH`) if you hit the anonymous rate limit.
 
-For Claude Code, `docs/.mcp.json` configures InfluxData's documentation
-server, `influxdb-docs`, so a session can look up how each InfluxDB version
-behaves. Claude Code reads servers only from a `.mcp.json` at the repository
-root: copy it there (`.gitignore` keeps that copy out of commits), then run
-`/mcp` once to sign in.
+For Claude Code, InfluxData's documentation server is the claude.ai `InfluxDB`
+connector, so a session can look up how each InfluxDB version behaves. Add it
+once to your claude.ai account (Settings → Connectors, as a custom connector
+with the URL `https://influxdb-docs.mcp.kapa.ai`), and every Claude Code
+session signed in to that account has it; the repository configures no MCP
+server of its own.
 
 ### Pins in `composer.json`
 
@@ -136,7 +139,7 @@ php-cs-fixer and PHPStan are configured like `hypervel/components`:
 `.github/php-cs-fixer-rules.php`, and `phpstan.neon` carries its level,
 analysis settings and framework extensions. Keep them in step when
 `hypervel/components` changes, so a finding here is a finding there. Some of
-the fixer's rules are risky — they change behaviour, not only formatting — so
+the fixer's rules are risky — they change behavior, not only formatting — so
 run `composer test` after `composer lint:fix`, not just before committing. An
 inline PHPStan ignore names its error and says why:
 `@phpstan-ignore <identifier> (<reason>)`.
@@ -191,9 +194,10 @@ config, the security policy, and the automated review's skill and brief in
 Each of them but the pull request template says so in its first lines. A pull
 request may still change one; the maintainer carries the change into the shared
 copy, and the next import brings it to every package. Two parts of `.github/`
-are this package's own: `conventions.php`, the check's settings, and `review/`,
-which tells the automated review what this package is and where to look. The
-package keeps no `.claude/`: `.gitignore` leaves Claude Code's local state out.
+are this package's own: `conventions.php`, the check's settings, and
+`workflows/integration.yml`. What a review of this package looks for is in
+`docs/ai/review.md`. `.gitignore` leaves Claude Code's local state in `.claude/`
+out of commits, all but `.claude/skills/`.
 
 ## Coroutine safety
 
@@ -206,18 +210,18 @@ held to these rules:
 - Nothing on a request path creates a `WriteApi` or `QueryApi` per call.
   `InfluxDB2\Client` keeps a reference to every `WriteApi` it creates, so one
   per request is a leak for the life of the worker; `InfluxDBManager::writeApi()`
-  memoises one per connection for that reason.
+  memoizes one per connection for that reason.
 - No native `sleep()`/`usleep()`, blocking I/O or `exit()` on a request path.
 - Hypervel APIs only, never the `Illuminate` namespace. Tests reach the
   container with `$app->get(...)`, never array access.
-- New behaviour comes with a test. `@codeCoverageIgnore` is not a way past the
+- New behavior comes with a test. `@codeCoverageIgnore` is not a way past the
   coverage gate.
 
 ### Where the package keeps state
 
 What the package holds for the life of a worker, and what resets it between
 tests, is listed in
-[Where the package keeps state](docs/internals.md#where-the-package-keeps-state);
+[Where the package keeps state](docs/ai/internals.md#where-the-package-keeps-state);
 keep that list current when a change adds state. `Testing\TestState` flushes
 the static state after each test, so a new static needs a `flushState()`
 called from it.
@@ -228,12 +232,12 @@ Fill in the pull request template and label the pull request with the type it
 ticks. There is no changelog file: each release's notes are generated from the
 titles of the pull requests it contains, grouped by those labels
 (`.github/release.yml`), so write the title for someone reading the release. A
-pull request labelled `breaking-change` makes the next release at least a minor
+pull request labeled `breaking-change` makes the next release at least a minor
 version.
 
 A change a consumer will observe, such as a config key, the InfluxQL a query
 produces or what a driver reads back, goes in the template's *Behaviour change*
-section, with the documentation update it needs (`README.md` or `docs/`) in
+section, with the documentation update it needs (`README.md` or `src/docs/`) in
 the same pull request.
 
 ## Releasing
@@ -245,7 +249,7 @@ tag would make Composer skip the tag.
 
 Run the **publish** workflow on `main` (Actions → publish → *Run workflow*).
 Leave the bump on `auto` — minor if a pull request merged since the previous
-tag is labelled `breaking-change`, patch otherwise — or pick `patch`, `minor`
+tag is labeled `breaking-change`, patch otherwise — or pick `patch`, `minor`
 or `major`, or type an exact version. *Highlights* go at the top of the notes;
 *dry run* shows the plan without tagging.
 
@@ -255,10 +259,10 @@ generated from the pull requests merged since the previous tag. A `v*` tag
 pushed by hand goes through the same suite and gets the same Release.
 
 Composer installs a release as GitHub's archive of its tag, which leaves out
-every path `.gitattributes` marks `export-ignore`: `.github/`,
-`docs/.mcp.json`, the tests, the workbench and the development configs. A new
-top-level file or directory ships unless it is added there;
-`git archive HEAD | tar -t` lists what would.
+every path `.gitattributes` marks `export-ignore`: `.github/`, `docs/ai/`, the
+tests, the workbench and the development configs. A new top-level file or
+directory ships unless it is added there; `git archive HEAD | tar -t` lists
+what would.
 
 ### Packagist
 

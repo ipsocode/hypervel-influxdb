@@ -17,8 +17,8 @@ use Throwable;
  * on a connection with fallbacks, the FailoverException naming what each
  * connection did.
  *
- * @see docs/writing.md#when-a-batch-cannot-be-written
- * @see docs/writing.md#falling-back-to-other-connections
+ * @see src/docs/writing.md#when-a-batch-cannot-be-written
+ * @see src/docs/writing.md#falling-back-to-other-connections
  */
 class BatchWriteException extends RuntimeException
 {

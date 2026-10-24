@@ -65,7 +65,7 @@ connections unless you redefine it.
 
 A connection is then named wherever one is taken, such as
 `InfluxDB::writeApi('analytics')` or `InfluxDB::table('cpu', 'analytics')`: see
-[Usage](../README.md#usage).
+[Usage](../../README.md#usage).
 
 ## Choosing the server version
 

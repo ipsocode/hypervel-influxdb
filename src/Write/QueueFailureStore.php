@@ -11,7 +11,7 @@ use Ipsocode\InfluxDB\Jobs\ReplayFailedBatch;
  *
  * It is not a ReplayableFailureStore: the batches live in the queue, and its workers write them.
  *
- * @see docs/writing.md#the-queue-driver
+ * @see src/docs/writing.md#the-queue-driver
  */
 final class QueueFailureStore implements FailureStore
 {

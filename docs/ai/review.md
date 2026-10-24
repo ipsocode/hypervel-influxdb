@@ -20,5 +20,5 @@ In src/, in order:
 4. Security: TLS verification weakened by default, and tokens reaching logs, exception
    messages or console output, the workbench's commands included.
 
-User documentation lives in docs/ (internals in docs/internals.md): flag a code comment
+User documentation lives in src/docs/ (internals in docs/ai/internals.md): flag a code comment
 or docs page that contradicts src/.

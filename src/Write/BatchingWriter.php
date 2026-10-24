@@ -20,13 +20,13 @@ use Throwable;
 /**
  * A WriteApi that buffers the worker's points and sends them in batches.
  *
- * Its `writeOptions` report SYNCHRONOUS so that the parent's write() serialises
+ * Its `writeOptions` report SYNCHRONOUS so that the parent's write() serializes
  * each point as a synchronous write does and hands the line protocol to
  * writeRaw(), which buffers it instead of posting it. A batch its connection
  * cannot take goes to the connection's fallbacks, when it has any.
  *
- * @see docs/writing.md#batching-writes
- * @see docs/internals.md#the-batching-writer
+ * @see src/docs/writing.md#batching-writes
+ * @see docs/ai/internals.md#the-batching-writer
  */
 class BatchingWriter extends WriteApi
 {
@@ -175,7 +175,7 @@ class BatchingWriter extends WriteApi
      *
      * The calling coroutine sends a batch at a time, each left in the buffer
      * until its turn: one another coroutine takes meanwhile is not sent twice,
-     * and one a cancelled flush never reaches is still there to send.
+     * and one a canceled flush never reaches is still there to send.
      */
     public function flush(): void
     {
@@ -395,7 +395,7 @@ class BatchingWriter extends WriteApi
             try {
                 $failure = self::attempt(fn () => $this->deliver($batch));
             } catch (CanceledException $exception) {
-                // Cancelled mid-send, the batch is neither reported nor lost: it waits for the next flush.
+                // Canceled mid-send, the batch is neither reported nor lost: it waits for the next flush.
                 $this->restore($batch);
                 $restored = true;
                 $this->scheduleFlush();

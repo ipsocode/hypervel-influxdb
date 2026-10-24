@@ -29,30 +29,30 @@ InfluxDB::writeApi()->write(
 
 ## What it provides
 
-- **[Connections](docs/configuration.md#connections)**: `config/influxdb.php`
+- **[Connections](src/docs/configuration.md#connections)**: `config/influxdb.php`
   becomes named, lazily created `InfluxDB2\Client` instances, handed out by
-  [a manager](docs/hypervel.md#the-connection-manager), the `InfluxDB` facade
+  [a manager](src/docs/hypervel.md#the-connection-manager), the `InfluxDB` facade
   and the container. Writing, Flux queries and the management services are
   the official client's, unchanged. The manager is built on Hypervel's own
   components, and the package requires nothing beyond Hypervel and the
   InfluxDB client.
-- **[Writes](docs/writing.md#writing-through-writeapi)** through one
+- **[Writes](src/docs/writing.md#writing-through-writeapi)** through one
   `WriteApi` per connection per worker, and
-  [batching](docs/writing.md#batching-writes) built for long-lived workers:
+  [batching](src/docs/writing.md#batching-writes) built for long-lived workers:
   size, megabyte and time limits, a drain when the worker exits, and failures
   reported rather than thrown. A connection can name
-  [fallback connections](docs/writing.md#falling-back-to-other-connections)
+  [fallback connections](src/docs/writing.md#falling-back-to-other-connections)
   to write through when it cannot take a write, skipping a connection that
   failed for a cooldown.
-- **[An InfluxQL query builder](docs/influxql.md#the-query-builder)** shaped
+- **[An InfluxQL query builder](src/docs/influxql.md#the-query-builder)** shaped
   like Hypervel's `Query\Builder`, compiled for the InfluxDB version the
   connection names.
-- **[The `influxql` database driver](docs/influxql-driver.md#setting-up-the-influxql-driver)**,
+- **[The `influxql` database driver](src/docs/influxql-driver.md#setting-up-the-influxql-driver)**,
   which runs Hypervel's own query builder on InfluxQL, on any InfluxDB version.
-- **[SQL on InfluxDB 3](docs/sql.md#setting-up-the-influxdb-driver)**: the
+- **[SQL on InfluxDB 3](src/docs/sql.md#setting-up-the-influxdb-driver)**: the
   read-only `influxdb` database driver, with Hypervel's query builder, raw
   queries, joins, unions and window functions.
-- **[Read-only Eloquent measurements](docs/eloquent.md#defining-a-measurement)**:
+- **[Read-only Eloquent measurements](src/docs/eloquent.md#defining-a-measurement)**:
   `Measurement`, a model of a measurement with the settings a time series
   needs, on either driver.
 
@@ -64,11 +64,11 @@ InfluxDB::writeApi()->write(
 - `influxdata/influxdb-client-php` `^3.9`, and a server it can talk to:
   InfluxDB 2.x, or InfluxDB 1.8+ or InfluxDB 3 Core or Enterprise through
   their 2.x compatibility API. The
-  [InfluxQL query builder](docs/influxql.md#the-query-builder) and the
-  [`influxql` database driver](docs/influxql-driver.md#setting-up-the-influxql-driver)
+  [InfluxQL query builder](src/docs/influxql.md#the-query-builder) and the
+  [`influxql` database driver](src/docs/influxql-driver.md#setting-up-the-influxql-driver)
   run on any of them, compiled for the version the connection
-  [names](docs/configuration.md#choosing-the-server-version), and
-  [SQL](docs/sql.md#setting-up-the-influxdb-driver) runs on InfluxDB 3.
+  [names](src/docs/configuration.md#choosing-the-server-version), and
+  [SQL](src/docs/sql.md#setting-up-the-influxdb-driver) runs on InfluxDB 3.
 
 ## Installation
 
@@ -110,8 +110,8 @@ INFLUXDB_DEBUG=false
 
 `url`, `token`, `bucket` and `org` are required, and `version` names the major
 version of InfluxDB the server runs: `v1`, the default, `v2` or `v3`
-([what each version changes](docs/configuration.md#choosing-the-server-version)).
-[Configuration](docs/configuration.md) covers what each key takes on each
+([what each version changes](src/docs/configuration.md#choosing-the-server-version)).
+[Configuration](src/docs/configuration.md) covers what each key takes on each
 version, further connections and the options passed to the client.
 
 ## Usage
@@ -153,20 +153,20 @@ The container bindings are `influxdb` (the manager, aliased to
 `InfluxDBManager`), `influxdb.factory` (aliased to `InfluxDBFactory`) and
 `influxdb.connection` (the default connection, aliased to `InfluxDB2\Client`).
 
-[Writing points](docs/writing.md#writing-through-writeapi) explains why to write
+[Writing points](src/docs/writing.md#writing-through-writeapi) explains why to write
 through `writeApi()` rather than the client's `createWriteApi()`, and how to
-[batch writes](docs/writing.md#batching-writes).
+[batch writes](src/docs/writing.md#batching-writes).
 
 ## Documentation
 
-- [Configuration](docs/configuration.md): connections, the server version and what it changes, connecting to InfluxDB 1.x, 2.x and 3, and the options passed to the client.
-- [Writing points](docs/writing.md): `writeApi()`, `RefPoint`, falling back to other connections, and batching writes in a long-lived worker.
-- [Querying with InfluxQL](docs/influxql.md): the package's query builder, running statements, deleting points and configuring InfluxQL.
-- [Hypervel's query builder over InfluxQL](docs/influxql-driver.md): the `influxql` database driver, on any InfluxDB version.
-- [Querying InfluxDB 3 with SQL](docs/sql.md): the read-only `influxdb` database driver.
-- [Models of measurements](docs/eloquent.md): `Measurement`, a read-only Eloquent model on either driver.
-- [Running on Hypervel](docs/hypervel.md): long-lived workers, non-blocking HTTP, the connection manager and testing an application that uses the package.
-- [Internals](docs/internals.md): for contributors, how the package is built and where it keeps state.
+- [Configuration](src/docs/configuration.md): connections, the server version and what it changes, connecting to InfluxDB 1.x, 2.x and 3, and the options passed to the client.
+- [Writing points](src/docs/writing.md): `writeApi()`, `RefPoint`, falling back to other connections, and batching writes in a long-lived worker.
+- [Querying with InfluxQL](src/docs/influxql.md): the package's query builder, running statements, deleting points and configuring InfluxQL.
+- [Hypervel's query builder over InfluxQL](src/docs/influxql-driver.md): the `influxql` database driver, on any InfluxDB version.
+- [Querying InfluxDB 3 with SQL](src/docs/sql.md): the read-only `influxdb` database driver.
+- [Models of measurements](src/docs/eloquent.md): `Measurement`, a read-only Eloquent model on either driver.
+- [Running on Hypervel](src/docs/hypervel.md): long-lived workers, non-blocking HTTP, the connection manager and testing an application that uses the package.
+- [Internals](docs/ai/internals.md): for contributors, how the package is built and where it keeps state.
 
 ## Contributing
 

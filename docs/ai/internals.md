@@ -3,8 +3,8 @@
 This page is for contributors. It maps `src/`, lists where the package keeps
 state in a long-lived worker, and explains how server version detection, the
 batching writer, the InfluxQL dialect and the two database drivers work. How
-to use the package is under [Usage](../README.md#usage) and on the other pages
-here.
+to use the package is under [Usage](../../README.md#usage) and on the pages in
+[`src/docs/`](../../src/docs/).
 
 ## Layout of `src/`
 
@@ -12,38 +12,38 @@ The namespace `Ipsocode\InfluxDB` is rooted at `src/`.
 
 | Path | What it holds | Described in |
 |---|---|---|
-| `InfluxDBServiceProvider.php` | Registers the factory, the manager, the `InfluxDB2\Client` binding and both database drivers; merges a published config's `connections` with the package's by name; listens for `BeforeServerFork`, `AfterExecute` and `Terminating` | [The connection manager](hypervel.md#the-connection-manager) |
-| `InfluxDBManager.php`, `Facades/InfluxDB.php` | The container singleton behind the `InfluxDB` facade: resolves named connections, memoises a client, a `WriteApi` and an InfluxQL connection for each, keeps the worker's cooldowns, and detects the servers' versions | [The connection manager](hypervel.md#the-connection-manager) |
-| `InfluxDBFactory.php` | Builds an `InfluxDB2\Client` from a connection's config | [Passing options to the client](configuration.md#passing-options-to-the-client) |
-| `Write/BatchingWriter.php` | The `WriteApi` of a connection whose `writeType` is `WriteType::BATCHING` | [Batching writes](writing.md#batching-writes), [below](#the-batching-writer) |
-| `Write/BatchOptions.php` | The batching options, checked, with the size defaults of each version | [Batching writes](writing.md#batching-writes), [When a batch is sent](writing.md#when-a-batch-is-sent) |
-| `Write/FailoverWriter.php` | The synchronous `WriteApi` of a connection whose `write` block names a `fallback` | [Falling back to other connections](writing.md#falling-back-to-other-connections), [below](#falling-back) |
-| `Write/Failover.php`, `Write/FailoverOptions.php`, `Write/Availability.php` | Writes line protocol through the first connection that takes it; the failover options, checked; the cooldowns of the connections that failed, one set per worker | [Falling back to other connections](writing.md#falling-back-to-other-connections), [below](#falling-back) |
-| `Write/FailoverException.php` | A write a connection failed to take, and what became of it | [What is reported, and what is thrown](writing.md#what-is-reported-and-what-is-thrown) |
+| `InfluxDBServiceProvider.php` | Registers the factory, the manager, the `InfluxDB2\Client` binding and both database drivers; merges a published config's `connections` with the package's by name; listens for `BeforeServerFork`, `AfterExecute` and `Terminating` | [The connection manager](../../src/docs/hypervel.md#the-connection-manager) |
+| `InfluxDBManager.php`, `Facades/InfluxDB.php` | The container singleton behind the `InfluxDB` facade: resolves named connections, memoizes a client, a `WriteApi` and an InfluxQL connection for each, keeps the worker's cooldowns, and detects the servers' versions | [The connection manager](../../src/docs/hypervel.md#the-connection-manager) |
+| `InfluxDBFactory.php` | Builds an `InfluxDB2\Client` from a connection's config | [Passing options to the client](../../src/docs/configuration.md#passing-options-to-the-client) |
+| `Write/BatchingWriter.php` | The `WriteApi` of a connection whose `writeType` is `WriteType::BATCHING` | [Batching writes](../../src/docs/writing.md#batching-writes), [below](#the-batching-writer) |
+| `Write/BatchOptions.php` | The batching options, checked, with the size defaults of each version | [Batching writes](../../src/docs/writing.md#batching-writes), [When a batch is sent](../../src/docs/writing.md#when-a-batch-is-sent) |
+| `Write/FailoverWriter.php` | The synchronous `WriteApi` of a connection whose `write` block names a `fallback` | [Falling back to other connections](../../src/docs/writing.md#falling-back-to-other-connections), [below](#falling-back) |
+| `Write/Failover.php`, `Write/FailoverOptions.php`, `Write/Availability.php` | Writes line protocol through the first connection that takes it; the failover options, checked; the cooldowns of the connections that failed, one set per worker | [Falling back to other connections](../../src/docs/writing.md#falling-back-to-other-connections), [below](#falling-back) |
+| `Write/FailoverException.php` | A write a connection failed to take, and what became of it | [What is reported, and what is thrown](../../src/docs/writing.md#what-is-reported-and-what-is-thrown) |
 | `Write/Concerns/ReportsFailures.php` | Reporting through the exception handler, and running what may fail without throwing, shared by `BatchingWriter` and `Failover` | [Below](#failures) |
-| `Write/FailureStore.php`, `Write/ReplayableFailureStore.php`, `Write/ReplayStopped.php`, `Write/FailedBatch.php` | Where a batch that cannot be written goes; a store that can hand its batches back; the exception that ends a replay at the first batch that fails again; the batch it is handed | [When a batch cannot be written](writing.md#when-a-batch-cannot-be-written), [Replaying failed batches](writing.md#replaying-failed-batches) |
-| `Write/LogFailureStore.php`, `FilesystemFailureStore.php`, `RedisFailureStore.php`, `DatabaseFailureStore.php`, `QueueFailureStore.php` | The `onFailure` drivers | [The filesystem driver](writing.md#the-filesystem-driver) and the sections after it |
-| `Console/ReplayFailedCommand.php`, `Jobs/ReplayFailedBatch.php` | `influxdb:replay-failed`, and the job the `queue` driver dispatches | [Replaying failed batches](writing.md#replaying-failed-batches), [The queue driver](writing.md#the-queue-driver) |
-| `Write/Batch.php`, `Write/BatchWriteException.php`, `Write/BufferFullException.php` | One request's line protocol; a batch dropped after its retries; a write refused past `maxBuffered` | [When a batch cannot be written](writing.md#when-a-batch-cannot-be-written), [How much a worker holds](writing.md#how-much-a-worker-holds) |
-| `InfluxQL/Connection.php`, `V1Connection.php`, `V2Connection.php`, `V3Connection.php` | Run InfluxQL on `/query`, addressed to a database and retention policy; one subclass per version, picked by `Connection::make()` | [Running statements](influxql.md#running-statements); connecting to [1.x](configuration.md#connecting-to-influxdb-1x), [2.x](configuration.md#connecting-to-influxdb-2x) and [3](configuration.md#connecting-to-influxdb-3) |
-| `InfluxQL/Version.php` | The InfluxDB major versions, and the statements each runs | [Choosing the server version](configuration.md#choosing-the-server-version) |
-| `InfluxQL/QueryApi.php` | The transport: `/query` and `/ping`, on top of the client's `DefaultApi` | [Running statements](influxql.md#running-statements) |
-| `InfluxQL/Result.php`, `Series.php`, `QueryException.php` | One statement's result, one series of it, and a statement that failed | [Running statements](influxql.md#running-statements) |
-| `InfluxQL/Builder.php` | The query builder behind `InfluxDB::table()`, shaped like Hypervel's `Query\Builder` | [The query builder](influxql.md#the-query-builder) |
+| `Write/FailureStore.php`, `Write/ReplayableFailureStore.php`, `Write/ReplayStopped.php`, `Write/FailedBatch.php` | Where a batch that cannot be written goes; a store that can hand its batches back; the exception that ends a replay at the first batch that fails again; the batch it is handed | [When a batch cannot be written](../../src/docs/writing.md#when-a-batch-cannot-be-written), [Replaying failed batches](../../src/docs/writing.md#replaying-failed-batches) |
+| `Write/LogFailureStore.php`, `FilesystemFailureStore.php`, `RedisFailureStore.php`, `DatabaseFailureStore.php`, `QueueFailureStore.php` | The `onFailure` drivers | [The filesystem driver](../../src/docs/writing.md#the-filesystem-driver) and the sections after it |
+| `Console/ReplayFailedCommand.php`, `Jobs/ReplayFailedBatch.php` | `influxdb:replay-failed`, and the job the `queue` driver dispatches | [Replaying failed batches](../../src/docs/writing.md#replaying-failed-batches), [The queue driver](../../src/docs/writing.md#the-queue-driver) |
+| `Write/Batch.php`, `Write/BatchWriteException.php`, `Write/BufferFullException.php` | One request's line protocol; a batch dropped after its retries; a write refused past `maxBuffered` | [When a batch cannot be written](../../src/docs/writing.md#when-a-batch-cannot-be-written), [How much a worker holds](../../src/docs/writing.md#how-much-a-worker-holds) |
+| `InfluxQL/Connection.php`, `V1Connection.php`, `V2Connection.php`, `V3Connection.php` | Run InfluxQL on `/query`, addressed to a database and retention policy; one subclass per version, picked by `Connection::make()` | [Running statements](../../src/docs/influxql.md#running-statements); connecting to [1.x](../../src/docs/configuration.md#connecting-to-influxdb-1x), [2.x](../../src/docs/configuration.md#connecting-to-influxdb-2x) and [3](../../src/docs/configuration.md#connecting-to-influxdb-3) |
+| `InfluxQL/Version.php` | The InfluxDB major versions, and the statements each runs | [Choosing the server version](../../src/docs/configuration.md#choosing-the-server-version) |
+| `InfluxQL/QueryApi.php` | The transport: `/query` and `/ping`, on top of the client's `DefaultApi` | [Running statements](../../src/docs/influxql.md#running-statements) |
+| `InfluxQL/Result.php`, `Series.php`, `QueryException.php` | One statement's result, one series of it, and a statement that failed | [Running statements](../../src/docs/influxql.md#running-statements) |
+| `InfluxQL/Builder.php` | The query builder behind `InfluxDB::table()`, shaped like Hypervel's `Query\Builder` | [The query builder](../../src/docs/influxql.md#the-query-builder) |
 | `InfluxQL/Grammars/Grammar.php`, `V1Grammar.php`, `V2Grammar.php`, `V3Grammar.php` | Compile that builder into InfluxQL; one subclass per version | [Below](#the-influxql-dialect) |
-| `InfluxQL/Grammars/Concerns/RefusesWhatTheVersionLacks.php` | The refusals both InfluxQL grammars share | [Choosing the server version](configuration.md#choosing-the-server-version), [below](#the-influxql-dialect) |
+| `InfluxQL/Grammars/Concerns/RefusesWhatTheVersionLacks.php` | The refusals both InfluxQL grammars share | [Choosing the server version](../../src/docs/configuration.md#choosing-the-server-version), [below](#the-influxql-dialect) |
 | `InfluxQL/Dialect.php` | Quoting, literals and placeholder substitution, shared by both InfluxQL grammars | [Below](#the-influxql-dialect) |
-| `InfluxQL/Expression.php`, `Regex.php` | A raw fragment embedded as written, and a `/pattern/` literal | [What carries over from Hypervel's builder](influxql.md#what-carries-over-from-hypervels-builder), [What InfluxQL adds](influxql.md#what-influxql-adds) |
-| `InfluxQL/Driver/Connection.php`, `Builder.php`, `Grammar.php` | The `influxql` database driver: Hypervel's query builder over InfluxQL | [What to expect](influxql-driver.md#what-to-expect) |
-| `Sql/SqlConnection.php`, `SqlGrammar.php`, `SqlApi.php` | The `influxdb` database driver: SQL on InfluxDB 3 | [What to expect](sql.md#what-to-expect) |
-| `Eloquent/Measurement.php`, `Builder.php` | The read-only model of a measurement, and the Eloquent builder it queries through | [The settings a time series needs](eloquent.md#the-settings-a-time-series-needs) |
-| `Support/RefPoint.php` | Reads a built `InfluxDB2\Point` back | [Reading points back with `RefPoint`](writing.md#reading-points-back-with-refpoint) |
-| `Testing/TestState.php` | Resets the package's static state after each test | [Testing an application that uses it](hypervel.md#testing-an-application-that-uses-it), [below](#where-the-package-keeps-state) |
+| `InfluxQL/Expression.php`, `Regex.php` | A raw fragment embedded as written, and a `/pattern/` literal | [What carries over from Hypervel's builder](../../src/docs/influxql.md#what-carries-over-from-hypervels-builder), [What InfluxQL adds](../../src/docs/influxql.md#what-influxql-adds) |
+| `InfluxQL/Driver/Connection.php`, `Builder.php`, `Grammar.php` | The `influxql` database driver: Hypervel's query builder over InfluxQL | [What to expect](../../src/docs/influxql-driver.md#what-to-expect) |
+| `Sql/SqlConnection.php`, `SqlGrammar.php`, `SqlApi.php` | The `influxdb` database driver: SQL on InfluxDB 3 | [What to expect](../../src/docs/sql.md#what-to-expect) |
+| `Eloquent/Measurement.php`, `Builder.php` | The read-only model of a measurement, and the Eloquent builder it queries through | [The settings a time series needs](../../src/docs/eloquent.md#the-settings-a-time-series-needs) |
+| `Support/RefPoint.php` | Reads a built `InfluxDB2\Point` back | [Reading points back with `RefPoint`](../../src/docs/writing.md#reading-points-back-with-refpoint) |
+| `Testing/TestState.php` | Resets the package's static state after each test | [Testing an application that uses it](../../src/docs/hypervel.md#testing-an-application-that-uses-it), [below](#where-the-package-keeps-state) |
 
 Outside `src/`, `config/influxdb.php` is the config the provider merges and
 publishes, `database/migrations/` holds the `database` driver's table, published
 with the `influxdb-migrations` tag, and `workbench/` is the host application the suite runs against,
-described in [CONTRIBUTING.md](../CONTRIBUTING.md).
+described in [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 Two builders and two grammars compile InfluxQL: `InfluxQL\Builder` and
 `InfluxQL\Grammars\Grammar` for `InfluxDB::table()`, and
@@ -61,18 +61,18 @@ test with its reason.
 ## Where the package keeps state
 
 The coroutine-safety rules every change is held to are in
-[CONTRIBUTING.md](../CONTRIBUTING.md), and what a long-lived worker means for
-an application is in [Long-lived workers](hypervel.md#long-lived-workers). The
+[CONTRIBUTING.md](../../CONTRIBUTING.md), and what a long-lived worker means for
+an application is in [Long-lived workers](../../src/docs/hypervel.md#long-lived-workers). The
 package keeps state, shared by every coroutine of a worker, in these places:
 
 - **The manager's caches.** `InfluxDBManager` is a container singleton, so its
-  resolved clients, memoised `WriteApi`s, the synchronous `WriteApi` per
+  resolved clients, memoized `WriteApi`s, the synchronous `WriteApi` per
   connection that replays failed batches, and InfluxQL connections live as long
   as the worker. They are instance properties, so they go when a test rebuilds
   the container. `reconnect()`, `disconnect()` and `setDefaultConnection()`
   change what every coroutine on the worker sees, and are for boot or tests
-  only ([The connection manager](hypervel.md#the-connection-manager)).
-- **Batching writers' buffers.** A `Write\BatchingWriter`, memoised by the
+  only ([The connection manager](../../src/docs/hypervel.md#the-connection-manager)).
+- **Batching writers' buffers.** A `Write\BatchingWriter`, memoized by the
   manager like any `WriteApi`, holds the points it has not sent in the worker,
   with its flush timer and the coroutines sending its full batches. Every
   change to the buffer is made without yielding, and a batch is taken out of
@@ -99,7 +99,7 @@ package keeps state, shared by every coroutine of a worker, in these places:
 - **InfluxQL database connections.** Not the package's either: the `influxql`
   driver works the same way, making an `InfluxQL\Driver\Connection` for each
   slot of the pool. Each wraps an `InfluxQL\Connection` of its own, rather
-  than the manager's memoised one. That connection builds its own `QueryApi`
+  than the manager's memoized one. That connection builds its own `QueryApi`
   from the options of the manager's client, so no HTTP transport is shared,
   with the manager or between these connections, unless the options inject an
   `httpClient`. Each keeps the server version the master process read, or asks
@@ -125,7 +125,7 @@ package keeps state, shared by every coroutine of a worker, in these places:
 `flushState()` to Hypervel's `AfterEachTestCleanup`. It is declared in
 `composer.json`'s `extra.hypervel.test-state`, so a consuming application's
 suite resets this package's state too
-([Testing an application that uses it](hypervel.md#testing-an-application-that-uses-it)).
+([Testing an application that uses it](../../src/docs/hypervel.md#testing-an-application-that-uses-it)).
 For the package's own suite that registrar is discovered by the
 `AfterEachTestExtension` bootstrap in `phpunit.xml`; without that entry the
 callbacks are declared and never run.
@@ -135,7 +135,7 @@ callbacks are declared and never run.
 The InfluxQL builder and the `influxql` driver compile for the version a
 connection names, and refuse to send a statement to a server that runs another
 major version, or names none
-([The builder checks the server's version](influxql.md#the-builder-checks-the-servers-version)).
+([The builder checks the server's version](../../src/docs/influxql.md#the-builder-checks-the-servers-version)).
 Each server is asked once, when the Hypervel server starts, and every worker
 inherits the answer. A connection whose answer is missing asks its server
 before its first statement instead.
@@ -179,7 +179,7 @@ too. It returns null for a connection that was left out, and for a name no
 connection has.
 
 `InfluxDBManager::influxql()` hands that version to the `InfluxQL\Connection`
-it memoises, through `setServerVersion()`. `Connection::getServerVersion()`
+it memoizes, through `setServerVersion()`. `Connection::getServerVersion()`
 returns it, or else asks `/ping` on the connection's own `QueryApi` the first
 time it is called, and keeps the answer once the server names one; a server
 that names none is asked again next time. `knowsServerVersion()` says whether
@@ -217,7 +217,7 @@ refuses an InfluxDB connection whose `version` is not `v3`, and its
 
 `Write\BatchingWriter` is what `writeApi()` returns for a connection whose
 `writeType` is `WriteType::BATCHING`. What it does for an application is in
-[Batching writes](writing.md#batching-writes). This section is how it stays
+[Batching writes](../../src/docs/writing.md#batching-writes). This section is how it stays
 correct while many coroutines write to the one instance a worker holds.
 
 ### Built beside the client
@@ -235,7 +235,7 @@ The writer extends `InfluxDB2\WriteApi`. Its constructor sets `writeType` to
 `WriteType::SYNCHRONOUS` in the write options it hands to the parent, and
 `maxRetries` to `BatchOptions::DEFAULT_MAX_RETRIES`, 3, unless one is set.
 With `BATCHING` left in, the parent's `write()` would push into the client's
-own batching worker. As `SYNCHRONOUS`, it serialises a point as a synchronous
+own batching worker. As `SYNCHRONOUS`, it serializes a point as a synchronous
 `WriteApi` does, default tags, precision, bucket and org included, and hands
 the line protocol to `writeRaw()`, which the writer overrides to buffer.
 `send()` posts a batch through `parent::writeRaw()`, the client's synchronous
@@ -263,7 +263,7 @@ coroutine of its own. Every `send()` registers in `$sends`, whichever
 coroutine runs it, with a `Coordinator` its `finally` resumes. `flush()` walks the batch keys it found when it started and
 takes each batch only when its turn comes, so a batch another coroutine takes
 meanwhile is not sent twice, and one this coroutine never reaches, if it is
-cancelled, is still buffered. Then `awaitSends()` waits on every coordinator
+canceled, is still buffered. Then `awaitSends()` waits on every coordinator
 in `$sends` but the calling coroutine's own, which would wait for itself. A
 coroutine that is sending never waits, and a write from it never flushes on
 overflow: it buffers, and the timer or the next flush sends the points. Two
@@ -298,12 +298,12 @@ send from. `dispatch()` sends the batch in the write that filled it,
 `scheduleFlush()` flushes once the buffer is older than `flushInterval` by
 `hrtime()`, and `awaitSends()` has nothing to wait for. A console command's
 batches are sent by the provider when it finishes
-([The connection manager](hypervel.md#the-connection-manager)).
+([The connection manager](../../src/docs/hypervel.md#the-connection-manager)).
 
 ### Failures
 
 `attempt()` runs a callback and returns what it throws rather than throwing
-it, except Swoole's `CanceledException`, which it throws on: a cancelled
+it, except Swoole's `CanceledException`, which it throws on: a canceled
 coroutine has to unwind, as Hypervel expects, not be taken for a failed batch.
 `send()` runs `deliver()`, the post, through it, and hands a failure to
 `fail()`, which wraps it in a `BatchWriteException`, reports that, and calls
@@ -330,7 +330,7 @@ the writer itself is.
 and a closure that posts through the connection itself. It tries the
 connection, then each fallback in order, skipping those the shared
 `Availability` says are cooling down, and stops at the first that takes the
-write. A failure `isConnectionFailure()` recognises, an `ApiException` with no
+write. A failure `isConnectionFailure()` recognizes, an `ApiException` with no
 status, the server unreached, or one of `429` or above, which is what the
 client's `WriteRetry` retries, puts the connection on cooldown for
 `FailoverOptions::$cooldown` seconds. The connection's own failure that is not
@@ -338,7 +338,7 @@ one, a `4xx` for the write itself, is thrown as it is, so no fallback is tried
 for a write the server refused; such a failure on a fallback only passes to
 the next. A fallback is written through a `WriteApi` built on its client
 options with the writer's write options, `writeType` forced to `SYNCHRONOUS`,
-memoised per fallback; a write for the connection's default bucket or org goes
+memoized per fallback; a write for the connection's default bucket or org goes
 to the fallback's defaults, since two servers may name them differently. When
 a fallback takes the write after a connection failed, the `FailoverException`
 naming each outcome, with `takenBy` set, is reported; when none does, it is
@@ -412,7 +412,7 @@ A grammar compiles every value to a `?`, and the values are embedded only as
 the statement is sent, rather than passed as the `/query` endpoint's `$name`
 parameters, so the statement that runs is exactly the one `toRawSql()` shows.
 `substituteBindings()` walks the statement a character at a time and fills
-each `?` outside a string literal or a quoted identifier, honouring the
+each `?` outside a string literal or a quoted identifier, honoring the
 backslash escapes both use. The values are embedded in order, whatever their
 keys, and not scanned again; a `?` with no value left stays as it is. The walk
 does not know a regular-expression literal, so a `?` written inside a raw
@@ -454,7 +454,7 @@ you add one.
 ### Refusing what the version lacks
 
 Which statements each InfluxDB version runs is on `InfluxQL\Version`, and
-written out in [Choosing the server version](configuration.md#choosing-the-server-version).
+written out in [Choosing the server version](../../src/docs/configuration.md#choosing-the-server-version).
 `Grammars\Concerns\RefusesWhatTheVersionLacks`, used by both grammars, turns
 it into refusals as a statement compiles, before anything is sent, with the
 same message whichever grammar compiles it: `ensureVersionCompilesInto()`;
@@ -472,8 +472,8 @@ resolved (`callAfterResolving('db', …)`, then `extend()`): `influxdb` makes a
 `Sql\SqlConnection`, and `influxql` an `InfluxQL\Driver\Connection`, each
 through its `fromConfig()` with the manager. Hypervel's database manager and
 pool keep the connections. What an application sees is in
-[Hypervel's query builder over InfluxQL](influxql-driver.md#what-to-expect)
-and [Querying InfluxDB 3 with SQL](sql.md#what-to-expect).
+[Hypervel's query builder over InfluxQL](../../src/docs/influxql-driver.md#what-to-expect)
+and [Querying InfluxDB 3 with SQL](../../src/docs/sql.md#what-to-expect).
 
 Both extend `Hypervel\Database\Connection` without a PDO. `fromConfig()`
 resolves the InfluxDB connection the config names, the default one when it
@@ -484,7 +484,7 @@ exceptions from the client's URL.
 
 `Driver\Connection` wraps an `InfluxQL\Connection` of its own, made by
 `InfluxQL\Connection::make()` from the manager's client and the InfluxDB
-connection's config, rather than the manager's memoised one, so its
+connection's config, rather than the manager's memoized one, so its
 `QueryApi` is its own, and so is its HTTP client unless the options inject an
 `httpClient`. A `database` in its config is replaced by the database that
 connection addresses. It also keeps the `Version` and the retention policy, so
@@ -533,7 +533,7 @@ grammar before it sends. `statement()`, `affectingStatement()` and
 only. `prepareBindings()` writes a date in the grammar's date format and keeps
 a boolean rather than casting it to 0 or 1, and `escapeString()` and
 `escapeBool()` write a string and a boolean as DataFusion reads them: see
-[What to expect](sql.md#what-to-expect).
+[What to expect](../../src/docs/sql.md#what-to-expect).
 
 ### What both drivers share
 
