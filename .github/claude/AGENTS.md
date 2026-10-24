@@ -16,9 +16,8 @@ it in the installed framework: the source is in `vendor/hypervel/components/src/
 docs in `vendor/hypervel/components/src/docs/`. Do not assume Laravel's API.
 
 For package conventions (discovery, providers, config merging, publishing, test state cleanup),
-read the relevant section of `vendor/hypervel/components/src/docs/packages.md` first. In CI the
-framework is restored from the tests' cache; when `vendor/` is absent, say what could not be
-checked rather than assume Laravel's API.
+read the relevant section of `vendor/hypervel/components/src/docs/packages.md` first. When
+`vendor/` is absent, say what could not be checked rather than assume Laravel's API.
 
 - `Illuminate\` and `Laravel\` anywhere in the package, docblocks and strings included, fail the
   conventions check.
@@ -72,22 +71,18 @@ host. It has Swoole, Redis and PCOV, and `CONTRIBUTING.md` gives the `docker run
 A file whose first lines say "Imported from ipsocode/hypervel-packages" is a copy: most of
 `.github/`, including this brief and the pr-review skill in `.github/claude/`. A change to one
 belongs in that repository, and a change made here is overwritten by the next import. This
-package's own files there are `.github/conventions.php` and `.github/review/`.
-
-The package keeps no `.claude/`, and a release leaves `.github/` out. The automated review
-installs this brief and the skill on its runner, for the review only.
+package's own file there is `.github/conventions.php`. A release leaves `.github/` out.
 
 ## Pull requests
 
 - `main` changes only through a pull request. It has to be up to date with `main`, pass
-  `initial / Conventions`, `PHP 8.4` and `claude / review`, and have every review conversation
-  resolved.
+  `initial / Conventions` and `PHP 8.4`, and have every review conversation resolved.
 - A change to a setup file also needs the maintainer's approval. `.github/CODEOWNERS` lists the
   setup files.
-- A pull request into `main` gets CI, and the automated review runs once it is not a draft. A
-  pull request into any other branch gets neither: they run on that branch's pull request into
-  `main`, so run the four checks above before opening one. To review a branch before you push
-  it, follow `.github/claude/skills/pr-review/SKILL.md`.
+- A pull request into `main` gets CI. A pull request into any other branch gets none: CI runs
+  on that branch's pull request into `main`, so run the four checks above before opening one.
+  To review a branch before you push it, or a pull request, follow
+  `.github/claude/skills/pr-review/SKILL.md`.
 - Fill in the pull request template. Label a breaking change `breaking-change`: the label, not
   the diff, decides the next version.
 - This repository stands alone. Commit messages, pull request titles and descriptions, code
