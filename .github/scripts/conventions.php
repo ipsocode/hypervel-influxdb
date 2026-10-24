@@ -74,6 +74,8 @@ final class Conventions
             $this->checkRawSql();
             $this->checkCalls();
             $this->checkNames();
+            $this->checkAgentGuide();
+            $this->checkClaudeDirectory();
         }
 
         return $this->report();
@@ -371,7 +373,7 @@ final class Conventions
             $this->calls($files, fn (string $name) => in_array($name, ['sleep', 'usleep', 'time_nanosleep', 'time_sleep_until', 'exit', 'die'], true)),
             fn (string $name) => in_array($name, ['exit', 'die'], true)
                 ? "`{$name}` ends the worker and every request it is serving. Throw instead."
-                : "`{$name}()` blocks the worker's other coroutines wherever Swoole's hooks do not reach. Wait with Hypervel\\Coroutine\\Coroutine::sleep().",
+                : "`{$name}()` blocks the worker's other coroutines wherever Swoole's hooks do not reach. Wait with Hypervel\\Support\\Sleep, which tests can fake.",
         );
 
         $banned = $this->settings['banned_functions'];
@@ -429,6 +431,65 @@ final class Conventions
         $this->names('facade-accessor', $files, [
             '/getFacadeAccessor\(\)\s*:\s*\??string\s*\{\s*return\s+([^;]+);/',
         ], '/^\'[a-z0-9]+(\.[a-z0-9]+)*\'$/', "'{$slug}'");
+    }
+
+    private function checkAgentGuide(): void
+    {
+        $file = $this->root . '/CLAUDE.md';
+
+        if (! is_file($file)) {
+            $this->violation('CLAUDE.md', 0, 'agent-guide', 'Missing. The root CLAUDE.md imports the package\'s guide with the line `@AGENTS.md`.');
+
+            return;
+        }
+
+        if (preg_match('/^@AGENTS\.md[ \t]*\r?$/m', (string) file_get_contents($file)) !== 1) {
+            $this->violation('CLAUDE.md', 0, 'agent-guide', 'Does not import the package\'s guide. Add the line `@AGENTS.md`.');
+        }
+    }
+
+    private function checkClaudeDirectory(): void
+    {
+        foreach ($this->claudeFiles() as $path) {
+            $this->violation($path, 0, 'claude-dir', 'Committed under .claude/. Every session in a checkout loads .claude/, so a package keeps nothing there: no settings, hooks, commands, agents or skills of its own.');
+        }
+    }
+
+    /** @return list<string> */
+    private function claudeFiles(): array
+    {
+        if (! is_dir($this->root . '/.claude')) {
+            return [];
+        }
+
+        $process = @proc_open(
+            ['git', '-c', 'safe.directory=*', '-C', $this->root, 'ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', '.claude'],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+        );
+
+        if (is_resource($process)) {
+            $output = (string) stream_get_contents($pipes[1]);
+            stream_get_contents($pipes[2]);
+
+            if (proc_close($process) === 0) {
+                $files = array_values(array_unique(array_filter(explode("\0", $output), fn (string $path) => $path !== '')));
+                sort($files);
+
+                return $files;
+            }
+        }
+
+        $files = [];
+
+        /** @var SplFileInfo $file */
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($this->root . '/.claude', FilesystemIterator::SKIP_DOTS)) as $file) {
+            $files[] = substr($file->getPathname(), strlen($this->root) + 1);
+        }
+
+        sort($files);
+
+        return $files;
     }
 
     /**

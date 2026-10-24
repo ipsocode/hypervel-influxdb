@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Imported from ipsocode/hypervel-packages github/scripts/review-scan.sh. Edit it there.
+# Imported from ipsocode/hypervel-packages github/bin/review-scan.sh. Edit it there.
 
 set -u
 
@@ -288,7 +288,7 @@ END {
     if (findings == "") {
         print "Nothing flagged."
     } else {
-        print "Leads from .github/scripts/review-scan.sh, to check against the code. Line numbers are the new file's; (removed) numbers a line of the old file."
+        print "Leads from bin/review-scan.sh, to check against the code. Line numbers are the new file's; (removed) numbers a line of the old file."
         print ""
         printf "%s", findings
     }

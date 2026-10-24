@@ -1,6 +1,6 @@
 # Imported from ipsocode/hypervel-packages github/ISSUE_TEMPLATE/Documentation.yml. Edit it there.
 name: Documentation
-description: Something in hypervel-influxdb's README or docs/ is wrong, unclear or missing.
+description: Something in hypervel-influxdb's README or src/docs/ is wrong, unclear or missing.
 labels: [documentation]
 projects: [ipsocode/2]
 body:
@@ -8,7 +8,7 @@ body:
     attributes:
       label: Page
       description: The file and section, or a link to it.
-      placeholder: docs/configuration.md, "Connections"
+      placeholder: src/docs/configuration.md, "Connections"
     validations:
       required: true
   - type: textarea

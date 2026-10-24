@@ -86,6 +86,7 @@ jobs:
       - name: Find the framework it installed
         id: components
         run: |
+          # shellcheck disable=SC2016
           php -r '
               $installed = json_decode((string) file_get_contents("vendor/composer/installed.json"), true);
               $ref = "";
