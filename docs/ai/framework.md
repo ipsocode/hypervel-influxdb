@@ -18,8 +18,9 @@ hypervel-porting MCP server is set up, its `read_doc` reads a page, or one secti
 | `Testing/` | packages.md › Test State Cleanup |
 | What InfluxDB itself does: InfluxQL, SQL, line protocol and each server version's API | The claude.ai `InfluxDB` connector, InfluxData's documentation server |
 
-## Every package
+## Default References
 
 - packages.md › Package Discovery
 - packages.md › Service Providers
 - packages.md › Test State Cleanup
+- coroutines.md
