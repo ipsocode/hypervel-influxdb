@@ -1,0 +1,16 @@
+# Imported from ipsocode/hypervel-packages github/ISSUE_TEMPLATE/Tracking_feature.yml. Edit it there.
+name: "Tracking: feature"
+description: The umbrella for a feature split into parts, or a month's small features. For maintainers.
+title: "[Tracking] "
+labels: [tracking, enhancement]
+projects: [ipsocode/2]
+body:
+  - type: markdown
+    attributes:
+      value: Title it after the feature, or `Features for YYYY-MM` for a month's small enhancements. The repository creates the linked `feature/` branch and writes the base-branch line, the parts list and the footer into the body; add the parts as sub-issues.
+  - type: textarea
+    attributes:
+      label: What it gathers
+      description: One line.
+    validations:
+      required: true

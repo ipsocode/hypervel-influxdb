@@ -1,6 +1,8 @@
 # Imported from ipsocode/hypervel-packages github/ISSUE_TEMPLATE/Bug_report.yml. Edit it there.
 name: Bug Report
 description: Report something that's broken in hypervel-influxdb.
+labels: [bug]
+projects: [ipsocode/2]
 body:
   - type: markdown
     attributes:
@@ -34,8 +36,8 @@ body:
       required: true
   - type: textarea
     attributes:
-      label: Description
-      description: A detailed description of the issue — what you expected, and what happened instead. Issues labeled `not enough info` are closed after 3 days without a follow-up.
+      label: What happens
+      description: What you expected, and what happened instead. Link the code with permalinks pinned to a commit where you can. Issues labeled `not enough info` are closed after 3 days without a follow-up.
     validations:
       required: true
   - type: textarea
@@ -56,3 +58,32 @@ body:
       description: Hypervel runs in long-lived Swoole workers serving concurrent requests via coroutines.
       options:
         - label: This only reproduces under concurrency (several requests or coroutines at once), not with one request or call at a time
+  - type: dropdown
+    attributes:
+      label: Priority
+      description: Leave it empty if unsure; triage sets it.
+      options:
+        - high — a security impact, data lost or corrupted, state leaking across coroutines or requests, a crash on a documented, common path with no workaround, a regression in the latest release, or it blocks an application from deploying
+        - medium — wrong behaviour with a workaround, or on an edge path
+        - low — cosmetic, or a tidy-up
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Cause
+      description: Where it goes wrong, if you know.
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Fix
+      description: What would fix it, if you know.
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Acceptance
+      description: What has to hold once it is fixed, as checkboxes.
+      placeholder: "- [ ] A test covers the case above."
+    validations:
+      required: false
