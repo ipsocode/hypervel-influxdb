@@ -2,13 +2,9 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directories:
-      - /
-      - /.github/actions/*
+    directory: /
     schedule:
       interval: weekly
-    ignore:
-      - dependency-name: anthropics/claude-code-action
     groups:
       github-actions:
         patterns:
