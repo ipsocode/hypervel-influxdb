@@ -163,10 +163,11 @@ matching either way, so a new raw call has to be argued for.
 
 Reviews follow the `pr-review` skill, `.claude/skills/pr-review/SKILL.md`, which
 every Claude Code session in a checkout has: ask Claude Code to review your
-branch with it before you push, or a pull request by its number. It reads this
-package's focus in `docs/ai/review.md`, and its scan flags what a diff adds or
-removes: `git diff origin/main...HEAD | bash .claude/skills/pr-review/scan.sh`.
-No review runs in CI.
+branch with it before you push, or a pull request by its number. Its scan flags
+what a diff adds or removes: `git diff origin/main...HEAD | bash
+.claude/skills/pr-review/scan.sh`. The maintainers' reviews also load
+`review-influxdb`, a skill on their Claude accounts that says where in this
+package to look first. No review runs in CI.
 
 CI (`.github/workflows/tests.yml`) runs for every pull request into `main`, each
 job once the one it needs has passed: the conventions check, on the bare runner
@@ -190,9 +191,8 @@ which `CLAUDE.md` imports, and the `pr-review` skill in
 in its first lines. A pull request may still change one; the maintainer carries
 the change into the shared copy, and the next import brings it to every package.
 Two parts of `.github/` are this package's own: `conventions.php`, the check's
-settings, and `workflows/integration.yml`. What a review of this package looks
-for is in `docs/ai/review.md`. `.gitignore` leaves Claude Code's local state in
-`.claude/` out of commits, all but `.claude/skills/`.
+settings, and `workflows/integration.yml`. `.gitignore` leaves Claude Code's
+local state in `.claude/` out of commits, all but `.claude/skills/`.
 
 ## Coroutine safety
 
