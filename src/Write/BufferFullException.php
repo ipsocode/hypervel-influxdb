@@ -13,7 +13,7 @@ use OverflowException;
  * `refuse`. The points it refuses are not kept; in a list of points, those
  * ahead of them are.
  *
- * @see docs/writing.md#how-much-a-worker-holds
+ * @see src/docs/writing.md#how-much-a-worker-holds
  */
 class BufferFullException extends OverflowException
 {

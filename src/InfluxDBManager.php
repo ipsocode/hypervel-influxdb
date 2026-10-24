@@ -38,7 +38,7 @@ use Throwable;
  *
  * @mixin Client
  *
- * @see docs/hypervel.md#the-connection-manager
+ * @see src/docs/hypervel.md#the-connection-manager
  */
 class InfluxDBManager
 {
@@ -55,21 +55,21 @@ class InfluxDBManager
     protected array $connections = [];
 
     /**
-     * The memoised WriteApi instances, keyed by connection name.
+     * The memoized WriteApi instances, keyed by connection name.
      *
      * @var array<string, WriteApi>
      */
     protected array $writeApis = [];
 
     /**
-     * The memoised InfluxQL connections, keyed by connection name.
+     * The memoized InfluxQL connections, keyed by connection name.
      *
      * @var array<string, Connection>
      */
     protected array $influxql = [];
 
     /**
-     * The memoised synchronous WriteApi instances that replay failed batches, keyed by connection name.
+     * The memoized synchronous WriteApi instances that replay failed batches, keyed by connection name.
      *
      * @var array<string, WriteApi>
      */
@@ -99,7 +99,7 @@ class InfluxDBManager
     }
 
     /**
-     * Get the memoised WriteApi for the given connection, creating it on first use.
+     * Get the memoized WriteApi for the given connection, creating it on first use.
      *
      * InfluxDB2\Client keeps every WriteApi it creates, so createWriteApi() on each request
      * leaks one, with its HTTP client, for the worker's life: write through this instead.
@@ -159,7 +159,7 @@ class InfluxDBManager
      *
      * @throws InvalidArgumentException when the connection is not configured, does not batch, or its `onFailure` is not a ReplayableFailureStore
      *
-     * @see docs/writing.md#replaying-failed-batches
+     * @see src/docs/writing.md#replaying-failed-batches
      */
     public function replayFailed(?string $name = null, int $limit = 100): int
     {
@@ -210,7 +210,7 @@ class InfluxDBManager
      *
      * @throws Throwable when the write fails
      *
-     * @see docs/writing.md#the-queue-driver
+     * @see src/docs/writing.md#the-queue-driver
      */
     public function writeFailed(FailedBatch $batch, ?string $name = null): void
     {
@@ -255,7 +255,7 @@ class InfluxDBManager
      * any coroutine, so the versions go to the non-coroutine context every worker inherits.
      * Each ping sends `Connection: close`, so the workers inherit no open connection.
      *
-     * @see docs/internals.md#server-version-detection
+     * @see docs/ai/internals.md#server-version-detection
      */
     public function detectServerVersions(): void
     {

@@ -12,7 +12,7 @@ namespace Ipsocode\InfluxDB\Write;
  * by the others too. Cooldowns are kept in hrtime() nanoseconds, so a change
  * of the clock neither shortens nor lengthens one.
  *
- * @see docs/writing.md#falling-back-to-other-connections
+ * @see src/docs/writing.md#falling-back-to-other-connections
  */
 final class Availability
 {

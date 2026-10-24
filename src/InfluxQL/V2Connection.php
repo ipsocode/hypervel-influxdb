@@ -13,7 +13,7 @@ use Ipsocode\InfluxDB\InfluxQL\Grammars\V2Grammar;
  * 2.4 a bucket without an explicit mapping has a virtual one, derived from its name
  * the way this connection splits it.
  *
- * @see docs/configuration.md#connecting-to-influxdb-2x
+ * @see src/docs/configuration.md#connecting-to-influxdb-2x
  */
 class V2Connection extends Connection
 {

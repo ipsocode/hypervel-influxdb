@@ -9,7 +9,7 @@ namespace Ipsocode\InfluxDB\Write;
  *
  * It is a separate interface, so an application's own FailureStore works unchanged.
  *
- * @see docs/writing.md#replaying-failed-batches
+ * @see src/docs/writing.md#replaying-failed-batches
  */
 interface ReplayableFailureStore extends FailureStore
 {

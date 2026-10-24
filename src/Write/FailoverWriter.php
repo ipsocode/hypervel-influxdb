@@ -11,12 +11,12 @@ use InfluxDB2\WriteType;
  * A synchronous WriteApi whose writes fall back to other connections when its own cannot take them.
  *
  * What writeApi() returns for a connection whose `write` block names a
- * `fallback` without asking for batching. Its write() serialises points as the
+ * `fallback` without asking for batching. Its write() serializes points as the
  * parent's does and hands the line protocol to writeRaw(), which posts it
  * through the connection, with the client's retries, or, when the connection
  * cannot take it, through the first fallback that can.
  *
- * @see docs/writing.md#falling-back-to-other-connections
+ * @see src/docs/writing.md#falling-back-to-other-connections
  */
 class FailoverWriter extends WriteApi
 {

@@ -14,9 +14,9 @@ use Psr\Http\Message\ResponseInterface;
  *
  * It adds `/query` and `/ping` to DefaultApi, so the client's `token`, `allow_redirects`,
  * `verifySSL`, `proxy`, `timeout`, `debug` and `httpClient` options apply. Each holds
- * one HTTP client: one per connection, which InfluxDBManager::influxql() memoises.
+ * one HTTP client: one per connection, which InfluxDBManager::influxql() memoizes.
  *
- * @see docs/influxql.md#running-statements
+ * @see src/docs/influxql.md#running-statements
  */
 class QueryApi extends DefaultApi
 {

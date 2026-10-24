@@ -1,3 +1,3 @@
-# hypervel-influxdb
+@AGENTS.md
 
-@.github/claude/sessions.md
+Read and follow ./AGENTS.md. It is the authoritative instruction file for this repo.

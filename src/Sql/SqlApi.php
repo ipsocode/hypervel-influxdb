@@ -17,7 +17,7 @@ use stdClass;
  * methods it lacks, so the token, `verifySSL`, `proxy`, `timeout` and
  * `httpClient` apply as they do to writes. Each SqlConnection has its own.
  *
- * @see docs/sql.md#what-to-expect
+ * @see src/docs/sql.md#what-to-expect
  */
 class SqlApi extends DefaultApi
 {

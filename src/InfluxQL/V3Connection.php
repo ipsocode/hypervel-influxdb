@@ -13,7 +13,7 @@ use Ipsocode\InfluxDB\InfluxQL\Grammars\V3Grammar;
  * InfluxDB 3 has no retention policies and stores what the 2.x API writes under
  * the whole bucket name, slash included, so this connection reads the bucket unsplit.
  *
- * @see docs/configuration.md#connecting-to-influxdb-3
+ * @see src/docs/configuration.md#connecting-to-influxdb-3
  */
 class V3Connection extends Connection
 {

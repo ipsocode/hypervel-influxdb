@@ -21,8 +21,8 @@ use RuntimeException;
  *
  * InfluxQL reaches it through the `/query` v1 compatibility API, and SQL through `/api/v3/query_sql`.
  *
- * @see docs/influxql.md
- * @see docs/sql.md
+ * @see src/docs/influxql.md
+ * @see src/docs/sql.md
  */
 class InfluxDBV3Test extends V3IntegrationTestCase
 {

@@ -32,8 +32,8 @@ use Throwable;
  * runs it; inserts, updates and transactions are refused. Hypervel's database
  * pool hands each connection, with its own HTTP transport, to one coroutine at a time.
  *
- * @see docs/influxql-driver.md#what-to-expect
- * @see docs/internals.md#the-database-drivers
+ * @see src/docs/influxql-driver.md#what-to-expect
+ * @see docs/ai/internals.md#the-database-drivers
  */
 class Connection extends DatabaseConnection
 {

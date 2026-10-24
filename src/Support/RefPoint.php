@@ -12,7 +12,7 @@ use ReflectionClass;
  *
  * A RefPoint made with `new` reads its own; from() wraps an existing Point and reads that one's.
  *
- * @see docs/writing.md#reading-points-back-with-refpoint
+ * @see src/docs/writing.md#reading-points-back-with-refpoint
  */
 class RefPoint extends Point
 {

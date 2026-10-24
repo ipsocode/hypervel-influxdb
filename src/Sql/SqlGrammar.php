@@ -18,7 +18,7 @@ use LogicException;
  * reads differently changed. What DataFusion lacks, such as JSON operators,
  * still compiles as PostgreSQL writes it, and the server refuses it.
  *
- * @see docs/sql.md#what-to-expect
+ * @see src/docs/sql.md#what-to-expect
  */
 class SqlGrammar extends PostgresGrammar
 {

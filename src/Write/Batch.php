@@ -10,7 +10,7 @@ namespace Ipsocode\InfluxDB\Write;
  * What a BatchingWriter sends, and what it hands to `onFailure` when it
  * cannot: the payload, and where it was going, so it can be written again.
  *
- * @see docs/writing.md#when-a-batch-cannot-be-written
+ * @see src/docs/writing.md#when-a-batch-cannot-be-written
  */
 final class Batch
 {
