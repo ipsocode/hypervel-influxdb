@@ -6,6 +6,7 @@
 /.github export-ignore
 /.claude export-ignore
 /AGENTS.md export-ignore
+/bin export-ignore
 /CLAUDE.md export-ignore
 /docs export-ignore
 /tests export-ignore

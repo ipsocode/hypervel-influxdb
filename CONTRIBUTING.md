@@ -161,13 +161,12 @@ values go through bindings and anything written as-is, such as a
 `groupByTime()` duration, is checked first. The check fails once a count stops
 matching either way, so a new raw call has to be argued for.
 
-Reviews follow the `pr-review` skill, `.claude/skills/pr-review/SKILL.md`, which
-every Claude Code session in a checkout has: ask Claude Code to review your
-branch with it before you push, or a pull request by its number. Its scan flags
-what a diff adds or removes: `git diff origin/main...HEAD | bash
-.claude/skills/pr-review/scan.sh`. The maintainers' reviews also load
-`review-influxdb`, a skill on their Claude accounts that says where in this
-package to look first. No review runs in CI.
+Reviews follow the maintainers' `pr-review` skill, with `review-influxdb`, which
+says where in this package to look first; both are skills on their Claude
+accounts. Ask Claude Code to review your branch with them before you push, or a
+pull request by its number. The scan they run needs no skill:
+`bin/review-scan.sh` flags what a diff adds or removes, `git diff
+origin/main...HEAD | bash bin/review-scan.sh`. No review runs in CI.
 
 CI (`.github/workflows/tests.yml`) runs for every pull request into `main`, each
 job once the one it needs has passed: the conventions check, on the bare runner
@@ -186,13 +185,13 @@ Most of `.github/` is shared by the ipsocode/hypervel-* packages and imported
 from one copy: the workflows, the scripts, the php-cs-fixer rules, the issue and
 pull request templates, `CODEOWNERS`, `dependabot.yml`, the release-notes config
 and the security policy. So are this package's guide, the root `AGENTS.md`,
-which `CLAUDE.md` imports, and the `pr-review` skill in
-`.claude/skills/pr-review/`. Each of them but the pull request template says so
-in its first lines. A pull request may still change one; the maintainer carries
-the change into the shared copy, and the next import brings it to every package.
-Two parts of `.github/` are this package's own: `conventions.php`, the check's
-settings, and `workflows/integration.yml`. `.gitignore` leaves Claude Code's
-local state in `.claude/` out of commits, all but `.claude/skills/`.
+which `CLAUDE.md` imports, and the review's scan, `bin/review-scan.sh`. Each of
+them but the pull request template says so in its first lines. A pull request
+may still change one; the maintainer carries the change into the shared copy,
+and the next import brings it to every package. Two parts of `.github/` are this
+package's own: `conventions.php`, the check's settings, and
+`workflows/integration.yml`. `.gitignore` leaves Claude Code's local state in
+`.claude/` out of commits.
 
 ## Coroutine safety
 
@@ -254,10 +253,10 @@ generated from the pull requests merged since the previous tag. A `v*` tag
 pushed by hand goes through the same suite and gets the same Release.
 
 Composer installs a release as GitHub's archive of its tag, which leaves out
-every path `.gitattributes` marks `export-ignore`: `.github/`, `docs/ai/`, the
-tests, the workbench and the development configs. A new top-level file or
-directory ships unless it is added there; `git archive HEAD | tar -t` lists
-what would.
+every path `.gitattributes` marks `export-ignore`: `.github/`, `AGENTS.md`,
+`bin/`, `docs/ai/`, the tests, the workbench and the development configs. A new
+top-level file or directory ships unless it is added there; `git archive HEAD |
+tar -t` lists what would.
 
 ### Packagist
 

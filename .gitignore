@@ -1,7 +1,6 @@
 /.DS_Store
-# Claude Code's local state, such as settings and worktrees; .claude/skills/ is tracked.
-/.claude/*
-!/.claude/skills/
+# Claude Code's local state, such as its settings and worktrees.
+/.claude
 /vendor
 composer.lock
 # The caches of PHPUnit, php-cs-fixer and PHPStan, and `composer test:coverage`'s report.
