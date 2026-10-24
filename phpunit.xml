@@ -21,5 +21,10 @@
     </source>
     <php>
         <env name="LOG_CHANNEL" value="null"/>
+        <!-- Pin the terminal size so no console test shells out to `stty` from inside
+             its coroutine, where a lost SIGCHLD can hang a worker for good. The values
+             match hypervel/components' own phpunit.xml.dist. -->
+        <env name="COLUMNS" value="80" force="true"/>
+        <env name="LINES" value="24" force="true"/>
     </php>
 </phpunit>
