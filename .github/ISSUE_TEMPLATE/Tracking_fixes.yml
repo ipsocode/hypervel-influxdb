@@ -1,0 +1,16 @@
+# Imported from ipsocode/hypervel-packages github/ISSUE_TEMPLATE/Tracking_fixes.yml. Edit it there.
+name: "Tracking: fixes train"
+description: The umbrella that gathers the fixes meant for one weekly release. For maintainers.
+title: "[Tracking] Fixes for "
+labels: [tracking, bug]
+projects: [ipsocode/2]
+body:
+  - type: markdown
+    attributes:
+      value: Finish the title with the release's milestone, `YYYY-MM-DD` for a weekly release or `YYYY-MM` when that Tuesday is the month's first. One train per milestone. The repository creates the linked `bug-fixes/` branch and writes the base-branch line, the parts list and the footer into the body; add the parts as sub-issues.
+  - type: textarea
+    attributes:
+      label: What it gathers
+      description: One line.
+    validations:
+      required: true

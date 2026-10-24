@@ -1,0 +1,117 @@
+# Imported from ipsocode/hypervel-packages github/workflows/parts.yml. Edit it there.
+name: parts
+
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  issues: write
+
+concurrency:
+  group: parts-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  link:
+    name: Link the part to its umbrella
+    if: github.event.issue.state == 'open' && !github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Link
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+          ACTION: ${{ github.event.action }}
+        run: |
+          set -euo pipefail
+
+          summary() {
+            echo "$1"
+            echo "$1" >> "${GITHUB_STEP_SUMMARY}"
+          }
+
+          issue=$(gh api "repos/${REPO}/issues/${NUMBER}")
+
+          if ! jq -e '.state == "open" and (.pull_request | not) and ([.labels[].name] | index("tracking") | not)' <<< "${issue}" > /dev/null; then
+            echo "#${NUMBER} is closed or an umbrella; nothing to do."
+            exit 0
+          fi
+
+          if [ "${ACTION}" = "opened" ]; then
+            priority=$(jq -r '
+              if any(.labels[].name; startswith("priority:")) then ""
+              else
+                ((.body // "") | gsub("\r"; "")
+                  | (capture("(?m)^### Priority[ \t]*\n\\s*(?<v>[^\n]+)") | .v) // ""
+                  | ascii_downcase
+                  | (capture("^(?<p>high|medium|low)\\b") | .p) // "")
+              end
+            ' <<< "${issue}")
+            if [ -n "${priority}" ]; then
+              gh api -X POST "repos/${REPO}/issues/${NUMBER}/labels" -f "labels[]=priority: ${priority}" > /dev/null
+              summary "Labelled #${NUMBER} \`priority: ${priority}\` from its form."
+            fi
+          fi
+
+          parent=$(gh api "repos/${REPO}/issues/${NUMBER}/parent" 2> /dev/null) || parent=""
+          if [ -z "${parent}" ] && [ "${ACTION}" = "opened" ]; then
+            sleep 15
+            parent=$(gh api "repos/${REPO}/issues/${NUMBER}/parent" 2> /dev/null) || parent=""
+          fi
+          if [ -z "${parent}" ]; then
+            echo "#${NUMBER} has no parent issue; nothing to link."
+            exit 0
+          fi
+
+          umbrella=$(jq -r '.number' <<< "${parent}")
+          if [ "$(jq -r '.state' <<< "${parent}")" != "open" ]; then
+            summary "#${NUMBER}'s parent #${umbrella} is closed; nothing to link."
+            exit 0
+          fi
+
+          if ! jq -e '[.labels[].name] | index("tracked")' <<< "${issue}" > /dev/null; then
+            gh api -X POST "repos/${REPO}/issues/${NUMBER}/labels" -f "labels[]=tracked" > /dev/null
+            summary "Labelled #${NUMBER} \`tracked\`, a part of #${umbrella}."
+          fi
+
+          line=$(jq -r '(.body // "") | gsub("\r"; "") | split("\n") | map(select(test("Base branch: `"))) | first // ""' <<< "${parent}")
+          if [ -z "${line}" ]; then
+            summary "#${umbrella} has no base-branch line yet, so #${NUMBER} got \`tracked\` only."
+            exit 0
+          fi
+
+          body=$(gh api "repos/${REPO}/issues/${NUMBER}" --jq '.body // ""')
+          if ! jq -e --arg body "${body}" -n '$body | test("Base branch: `")' > /dev/null; then
+            new=$(jq -rn --arg body "${body}" --arg line "${line}" '[$line, ($body | gsub("\r"; "") | sub("^\\s+"; ""))] | map(select(. != "")) | join("\n\n")')
+            gh api -X PATCH "repos/${REPO}/issues/${NUMBER}" -f body="${new}" > /dev/null
+            summary "Started #${NUMBER}'s body with #${umbrella}'s base-branch line."
+          fi
+
+          parent=$(gh api "repos/${REPO}/issues/${umbrella}")
+          item=$(jq -r '"- [ ] #\(.number) — \(.title)"' <<< "${issue}")
+          new=$(jq -r --arg item "${item}" --arg n "${NUMBER}" '
+            ((.body // "") | gsub("\r"; "") | sub("\\s+$"; "") | split("\n")) as $l
+            | if any($l[]; test("#" + $n + "(\\D|$)")) then empty
+              else
+                ([$l | to_entries[] | select(.value | test("^##\\s+Parts\\s*$")) | .key] | first) as $h
+                | if $h == null then
+                    ([$l | to_entries[] | select(.value | test("^> \\*\\*How this issue works")) | .key] | first) as $f
+                    | if $f == null then $l + ["", "## Parts", "", $item]
+                      else $l[:$f] + ["## Parts", "", $item, ""] + $l[$f:] end
+                  else
+                    ([$l | to_entries[] | select(.key > $h and (.value | test("^## |^> \\*\\*How this issue works"))) | .key] | first // ($l | length)) as $e
+                    | ($e | until(. <= $h + 1 or ($l[. - 1] | test("\\S")); . - 1)) as $at
+                    | $l[:$at] + [$item] + $l[$at:]
+                  end
+                | join("\n")
+              end
+          ' <<< "${parent}")
+          if [ -n "${new}" ]; then
+            gh api -X PATCH "repos/${REPO}/issues/${umbrella}" -f body="${new}" > /dev/null
+            summary "Added #${NUMBER} to #${umbrella}'s parts."
+          else
+            echo "#${umbrella}'s body already names #${NUMBER}."
+          fi

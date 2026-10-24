@@ -1,0 +1,35 @@
+# Imported from ipsocode/hypervel-packages github/ISSUE_TEMPLATE/Feature_request.yml. Edit it there.
+name: Feature Request
+description: Ask for something hypervel-influxdb does not do yet.
+labels: [enhancement]
+projects: [ipsocode/2]
+body:
+  - type: textarea
+    attributes:
+      label: What it should do
+      description: The behaviour you want, as a user of the package would see it.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Why
+      description: What it lets you do that you cannot do today, or the workaround you use now.
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Public contract
+      description: Would it change a public class, method, config key, command or documented behaviour that applications already use?
+      options:
+        - "No: it only adds"
+        - "Yes: something existing changes"
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Acceptance
+      description: What has to hold once it is done, as checkboxes.
+      placeholder: "- [ ] The docs describe it."
+    validations:
+      required: false
