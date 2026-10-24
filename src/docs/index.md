@@ -22,4 +22,4 @@ Getting started.
 
 - [Running on Hypervel](hypervel.md): long-lived workers, non-blocking HTTP, the connection manager, `php artisan about` and testing an application that uses the package.
 
-To work on the package itself, see [CONTRIBUTING.md](../../CONTRIBUTING.md).
+To work on the package itself, see [CONTRIBUTING.md](https://github.com/ipsocode/hypervel-influxdb/blob/main/CONTRIBUTING.md).

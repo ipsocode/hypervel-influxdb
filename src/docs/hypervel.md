@@ -111,7 +111,7 @@ named when the Hypervel server started, which `influxql()` hands its InfluxQL
 connection, or `null` when there is none. The provider reads the versions with
 `detectServerVersions()` as the server starts, before it forks the workers;
 that method is for boot only (see
-[Server version detection](../../docs/ai/internals.md#server-version-detection)).
+[Server version detection](https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/ai/internals.md#server-version-detection)).
 
 ### Boot or tests only
 
@@ -200,5 +200,5 @@ DB::connection('metrics')->getInfluxQL()->setServerVersion('1.8.10'); // an infl
 
 On a connection that batches its writes, points a test leaves buffered are
 sent as the test ends, when Hypervel's test harness wakes the flush timer
-([Where the package keeps state](../../docs/ai/internals.md#where-the-package-keeps-state)):
+([Where the package keeps state](https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/ai/internals.md#where-the-package-keeps-state)):
 give the test's transport a response for that request too.

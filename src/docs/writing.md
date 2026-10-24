@@ -264,7 +264,7 @@ and so does a `version` the package does not implement. The writer's
 bytes as `batchBytes`.
 
 How the writer stays correct while many coroutines write at once is described
-for contributors in [The batching writer](../../docs/ai/internals.md#the-batching-writer).
+for contributors in [The batching writer](https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/ai/internals.md#the-batching-writer).
 
 ### When a batch is sent
 

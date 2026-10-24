@@ -330,7 +330,7 @@ before its first statement instead. Once the server names a version, the
 worker keeps it; a server that names none is asked again before the next
 statement. A server that does not answer holds the start for up to the
 connection's `timeout`, 10 seconds by default.
-[Server version detection](../../docs/ai/internals.md#server-version-detection) explains
+[Server version detection](https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/ai/internals.md#server-version-detection) explains
 how.
 
 A value InfluxQL has no literal for throws its `InvalidArgumentException`
