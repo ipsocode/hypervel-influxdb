@@ -1,5 +1,8 @@
 # Internals
 
+Read this before changing `src/`, for how the package is built and where it
+keeps state.
+
 This page is for contributors. It maps `src/`, lists where the package keeps
 state in a long-lived worker, and explains how server version detection, the
 batching writer, the InfluxQL dialect and the two database drivers work. How
