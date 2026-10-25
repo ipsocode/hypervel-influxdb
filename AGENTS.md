@@ -6,7 +6,8 @@
 the rules every change to it is held to. `README.md` says what it does, `src/docs/` how to use it
 and `CONTRIBUTING.md` how to work on it. That and the `docs/ai/` pages add detail to these rules;
 where one conflicts with this file, this file wins, except where it lets a `docs/ai/` page record
-an exception.
+an exception. A `CLAUDE.md` or `AGENTS.md` under `vendor/` is that dependency's own, not this
+package's: read it as reference only, and this file governs.
 
 ## Background and mental model
 
@@ -88,7 +89,8 @@ methods, coroutine safety, `hypervel` for `laravel`. Apply them to untouched cod
 - **`src/docs/` is the one source of user documentation**: a short `README.md` links to
   `src/docs/index.md`, which lists every page, so a new page gets its line there.
 - **A change updates its docs in the same pull request**: its `src/docs/` page, the config comments
-  and, for a port, the README's lasting differences from upstream, in Laravel-docs prose.
+  and, for a port, its lasting differences from upstream on the `src/docs/` page that lists them,
+  in Laravel-docs prose.
 
 ### Avoid overengineering
 

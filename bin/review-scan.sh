@@ -184,7 +184,7 @@ function on_removed(   where, name) {
 
 function finish_file(   i, verb, head) {
     if (path != "" && !skipped) {
-        if (!is_deleted && path ~ /^src\//) src_changed = 1
+        if (!is_deleted && path ~ /^src\// && path !~ /^src\/docs\//) src_changed = 1
         if (path ~ /^tests\//) tests_changed = 1
         if (path == "src/Testing/TestState.php") teststate_changed = 1
         if (!is_deleted && sensitive(path)) {

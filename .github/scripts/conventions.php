@@ -48,6 +48,9 @@ final class Conventions
     /** @var list<array{string, int, string, string}> */
     private array $violations = [];
 
+    /** @var list<array{string, string}> */
+    private array $notices = [];
+
     /** @var array{slug: string, excluded: list<string>, banned_namespaces: array<string, string>, banned_functions: array<string, string>, coverage_excludes: list<string>, allowed: array<string, array<string, array{int, string}>>} */
     private array $settings;
 
@@ -445,48 +448,56 @@ final class Conventions
 
         if (preg_match('/^@AGENTS\.md[ \t]*\r?$/m', (string) file_get_contents($file)) !== 1) {
             $this->violation('CLAUDE.md', 0, 'agent-guide', 'Does not import the package\'s guide. Add the line `@AGENTS.md`.');
+
+            return;
+        }
+
+        if (! is_file($this->root . '/AGENTS.md')) {
+            $this->violation('AGENTS.md', 0, 'agent-guide', 'Missing. CLAUDE.md imports it with `@AGENTS.md`, so without it every session starts without the package\'s guide. Restore it.');
         }
     }
 
     private function checkClaudeDirectory(): void
     {
-        foreach ($this->claudeFiles() as $path) {
+        if (! is_dir($this->root . '/.claude')) {
+            return;
+        }
+
+        $files = $this->claudeFiles();
+
+        if (is_string($files)) {
+            $this->notices[] = ['claude-dir', "Skipped: git could not list .claude/ ({$files}), and only git knows which files a commit would carry."];
+
+            return;
+        }
+
+        foreach ($files as $path) {
             $this->violation($path, 0, 'claude-dir', 'Committed under .claude/. Every session in a checkout loads .claude/, so a package keeps nothing there: no settings, hooks, commands, agents or skills of its own.');
         }
     }
 
-    /** @return list<string> */
-    private function claudeFiles(): array
+    /** @return list<string>|string */
+    private function claudeFiles(): array|string
     {
-        if (! is_dir($this->root . '/.claude')) {
-            return [];
-        }
-
         $process = @proc_open(
             ['git', '-c', 'safe.directory=*', '-C', $this->root, 'ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', '.claude'],
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
         );
 
-        if (is_resource($process)) {
-            $output = (string) stream_get_contents($pipes[1]);
-            stream_get_contents($pipes[2]);
-
-            if (proc_close($process) === 0) {
-                $files = array_values(array_unique(array_filter(explode("\0", $output), fn (string $path) => $path !== '')));
-                sort($files);
-
-                return $files;
-            }
+        if (! is_resource($process)) {
+            return 'git could not be started';
         }
 
-        $files = [];
+        $output = (string) stream_get_contents($pipes[1]);
+        $error = trim(strtok((string) stream_get_contents($pipes[2]), "\n") ?: '');
+        $status = proc_close($process);
 
-        /** @var SplFileInfo $file */
-        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($this->root . '/.claude', FilesystemIterator::SKIP_DOTS)) as $file) {
-            $files[] = substr($file->getPathname(), strlen($this->root) + 1);
+        if ($status !== 0) {
+            return $error !== '' ? $error : "git exited with status {$status}";
         }
 
+        $files = array_unique(array_filter(explode("\0", $output), fn (string $path) => $path !== ''));
         sort($files);
 
         return $files;
@@ -857,13 +868,17 @@ final class Conventions
 
     private function report(): int
     {
+        $actions = getenv('GITHUB_ACTIONS') === 'true';
+
+        foreach ($this->notices as [$rule, $message]) {
+            echo $actions ? '::notice title=' . $this->escape("conventions: {$rule}", true) . '::' . $this->escape("{$rule} — {$message}", false) : "notice {$rule} — {$message}", "\n";
+        }
+
         if ($this->violations === []) {
             printf("The conventions hold: %d PHP files checked.\n", count($this->files ?? []));
 
             return 0;
         }
-
-        $actions = getenv('GITHUB_ACTIONS') === 'true';
 
         foreach ($this->violations as [$path, $line, $rule, $message]) {
             $text = sprintf('%s %s — %s', $line > 0 ? "{$path}:{$line}" : $path, $rule, $message);
