@@ -35,7 +35,7 @@ jobs:
 
           issue=$(gh api "repos/${REPO}/issues/${NUMBER}")
 
-          if ! jq -e '.state == "open" and (.pull_request | not) and ([.labels[].name] | index("tracking") | not)' <<< "${issue}" > /dev/null; then
+          if ! jq -e '.state == "open" and (.pull_request | not) and (.title | test("^\\s*\\[tracking\\]"; "i") | not)' <<< "${issue}" > /dev/null; then
             echo "#${NUMBER} is closed or an umbrella; nothing to do."
             exit 0
           fi
@@ -72,14 +72,9 @@ jobs:
             exit 0
           fi
 
-          if ! jq -e '[.labels[].name] | index("tracked")' <<< "${issue}" > /dev/null; then
-            gh api -X POST "repos/${REPO}/issues/${NUMBER}/labels" -f "labels[]=tracked" > /dev/null
-            summary "Labelled #${NUMBER} \`tracked\`, a part of #${umbrella}."
-          fi
-
           line=$(jq -r '(.body // "") | gsub("\r"; "") | split("\n") | map(select(test("Base branch: `"))) | first // ""' <<< "${parent}")
           if [ -z "${line}" ]; then
-            summary "#${umbrella} has no base-branch line yet, so #${NUMBER} got \`tracked\` only."
+            summary "#${umbrella} has no base-branch line yet; #${NUMBER} gets it from the routines once the branch exists."
             exit 0
           fi
 

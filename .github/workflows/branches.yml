@@ -3,7 +3,7 @@ name: branches
 
 on:
   issues:
-    types: [labeled]
+    types: [opened, edited, milestoned]
 
 permissions:
   contents: write
@@ -16,7 +16,7 @@ concurrency:
 jobs:
   link:
     name: Create the umbrella's feature branch
-    if: github.event.label.name == 'tracking' && github.event.issue.state == 'open' && !github.event.issue.pull_request
+    if: github.event.issue.state == 'open' && !github.event.issue.pull_request && github.event.issue.milestone && startsWith(github.event.issue.title, '[Tracking]')
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
