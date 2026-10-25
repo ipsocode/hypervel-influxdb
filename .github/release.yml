@@ -1,10 +1,5 @@
 # Imported from ipsocode/hypervel-packages github/release.yml. Edit it there.
 changelog:
-  exclude:
-    labels:
-      - duplicate
-      - invalid
-      - wontfix
   categories:
     - title: Breaking changes
       labels:
