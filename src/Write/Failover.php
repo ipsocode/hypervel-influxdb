@@ -20,8 +20,8 @@ use Throwable;
  * synchronous WriteApi on that connection's client options, built on first use
  * and kept, so no HTTP client is made per write.
  *
- * @see docs/writing.md#falling-back-to-other-connections
- * @see docs/internals.md#falling-back
+ * @see src/docs/writing.md#falling-back-to-other-connections
+ * @see docs/ai/internals.md#falling-back
  */
 final class Failover
 {

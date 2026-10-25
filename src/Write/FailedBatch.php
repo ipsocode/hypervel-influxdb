@@ -10,7 +10,7 @@ use Throwable;
 /**
  * A Batch that could not be written, with what a FailureStore needs to keep it and write it again.
  *
- * @see docs/writing.md#when-a-batch-cannot-be-written
+ * @see src/docs/writing.md#when-a-batch-cannot-be-written
  */
 final class FailedBatch
 {

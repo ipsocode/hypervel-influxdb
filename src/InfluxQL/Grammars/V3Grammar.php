@@ -12,7 +12,7 @@ use Ipsocode\InfluxDB\InfluxQL\Version;
  * The server refuses SLIMIT and SOFFSET even at 0, the clauses' no-op, so 0
  * compiles to nothing; `soffset(null)` sets 0 as well.
  *
- * @see docs/configuration.md#choosing-the-server-version
+ * @see src/docs/configuration.md#choosing-the-server-version
  */
 class V3Grammar extends Grammar
 {

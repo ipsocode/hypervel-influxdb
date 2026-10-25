@@ -22,11 +22,12 @@ InfluxDB::writeApi('analytics')->write([     // a named connection's
 ```
 
 Write through `writeApi()`, on the facade or on an injected `InfluxDBManager`
-(see [Usage](../README.md#usage)). It keeps one `WriteApi` per connection for
-the life of the worker. The client's own `createWriteApi()` is reachable
-through the facade and the manager too, but the client keeps a reference to
-every `WriteApi` it creates, each holding an HTTP client, so calling it on
-each request leaks one per request until the worker exits.
+(see [Using a connection](getting-started.md#using-a-connection)). It keeps one
+`WriteApi` per connection for the life of the worker. The client's own
+`createWriteApi()` is reachable through the facade and the manager too, but
+the client keeps a reference to every `WriteApi` it creates, each holding an
+HTTP client, so calling it on each request leaks one per request until the
+worker exits.
 
 `write()` takes what the client's `InfluxDB2\WriteApi` takes: an
 `InfluxDB2\Point`, a point as an array with `name`, `tags`, `fields` and
@@ -227,7 +228,7 @@ reads the limits from `INFLUXDB_BATCH_SIZE`, `INFLUXDB_BATCH_SIZE_MB` and
 `INFLUXDB_FLUSH_INTERVAL`. `writeApi()` then returns an
 `Ipsocode\InfluxDB\Write\BatchingWriter`: a `WriteApi` whose `write()` and
 `writeRaw()` buffer rather than send, so code written against a synchronous
-one carries over. It serialises each point as a synchronous `WriteApi` would,
+one carries over. It serializes each point as a synchronous `WriteApi` would,
 default `tags`, precision, bucket and org included, and sends each batch as a
 synchronous write, which is why its `writeOptions` report
 `WriteType::SYNCHRONOUS`: tell it apart with `instanceof BatchingWriter`.
@@ -263,7 +264,7 @@ and so does a `version` the package does not implement. The writer's
 bytes as `batchBytes`.
 
 How the writer stays correct while many coroutines write at once is described
-for contributors in [The batching writer](internals.md#the-batching-writer).
+for contributors in [The batching writer](https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/ai/internals.md#the-batching-writer).
 
 ### When a batch is sent
 
@@ -390,7 +391,7 @@ storage or a queue rather than retrying the server from it. An exception it
 throws is reported through the exception handler too, and an exception the
 handler cannot report goes to PHP's `error_log()`.
 
-A batch whose send is cancelled, such as by a queued job that times out while
+A batch whose send is canceled, such as by a queued job that times out while
 it flushes, is not dropped or reported: the cancellation is thrown on, and the
 batch goes back in the buffer with the flush timer armed again, so the next
 flush sends it. The same holds for a batch whose coroutine cannot start

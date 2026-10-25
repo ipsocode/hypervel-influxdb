@@ -32,7 +32,7 @@ use Hypervel\Support\Facades\Facade;
  * @method static \Ipsocode\InfluxDB\InfluxQL\Builder table(\Ipsocode\InfluxDB\InfluxQL\Expression|\Ipsocode\InfluxDB\InfluxQL\Regex|string $measurement, ?string $connection = null)
  *
  * @see \Ipsocode\InfluxDB\InfluxDBManager
- * @see docs/hypervel.md#the-connection-manager
+ * @see src/docs/hypervel.md#the-connection-manager
  */
 class InfluxDB extends Facade
 {

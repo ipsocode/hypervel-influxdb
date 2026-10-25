@@ -9,7 +9,7 @@ use Ipsocode\InfluxDB\InfluxQL\Version;
 /**
  * Compiles a Builder into the InfluxQL InfluxDB 1.x runs: the whole language.
  *
- * @see docs/configuration.md#choosing-the-server-version
+ * @see src/docs/configuration.md#choosing-the-server-version
  */
 class V1Grammar extends Grammar
 {

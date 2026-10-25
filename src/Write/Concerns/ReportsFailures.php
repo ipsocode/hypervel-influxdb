@@ -12,7 +12,7 @@ use Throwable;
 /**
  * Reports a failure the writer does not throw, and runs what may fail without throwing.
  *
- * @see docs/internals.md#failures
+ * @see docs/ai/internals.md#failures
  */
 trait ReportsFailures
 {

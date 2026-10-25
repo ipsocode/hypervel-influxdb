@@ -22,7 +22,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | The connections, by name; each needs a url, token, bucket and org.
-    | https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/configuration.md#connections
+    | https://github.com/ipsocode/hypervel-influxdb/blob/main/src/docs/configuration.md#connections
     |
     */
 
@@ -42,7 +42,7 @@ return [
             // InfluxQL addresses a database and retention policy, which default to the
             // bucket split at its first slash (`db/rp`), or on v3, which has no retention
             // policies, to the whole bucket. `epoch` returns integer timestamps, not RFC3339.
-            // https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/influxql.md#configuring-influxql
+            // https://github.com/ipsocode/hypervel-influxdb/blob/main/src/docs/influxql.md#configuring-influxql
             'influxql' => [
                 'database' => env('INFLUXDB_DATABASE'),
                 'retentionPolicy' => env('INFLUXDB_RETENTION_POLICY'),
@@ -54,11 +54,11 @@ return [
             // ('log' by default: a batch that cannot be written is logged and dropped), `maxAttempts`
             // (the sends a replayed batch gets before it is dropped) and the
             // InfluxDB client's write options, such as `maxRetries`, can be added too.
-            // https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/writing.md#batching-writes
+            // https://github.com/ipsocode/hypervel-influxdb/blob/main/src/docs/writing.md#batching-writes
             //
             // INFLUXDB_FALLBACK names the connections, comma-separated, a write this connection cannot
             // take falls back to, in order; a connection that fails is skipped for `cooldown` seconds.
-            // https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/writing.md#falling-back-to-other-connections
+            // https://github.com/ipsocode/hypervel-influxdb/blob/main/src/docs/writing.md#falling-back-to-other-connections
             'write' => [
                 'writeType' => env('INFLUXDB_BATCHING', false) ? WriteType::BATCHING : WriteType::SYNCHRONOUS,
                 'batchSize' => env('INFLUXDB_BATCH_SIZE'),
@@ -69,7 +69,7 @@ return [
             ],
 
             // Any other option InfluxDB2\Client accepts (timeout, proxy, tags, ...) can be added here.
-            // https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/configuration.md#passing-options-to-the-client
+            // https://github.com/ipsocode/hypervel-influxdb/blob/main/src/docs/configuration.md#passing-options-to-the-client
         ],
     ],
 ];

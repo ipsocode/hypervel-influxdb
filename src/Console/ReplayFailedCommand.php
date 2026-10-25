@@ -13,7 +13,7 @@ use Throwable;
 /**
  * Writes the batches a connection's failure store kept, and prints how many were written.
  *
- * @see docs/writing.md#replaying-failed-batches
+ * @see src/docs/writing.md#replaying-failed-batches
  */
 #[AsCommand(name: 'influxdb:replay-failed')]
 class ReplayFailedCommand extends Command

@@ -12,7 +12,7 @@ use InvalidArgumentException;
  * It decides which Connection and Grammar a connection's InfluxQL goes through,
  * and its predicates say which statements the server runs.
  *
- * @see docs/configuration.md#choosing-the-server-version
+ * @see src/docs/configuration.md#choosing-the-server-version
  */
 enum Version: string
 {

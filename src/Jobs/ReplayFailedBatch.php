@@ -14,7 +14,7 @@ use Ipsocode\InfluxDB\Write\FailedBatch;
 /**
  * Writes a batch the `queue` driver kept, and throws when the write fails, so the queue retries it.
  *
- * @see docs/writing.md#the-queue-driver
+ * @see src/docs/writing.md#the-queue-driver
  */
 class ReplayFailedBatch implements ShouldQueue
 {

@@ -21,7 +21,7 @@ use RuntimeException;
  * is sent; the Dialect writes identifiers and literals. A statement the version
  * does not run is refused as it compiles, before anything is sent.
  *
- * @see docs/internals.md#the-influxql-dialect
+ * @see docs/ai/internals.md#the-influxql-dialect
  */
 abstract class Grammar
 {
@@ -82,7 +82,7 @@ abstract class Grammar
      * @throws InvalidArgumentException when the builder has no measurement, or a qualified one
      * @throws RuntimeException on InfluxDB 3, on 2.x when the connection addresses a retention policy, or when the query limits, offsets, slimits or soffsets
      *
-     * @see docs/influxql.md#deleting-points
+     * @see src/docs/influxql.md#deleting-points
      */
     public function compileDelete(Builder $query): string
     {
@@ -389,7 +389,7 @@ abstract class Grammar
     }
 
     /**
-     * Compile the "tz()" clause that localises the returned timestamps.
+     * Compile the "tz()" clause that localizes the returned timestamps.
      */
     protected function compileTimezone(Builder $query, string $timezone): string
     {

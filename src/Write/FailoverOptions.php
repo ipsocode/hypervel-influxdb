@@ -10,7 +10,7 @@ use InvalidArgumentException;
  * Which connections a write falls back to when its own cannot take it, and
  * how long a connection that failed is skipped.
  *
- * @see docs/writing.md#falling-back-to-other-connections
+ * @see src/docs/writing.md#falling-back-to-other-connections
  */
 final class FailoverOptions
 {

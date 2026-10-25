@@ -6,8 +6,12 @@ pull requests.
 
 ## Development setup
 
-User documentation lives in `docs/`, and notes for contributors on how the
-package is built in [`docs/internals.md`](docs/internals.md).
+User documentation lives in `src/docs/`, which ships with the package. A new
+page there gets a line in [`src/docs/index.md`](src/docs/index.md), which lists
+every page in reading order and is what the README links to. Notes
+for contributors on how the package is built are in
+[`docs/ai/internals.md`](docs/ai/internals.md), beside the other pages for
+coding agents in `docs/ai/`, none of which ships.
 
 The suite needs PHP 8.4 or 8.5 with the Swoole and Redis extensions that
 `hypervel/components` requires, plus PCOV for the coverage gate. It needs no
@@ -32,11 +36,12 @@ No `composer.lock` is committed. Every install resolves against the current
 downloads GitHub-hosted packages through GitHub's API; give it a GitHub token
 (for example through `COMPOSER_AUTH`) if you hit the anonymous rate limit.
 
-For Claude Code, `docs/.mcp.json` configures InfluxData's documentation
-server, `influxdb-docs`, so a session can look up how each InfluxDB version
-behaves. Claude Code reads servers only from a `.mcp.json` at the repository
-root: copy it there (`.gitignore` keeps that copy out of commits), then run
-`/mcp` once to sign in.
+For Claude Code, InfluxData's documentation server is the claude.ai `InfluxDB`
+connector, so a session can look up how each InfluxDB version behaves. Add it
+once to your claude.ai account (Settings → Connectors, as a custom connector
+with the URL `https://influxdb-docs.mcp.kapa.ai`), and every Claude Code
+session signed in to that account has it; the repository configures no MCP
+server of its own.
 
 ### Pins in `composer.json`
 
@@ -136,7 +141,7 @@ php-cs-fixer and PHPStan are configured like `hypervel/components`:
 `.github/php-cs-fixer-rules.php`, and `phpstan.neon` carries its level,
 analysis settings and framework extensions. Keep them in step when
 `hypervel/components` changes, so a finding here is a finding there. Some of
-the fixer's rules are risky — they change behaviour, not only formatting — so
+the fixer's rules are risky — they change behavior, not only formatting — so
 run `composer test` after `composer lint:fix`, not just before committing. An
 inline PHPStan ignore names its error and says why:
 `@phpstan-ignore <identifier> (<reason>)`.
@@ -158,42 +163,37 @@ values go through bindings and anything written as-is, such as a
 `groupByTime()` duration, is checked first. The check fails once a count stops
 matching either way, so a new raw call has to be argued for.
 
-The automated review also runs `.github/scripts/review-scan.sh`, which flags what
-a diff adds or removes. To see what it will flag on your branch:
-`git diff origin/main...HEAD | bash .github/scripts/review-scan.sh`. The
-review's instructions are the `pr-review` skill,
-`.github/claude/skills/pr-review/SKILL.md`: ask Claude Code to follow it on your
-branch to get the same review before you push.
+Reviews follow the maintainers' `pr-review` skill, with `review-influxdb`, which
+says where in this package to look first; both are skills on their Claude
+accounts. Ask Claude Code to review your branch with them before you push, or a
+pull request by its number. The scan they run needs no skill:
+`bin/review-scan.sh` flags what a diff adds or removes, `git diff
+origin/main...HEAD | bash bin/review-scan.sh`. No review runs in CI.
 
 CI (`.github/workflows/tests.yml`) runs for every pull request into `main`, each
 job once the one it needs has passed: the conventions check, on the bare runner
 in seconds (`.github/workflows/initial.yml`); code style, PHPStan and the suite
-under the 100% coverage gate on PHP 8.4; then, side by side, PHPStan and the
-suite on PHP 8.5, and the automated review. A push to a branch without a pull
-request runs nothing, so open a draft pull request to get CI early; the
-automated review runs once the pull request is marked ready, on each commit that
-passes the conventions check and PHP 8.4. It keeps notes between pushes, so a
-push is reviewed for what it changed, and for whatever else in the pull request
-that reaches. A pull request into any other branch, such as an umbrella issue's
-feature branch, runs nothing: CI and the automated review run on that branch's
-own pull request into `main`, so run the checks locally before opening one.
-`main` is protected: it changes only through a pull request that is up to date
-with it, passes those checks, and has every review conversation resolved; a
-change that leaves a line of `src/` uncovered fails its own pull request. The
-review never blocks on what it finds; it comments, and each comment is a
-conversation to resolve.
+under the 100% coverage gate on PHP 8.4; then PHPStan and the suite on PHP 8.5.
+A push to a branch without a pull request runs nothing, so open a draft pull
+request to get CI early. A pull request into any other branch, such as an
+umbrella issue's feature branch, runs nothing: CI runs on that branch's own pull
+request into `main`, so run the checks locally before opening one. `main` is
+protected: it changes only through a pull request that is up to date with it,
+passes those checks, and has every review conversation resolved; a change that
+leaves a line of `src/` uncovered fails its own pull request. A review comments
+rather than blocks, and each comment is a conversation to resolve.
 
 Most of `.github/` is shared by the ipsocode/hypervel-* packages and imported
 from one copy: the workflows, the scripts, the php-cs-fixer rules, the issue and
-pull request templates, `CODEOWNERS`, `dependabot.yml`, the release-notes
-config, the security policy, and the automated review's skill and brief in
-`.github/claude/`, which the review installs on its runner for the review only.
-Each of them but the pull request template says so in its first lines. A pull
-request may still change one; the maintainer carries the change into the shared
-copy, and the next import brings it to every package. Two parts of `.github/`
-are this package's own: `conventions.php`, the check's settings, and `review/`,
-which tells the automated review what this package is and where to look. The
-package keeps no `.claude/`: `.gitignore` leaves Claude Code's local state out.
+pull request templates, `CODEOWNERS`, `dependabot.yml`, the release-notes config
+and the security policy. So are this package's guide, the root `AGENTS.md`,
+which `CLAUDE.md` imports, and the review's scan, `bin/review-scan.sh`. Each of
+them but the pull request template says so in its first lines. A pull request
+may still change one; the maintainer carries the change into the shared copy,
+and the next import brings it to every package. Two parts of `.github/` are this
+package's own: `conventions.php`, the check's settings, and
+`workflows/integration.yml`. `.gitignore` leaves Claude Code's local state in
+`.claude/` out of commits.
 
 ## Coroutine safety
 
@@ -206,18 +206,18 @@ held to these rules:
 - Nothing on a request path creates a `WriteApi` or `QueryApi` per call.
   `InfluxDB2\Client` keeps a reference to every `WriteApi` it creates, so one
   per request is a leak for the life of the worker; `InfluxDBManager::writeApi()`
-  memoises one per connection for that reason.
+  memoizes one per connection for that reason.
 - No native `sleep()`/`usleep()`, blocking I/O or `exit()` on a request path.
 - Hypervel APIs only, never the `Illuminate` namespace. Tests reach the
   container with `$app->get(...)`, never array access.
-- New behaviour comes with a test. `@codeCoverageIgnore` is not a way past the
+- New behavior comes with a test. `@codeCoverageIgnore` is not a way past the
   coverage gate.
 
 ### Where the package keeps state
 
 What the package holds for the life of a worker, and what resets it between
 tests, is listed in
-[Where the package keeps state](docs/internals.md#where-the-package-keeps-state);
+[Where the package keeps state](docs/ai/internals.md#where-the-package-keeps-state);
 keep that list current when a change adds state. `Testing\TestState` flushes
 the static state after each test, so a new static needs a `flushState()`
 called from it.
@@ -228,12 +228,12 @@ Fill in the pull request template and label the pull request with the type it
 ticks. There is no changelog file: each release's notes are generated from the
 titles of the pull requests it contains, grouped by those labels
 (`.github/release.yml`), so write the title for someone reading the release. A
-pull request labelled `breaking-change` makes the next release at least a minor
+pull request labeled `breaking-change` makes the next release at least a minor
 version.
 
 A change a consumer will observe, such as a config key, the InfluxQL a query
 produces or what a driver reads back, goes in the template's *Behaviour change*
-section, with the documentation update it needs (`README.md` or `docs/`) in
+section, with the documentation update it needs (`README.md` or `src/docs/`) in
 the same pull request.
 
 ## Releasing
@@ -245,7 +245,7 @@ tag would make Composer skip the tag.
 
 Run the **publish** workflow on `main` (Actions → publish → *Run workflow*).
 Leave the bump on `auto` — minor if a pull request merged since the previous
-tag is labelled `breaking-change`, patch otherwise — or pick `patch`, `minor`
+tag is labeled `breaking-change`, patch otherwise — or pick `patch`, `minor`
 or `major`, or type an exact version. *Highlights* go at the top of the notes;
 *dry run* shows the plan without tagging.
 
@@ -255,10 +255,10 @@ generated from the pull requests merged since the previous tag. A `v*` tag
 pushed by hand goes through the same suite and gets the same Release.
 
 Composer installs a release as GitHub's archive of its tag, which leaves out
-every path `.gitattributes` marks `export-ignore`: `.github/`,
-`docs/.mcp.json`, the tests, the workbench and the development configs. A new
-top-level file or directory ships unless it is added there;
-`git archive HEAD | tar -t` lists what would.
+every path `.gitattributes` marks `export-ignore`: `.github/`, `AGENTS.md`,
+`bin/`, `docs/ai/`, the tests, the workbench and the development configs. A new
+top-level file or directory ships unless it is added there; `git archive HEAD |
+tar -t` lists what would.
 
 ### Packagist
 

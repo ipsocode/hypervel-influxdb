@@ -20,7 +20,7 @@ use RuntimeException;
  * InfluxQL reaches 2.x through the `/query` v1 compatibility API, which reads the test's
  * bucket as a database through its virtual DBRP mapping.
  *
- * @see docs/influxql.md
+ * @see src/docs/influxql.md
  */
 class InfluxDBV2Test extends V2IntegrationTestCase
 {

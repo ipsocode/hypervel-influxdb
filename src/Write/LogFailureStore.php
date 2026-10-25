@@ -14,7 +14,7 @@ use Throwable;
  * The payload is not logged, only where it was going and how big it was.
  * A failure of the logger itself goes to PHP's `error_log()`.
  *
- * @see docs/writing.md#when-a-batch-cannot-be-written
+ * @see src/docs/writing.md#when-a-batch-cannot-be-written
  */
 final class LogFailureStore implements FailureStore
 {

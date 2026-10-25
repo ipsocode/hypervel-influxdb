@@ -16,7 +16,7 @@ use Throwable;
  *
  * The list is `influxdb:failed:<connection>`, on the named Redis connection, which is resolved on each call.
  *
- * @see docs/writing.md#the-redis-driver
+ * @see src/docs/writing.md#the-redis-driver
  */
 final class RedisFailureStore implements ReplayableFailureStore
 {

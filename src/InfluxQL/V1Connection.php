@@ -12,7 +12,7 @@ use Ipsocode\InfluxDB\InfluxQL\Grammars\V1Grammar;
  * InfluxDB 1.8 and later serve the 2.x API the InfluxDB client writes through,
  * with the bucket `database/retention-policy`, which InfluxQL splits the same way.
  *
- * @see docs/configuration.md#connecting-to-influxdb-1x
+ * @see src/docs/configuration.md#connecting-to-influxdb-1x
  */
 class V1Connection extends Connection
 {

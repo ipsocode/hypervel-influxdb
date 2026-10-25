@@ -18,7 +18,7 @@ use Throwable;
  * The file name starts with when the batch failed, in UTC, so the names sort in failure order.
  * The disk is resolved on first use, not when the connection is configured.
  *
- * @see docs/writing.md#the-filesystem-driver
+ * @see src/docs/writing.md#the-filesystem-driver
  */
 final class FilesystemFailureStore implements ReplayableFailureStore
 {

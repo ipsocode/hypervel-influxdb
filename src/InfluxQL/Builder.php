@@ -34,7 +34,7 @@ use UnitEnum;
  *
  * @method static void macro(string $name, callable|object $macro)
  *
- * @see docs/influxql.md#the-query-builder
+ * @see src/docs/influxql.md#the-query-builder
  */
 class Builder
 {
@@ -163,7 +163,7 @@ class Builder
     public ?int $soffset = null;
 
     /**
-     * The time zone the returned timestamps are localised to.
+     * The time zone the returned timestamps are localized to.
      */
     public ?string $timezone = null;
 
@@ -975,7 +975,7 @@ class Builder
     }
 
     /**
-     * Localise the returned timestamps to a time zone: InfluxQL's `tz()` clause.
+     * Localize the returned timestamps to a time zone: InfluxQL's `tz()` clause.
      *
      * @throws InvalidArgumentException for an offset, an abbreviation or a name InfluxDB's time zone database lacks
      */
@@ -1441,7 +1441,7 @@ class Builder
      * @throws RuntimeException on InfluxDB 3, on 2.x when the connection addresses a retention policy, or when the query limits, offsets, slimits or soffsets
      * @throws QueryException
      *
-     * @see docs/influxql.md#deleting-points
+     * @see src/docs/influxql.md#deleting-points
      */
     public function delete(): bool
     {

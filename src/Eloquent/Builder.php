@@ -25,7 +25,7 @@ use SortDirection;
  *
  * @extends EloquentBuilder<TModel>
  *
- * @see docs/eloquent.md#custom-builders
+ * @see src/docs/eloquent.md#custom-builders
  */
 class Builder extends EloquentBuilder
 {

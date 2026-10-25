@@ -11,7 +11,7 @@ use Ipsocode\InfluxDB\Support\RefPoint;
 /**
  * Resets the package's static state after each test.
  *
- * @see docs/hypervel.md#testing-an-application-that-uses-it
+ * @see src/docs/hypervel.md#testing-an-application-that-uses-it
  */
 class TestState
 {
