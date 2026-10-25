@@ -67,7 +67,12 @@ jobs:
           slug="${slug:-umbrella}"
 
           branch="${kind}/${NUMBER}-${slug}"
-          gh issue develop "${NUMBER}" --repo "${REPO}" --base main --name "${branch}"
+          if ! gh issue develop "${NUMBER}" --repo "${REPO}" --base main --name "${branch}"; then
+            if ! gh api "repos/${REPO}/git/matching-refs/heads/${branch}" --jq '.[].ref' | grep -qxF "refs/heads/${branch}"; then
+              echo "gh issue develop failed and ${branch} does not exist."
+              exit 1
+            fi
+          fi
           echo "branch=${branch}" >> "${GITHUB_OUTPUT}"
           echo "Created ${branch}, linked to #${NUMBER}."
           echo "Created \`${branch}\`, linked to #${NUMBER}." >> "${GITHUB_STEP_SUMMARY}"
