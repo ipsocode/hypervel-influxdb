@@ -12,7 +12,7 @@ use Throwable;
 /**
  * Reports a failure the writer does not throw, and runs what may fail without throwing.
  *
- * @see docs/ai/internals.md#failures
+ * @see https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/ai/internals.md#failures
  */
 trait ReportsFailures
 {

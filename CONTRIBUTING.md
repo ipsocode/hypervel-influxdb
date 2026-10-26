@@ -147,11 +147,7 @@ inline PHPStan ignore names its error and says why:
 `@phpstan-ignore <identifier> (<reason>)`.
 
 The conventions check, `.github/scripts/conventions.php`, enforces in CI the
-rules a script can decide: the `Illuminate` or `Laravel` namespace anywhere in
-PHP (docblocks and strings too), container array-access,
-`@codeCoverageIgnore`, a bare `@phpstan-ignore-line`, a coverage gate below
-100%, and raw SQL, `eval()`, `unserialize()`, shell commands, `sleep()` or
-`exit` in shipped code. It also holds the names this package writes where the
+rules a script can decide; the script lists them. It also holds the names this package writes where the
 application writes too: context keys `__influxdb.*`, cache and lock keys
 `influxdb:*`, commands `influxdb:<verb>`, publish tags `influxdb-*`, env vars
 `INFLUXDB_*` and `config/influxdb.php`. Each violation is reported on its
@@ -167,8 +163,10 @@ Reviews follow the maintainers' `pr-review` skill, with `review-influxdb`, which
 says where in this package to look first; both are skills on their Claude
 accounts. Ask Claude Code to review your branch with them before you push, or a
 pull request by its number. The scan they run needs no skill:
-`bin/review-scan.sh` flags what a diff adds or removes, `git diff
-origin/main...HEAD | bash bin/review-scan.sh`. No review runs in CI.
+`bin/review-scan.sh` flags what a diff adds or removes; run `main`'s copy, never
+the branch's: `git diff --no-ext-diff --no-color --src-prefix=a/ --dst-prefix=b/
+origin/main...HEAD | bash <(git show origin/main:bin/review-scan.sh)`. No review
+runs in CI.
 
 CI (`.github/workflows/tests.yml`) runs for every pull request into `main`, each
 job once the one it needs has passed: the conventions check, on the bare runner
@@ -179,19 +177,18 @@ request to get CI early. A pull request into any other branch, such as an
 umbrella issue's feature branch, runs nothing: CI runs on that branch's own pull
 request into `main`, so run the checks locally before opening one. `main` is
 protected: it changes only through a pull request that is up to date with it,
-passes those checks, and has every review conversation resolved; a change that
+passes `initial / Conventions` and `PHP 8.4` (`PHP 8.5` reports without holding
+it), and has every review conversation resolved; a change that
 leaves a line of `src/` uncovered fails its own pull request. A review comments
 rather than blocks, and each comment is a conversation to resolve.
 
 Most of `.github/` is shared by the ipsocode/hypervel-* packages and imported
-from one copy: the workflows, the scripts, the php-cs-fixer rules, the issue and
-pull request templates, `CODEOWNERS`, `dependabot.yml`, the release-notes config
-and the security policy. So are this package's guide, the root `AGENTS.md`,
-which `CLAUDE.md` imports, and the review's scan, `bin/review-scan.sh`. Each of
-them but the pull request template says so in its first lines. A pull request
+from one copy, as are the root `AGENTS.md`, which `CLAUDE.md` imports, and the
+review's scan, `bin/review-scan.sh`; `.github/imported.sha256` lists them. Each
+of them but the pull request template says so in its first lines. A pull request
 may still change one; the maintainer carries the change into the shared copy,
-and the next import brings it to every package. Two parts of `.github/` are this
-package's own: `conventions.php`, the check's settings, and
+and the next import brings it to every package. The rest of `.github/` is this
+package's own, such as `conventions.php`, the check's settings, and
 `workflows/integration.yml`. `.gitignore` leaves Claude Code's local state in
 `.claude/` out of commits.
 
@@ -245,7 +242,7 @@ tag would make Composer skip the tag.
 
 Run the **publish** workflow on `main` (Actions → publish → *Run workflow*).
 Leave the bump on `auto` — minor if a pull request merged since the previous
-tag is labeled `breaking-change`, patch otherwise — or pick `patch`, `minor`
+tag is labeled `breaking-change` or `enhancement`, patch otherwise — or pick `patch`, `minor`
 or `major`, or type an exact version. *Highlights* go at the top of the notes;
 *dry run* shows the plan without tagging.
 
@@ -255,10 +252,9 @@ generated from the pull requests merged since the previous tag. A `v*` tag
 pushed by hand goes through the same suite and gets the same Release.
 
 Composer installs a release as GitHub's archive of its tag, which leaves out
-every path `.gitattributes` marks `export-ignore`: `.github/`, `AGENTS.md`,
-`bin/`, `docs/ai/`, the tests, the workbench and the development configs. A new
-top-level file or directory ships unless it is added there; `git archive HEAD |
-tar -t` lists what would.
+every path `.gitattributes` marks `export-ignore`. A new top-level file or
+directory ships unless it is added there; `git archive HEAD | tar -t` lists what
+would.
 
 ### Packagist
 

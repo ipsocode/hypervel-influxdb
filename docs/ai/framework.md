@@ -15,12 +15,8 @@ hypervel-porting MCP server is set up, its `read_doc` reads a page, or one secti
 | `Write/*FailureStore.php`, `Write/Concerns/` | database.md › Using Multiple Database Connections; redis.md › Using Multiple Redis Connections; filesystem.md › Obtaining Disk Instances; logging.md › Writing Log Messages; errors.md › Reporting Exceptions |
 | `Jobs/`, `Write/QueueFailureStore.php` | queues.md › Class Structure; queues.md › Dispatching Jobs |
 | `Console/` | artisan.md › Writing Commands |
-| `Testing/` | packages.md › Test State Cleanup |
 | What InfluxDB itself does: InfluxQL, SQL, line protocol and each server version's API | The claude.ai `InfluxDB` connector, InfluxData's documentation server |
 
 ## Default References
 
-- packages.md › Package Discovery
-- packages.md › Service Providers
-- packages.md › Test State Cleanup
-- coroutines.md
+- coroutines.md › Common Pitfalls

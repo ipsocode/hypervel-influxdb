@@ -26,7 +26,7 @@ use Throwable;
  * transport, to one coroutine at a time.
  *
  * @see src/docs/sql.md#what-to-expect
- * @see docs/ai/internals.md#the-database-drivers
+ * @see https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/ai/internals.md#the-database-drivers
  */
 class SqlConnection extends Connection
 {

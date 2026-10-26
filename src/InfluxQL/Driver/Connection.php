@@ -33,7 +33,7 @@ use Throwable;
  * pool hands each connection, with its own HTTP transport, to one coroutine at a time.
  *
  * @see src/docs/influxql-driver.md#what-to-expect
- * @see docs/ai/internals.md#the-database-drivers
+ * @see https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/ai/internals.md#the-database-drivers
  */
 class Connection extends DatabaseConnection
 {

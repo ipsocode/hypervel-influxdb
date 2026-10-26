@@ -33,7 +33,7 @@ variables listed under [Connections](configuration.md#connections).
 
 ## Using a connection
 
-Through the facade, which proxies to the default connection:
+Through the facade, which proxies to the connection manager, and through it to the default connection:
 
 ```php
 use InfluxDB2\Point;

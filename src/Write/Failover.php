@@ -21,7 +21,7 @@ use Throwable;
  * and kept, so no HTTP client is made per write.
  *
  * @see src/docs/writing.md#falling-back-to-other-connections
- * @see docs/ai/internals.md#falling-back
+ * @see https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/ai/internals.md#falling-back
  */
 final class Failover
 {
