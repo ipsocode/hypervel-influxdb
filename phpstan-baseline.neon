@@ -1,2 +1,181 @@
 parameters:
-	ignoreErrors: []
+	ignoreErrors:
+		-
+			message: '#^Argument of an invalid type list\<string\>\|false supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Cannot access offset 1 on non\-empty\-list\<string\>\|false\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:getBindings\(\) should return list\<mixed\> but returns array\.$#'
+			identifier: return.type
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Parameter \#2 \$bindings of method Ipsocode\\InfluxDB\\InfluxQL\\Builder\:\:send\(\) expects list\<mixed\>, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/InfluxQL/Builder.php
+
+		-
+			message: '#^Cannot access offset 1 on non\-empty\-list\<string\>\|false\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/InfluxQL/Driver/Builder.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Builder\:\:getCountForPagination\(\) should return int\<0, max\> but returns int\.$#'
+			identifier: return.type
+			count: 1
+			path: src/InfluxQL/Driver/Builder.php
+
+		-
+			message: '#^Parameter \#1 \$value of static method Hypervel\\Support\\Arr\:\:wrap\(\) expects array\<int\|string, string\>\|string\|null, array\<int\|string, string\>\|Hypervel\\Contracts\\Database\\Query\\Expression\|string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/InfluxQL/Driver/Builder.php
+
+		-
+			message: '#^Cannot access offset 0 on non\-empty\-list\<string\>\|false\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Cannot access offset 1 on non\-empty\-list\<string\>\|false\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Method Ipsocode\\InfluxDB\\InfluxQL\\Driver\\Grammar\:\:compileWheresToArray\(\) should return list\<array\<string, mixed\>\> but returns array\.$#'
+			identifier: return.type
+			count: 1
+			path: src/InfluxQL/Driver/Grammar.php
+
+		-
+			message: '#^Cannot access offset 0 on list\<string\>\|false\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Cannot access offset 0 on non\-empty\-list\<string\>\|false\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Cannot access offset 1 on list\<string\>\|false\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Cannot access offset 1 on non\-empty\-list\<string\>\|false\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Offset ''column'' might not exist on array\{column\?\: Ipsocode\\InfluxDB\\InfluxQL\\Expression\|string, direction\?\: string\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Offset ''direction'' might not exist on array\{column\?\: Ipsocode\\InfluxDB\\InfluxQL\\Expression\|string, direction\?\: string\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: src/InfluxQL/Grammars/Grammar.php
+
+		-
+			message: '#^Parameter \#6 \$onFailure of class Ipsocode\\InfluxDB\\Write\\BatchOptions constructor expects \(callable\(\)\: mixed\)\|class\-string\|Ipsocode\\InfluxDB\\Write\\FailureStore\|null, \(callable\(\)\: mixed\)\|Ipsocode\\InfluxDB\\Write\\FailureStore\|string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Write/BatchOptions.php
+
+		-
+			message: '#^Parameter \#2 \$points of class Ipsocode\\InfluxDB\\Write\\BufferFullException constructor expects int, int\<1, max\>\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Write/BatchingWriter.php
+
+		-
+			message: '#^Property Ipsocode\\InfluxDB\\Write\\BatchingWriter\:\:\$bufferedSince \(int\|null\) does not accept float\|int\.$#'
+			identifier: assign.propertyType
+			count: 2
+			path: src/Write/BatchingWriter.php
+
+		-
+			message: '#^Trying to invoke \(callable\(\)\: mixed\)\|object but it might not be a callable\.$#'
+			identifier: callable.nonCallable
+			count: 1
+			path: src/Write/BatchingWriter.php
+
+		-
+			message: '#^Access to an undefined property object\:\:\$attempts\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Write/DatabaseFailureStore.php
+
+		-
+			message: '#^Access to an undefined property object\:\:\$bucket\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Write/DatabaseFailureStore.php
+
+		-
+			message: '#^Access to an undefined property object\:\:\$connection\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Write/DatabaseFailureStore.php
+
+		-
+			message: '#^Access to an undefined property object\:\:\$exception\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Write/DatabaseFailureStore.php
+
+		-
+			message: '#^Access to an undefined property object\:\:\$failed_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Write/DatabaseFailureStore.php
+
+		-
+			message: '#^Access to an undefined property object\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Write/DatabaseFailureStore.php
+
+		-
+			message: '#^Access to an undefined property object\:\:\$org\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Write/DatabaseFailureStore.php
+
+		-
+			message: '#^Access to an undefined property object\:\:\$payload\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Write/DatabaseFailureStore.php
+
+		-
+			message: '#^Access to an undefined property object\:\:\$precision\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Write/DatabaseFailureStore.php
+
+		-
+			message: '#^Argument of an invalid type array\|Redis\|RedisCluster\|false supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: src/Write/RedisFailureStore.php
