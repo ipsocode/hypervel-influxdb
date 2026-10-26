@@ -10,7 +10,7 @@ includes:
     - vendor/hypervel/components/src/foundation/extension.neon
 
 parameters:
-    level: 6
+    level: 7
     inferPrivatePropertyTypeFromConstructor: true
     treatPhpDocTypesAsCertain: false
 
