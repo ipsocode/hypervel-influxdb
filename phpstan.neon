@@ -2,7 +2,6 @@
 # and extensions, without its monorepo's parallelism and stubs, at a stricter level: the package
 # goes beyond the level components runs on its own source, one level at a time.
 includes:
-    - phpstan-baseline.neon
     # PHPStan support for Eloquent's forwarded methods, named scopes and Hypervel's helpers. The
     # hypervel/components monorepo installed for development does not register these through
     # `extra.phpstan` as the split packages do, so they are included by path.

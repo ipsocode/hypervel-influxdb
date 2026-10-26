@@ -1185,7 +1185,10 @@ class Builder
 
         // An alias is the name the column comes back under; a type hint is not.
         if (stripos($column, ' as ') !== false) {
-            return preg_split('/\s+as\s+/i', $column, 2)[1];
+            /** @var array{string, string} $segments */
+            $segments = preg_split('/\s+as\s+/i', $column, 2);
+
+            return $segments[1];
         }
 
         return Dialect::stripTypeHint($column);
@@ -1447,7 +1450,7 @@ class Builder
     {
         return $this->send(
             $this->grammar->compileDelete($this),
-            Arr::flatten([$this->bindings['from'], $this->bindings['where']]),
+            array_values(Arr::flatten([$this->bindings['from'], $this->bindings['where']])),
             $this->connection->statement(...),
         );
     }
@@ -1492,7 +1495,7 @@ class Builder
      */
     public function getBindings(): array
     {
-        return Arr::flatten($this->bindings);
+        return array_values(Arr::flatten($this->bindings));
     }
 
     /**
@@ -1659,6 +1662,7 @@ class Builder
     {
         $finder = substr($method, 5);
 
+        /** @var list<string> $segments */
         $segments = preg_split(
             '/(And|Or)(?=[A-Z])/',
             $finder,
