@@ -171,7 +171,7 @@ class Grammar extends QueryGrammar
     /**
      * Get an array of all the where clauses for the query.
      *
-     * @return list<array<string, mixed>>
+     * @return list<string>
      * @throws RuntimeException for whereNot() and orWhereNot(): InfluxQL has no NOT
      */
     protected function compileWheresToArray(Builder $query): array
@@ -182,7 +182,10 @@ class Grammar extends QueryGrammar
             }
         }
 
-        return array_values(parent::compileWheresToArray($query));
+        /** @var list<string> $clauses */
+        $clauses = parent::compileWheresToArray($query);
+
+        return $clauses;
     }
 
     /**

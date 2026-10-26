@@ -1448,9 +1448,12 @@ class Builder
      */
     public function delete(): bool
     {
+        /** @var list<mixed> $bindings */
+        $bindings = Arr::flatten([$this->bindings['from'], $this->bindings['where']]);
+
         return $this->send(
             $this->grammar->compileDelete($this),
-            array_values(Arr::flatten([$this->bindings['from'], $this->bindings['where']])),
+            $bindings,
             $this->connection->statement(...),
         );
     }
@@ -1495,7 +1498,10 @@ class Builder
      */
     public function getBindings(): array
     {
-        return array_values(Arr::flatten($this->bindings));
+        /** @var list<mixed> $bindings */
+        $bindings = Arr::flatten($this->bindings);
+
+        return $bindings;
     }
 
     /**
