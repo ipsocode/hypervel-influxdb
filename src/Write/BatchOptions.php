@@ -118,6 +118,7 @@ final class BatchOptions
             throw self::invalid($connection, 'onFailure', $onFailure, 'a callable or the name of an invokable class');
         }
 
+        /** @var null|callable|class-string|FailureStore $onFailure */
         return new self(
             $batchSize,
             max(1, (int) round($megabytes * 1_000_000)),

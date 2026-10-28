@@ -10,6 +10,7 @@ use Hypervel\Container\Container;
 use Hypervel\Database\ConnectionInterface;
 use Hypervel\Database\DatabaseManager;
 use RuntimeException;
+use stdClass;
 use Throwable;
 
 /**
@@ -92,7 +93,7 @@ final class DatabaseFailureStore implements ReplayableFailureStore
      *
      * @throws RuntimeException when the row is not a batch
      */
-    private function read(object $row): FailedBatch
+    private function read(stdClass $row): FailedBatch
     {
         try {
             return new FailedBatch(

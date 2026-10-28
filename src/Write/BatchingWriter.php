@@ -254,6 +254,7 @@ class BatchingWriter extends WriteApi
         }
 
         // Blank lines are not points: the server skips them.
+        /** @var int<0, max> $points */
         $points = preg_match_all('/^[^\n]*\S[^\n]*$/m', $lines);
 
         if ($points === 0) {
@@ -282,7 +283,7 @@ class BatchingWriter extends WriteApi
         $this->batches[$key]['points'] += $points;
         $this->batches[$key]['bytes'] += 1 + $bytes;
         $this->buffered += $points;
-        $this->bufferedSince ??= hrtime(true);
+        $this->bufferedSince ??= hrtime(true); // @phpstan-ignore assign.propertyType (hrtime(true) is an int on 64-bit PHP)
 
         if ($this->batches[$key]['points'] >= $this->batching->batchSize || $this->batches[$key]['bytes'] >= $this->batching->batchBytes) {
             $this->dispatch($this->take($key));
@@ -367,7 +368,7 @@ class BatchingWriter extends WriteApi
 
         $this->sending -= $batch->points;
         $this->buffered += $batch->points;
-        $this->bufferedSince ??= hrtime(true);
+        $this->bufferedSince ??= hrtime(true); // @phpstan-ignore assign.propertyType (hrtime(true) is an int on 64-bit PHP)
 
         $this->batches[$key] ??= ['bucket' => $batch->bucket, 'org' => $batch->org, 'precision' => $batch->precision, 'lines' => [], 'points' => 0, 'bytes' => -1];
         $this->batches[$key]['lines'] = [$batch->payload, ...$this->batches[$key]['lines']];
@@ -454,7 +455,7 @@ class BatchingWriter extends WriteApi
         $failure = self::attempt(fn () => match (true) {
             $onFailure === null => (new LogFailureStore)->store($this->failed($exception, $attempts)),
             $onFailure instanceof FailureStore => $onFailure->store($this->failed($exception, $attempts)),
-            default => (is_callable($onFailure) ? $onFailure : Container::getInstance()->make($onFailure))($batch, $exception),
+            default => (is_callable($onFailure) ? $onFailure : Container::getInstance()->make($onFailure))($batch, $exception), // @phpstan-ignore callable.nonCallable (BatchOptions checked the class is invokable)
         });
 
         if ($failure !== null) {

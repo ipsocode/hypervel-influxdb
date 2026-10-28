@@ -171,7 +171,7 @@ class Grammar extends QueryGrammar
     /**
      * Get an array of all the where clauses for the query.
      *
-     * @return list<array<string, mixed>>
+     * @return list<string>
      * @throws RuntimeException for whereNot() and orWhereNot(): InfluxQL has no NOT
      */
     protected function compileWheresToArray(Builder $query): array
@@ -182,7 +182,10 @@ class Grammar extends QueryGrammar
             }
         }
 
-        return parent::compileWheresToArray($query);
+        /** @var list<string> $clauses */
+        $clauses = parent::compileWheresToArray($query);
+
+        return $clauses;
     }
 
     /**
@@ -711,6 +714,7 @@ class Grammar extends QueryGrammar
     protected function wrapDistinct(Expression|string $value): string
     {
         if (is_string($value) && stripos($value, ' as ') !== false) {
+            /** @var array{string, string} $segments */
             $segments = preg_split('/\s+as\s+/i', $value, 2);
 
             return 'distinct(' . $this->wrap($segments[0]) . ') as ' . $this->wrapValue($segments[1]);

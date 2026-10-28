@@ -69,7 +69,10 @@ final class RedisFailureStore implements ReplayableFailureStore
         $redis = $this->redis();
         $handed = 0;
 
-        foreach ($redis->lrange($this->key, 0, $limit - 1) as $entry) {
+        /** @var array<int, string> $entries */
+        $entries = $redis->lrange($this->key, 0, $limit - 1);
+
+        foreach ($entries as $entry) {
             $writer($this->read($entry));
             $redis->lrem($this->key, 1, $entry);
 
