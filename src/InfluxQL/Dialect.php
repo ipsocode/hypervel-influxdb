@@ -17,7 +17,7 @@ use Stringable;
  * Expression type: a grammar embeds its own as written and hands every other
  * value to escape().
  *
- * @see docs/ai/internals.md#the-influxql-dialect
+ * @see https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/ai/internals.md#the-influxql-dialect
  */
 final class Dialect
 {

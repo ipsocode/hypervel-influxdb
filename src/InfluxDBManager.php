@@ -255,7 +255,7 @@ class InfluxDBManager
      * any coroutine, so the versions go to the non-coroutine context every worker inherits.
      * Each ping sends `Connection: close`, so the workers inherit no open connection.
      *
-     * @see docs/ai/internals.md#server-version-detection
+     * @see https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/ai/internals.md#server-version-detection
      */
     public function detectServerVersions(): void
     {

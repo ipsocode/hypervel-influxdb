@@ -34,10 +34,10 @@ php artisan vendor:publish --tag=influxdb-config
 ```
 
 Hypervel 0.4 is only available as a dev branch, so your application's
-`composer.json` must already allow it: `"minimum-stability": "dev"` together
-with `"prefer-stable": true`. The default connection then reads the
-[`INFLUXDB_*` environment variables](src/docs/configuration.md#connections),
-and [Getting started](src/docs/getting-started.md) covers tracking `dev-main`,
+`composer.json` must allow it; [Getting started](src/docs/getting-started.md#installing)
+says how. The default connection reads the
+[`INFLUXDB_*` environment variables](src/docs/configuration.md#connections), and
+Getting started covers tracking `dev-main`,
 what is registered for you, and the container.
 
 ## Usage
@@ -63,12 +63,12 @@ starting with [Getting started](src/docs/getting-started.md);
 
 The development setup, the checks CI runs, the coroutine-safety rules every
 change is held to, and how releases are cut are in
-[CONTRIBUTING.md](CONTRIBUTING.md).
+[CONTRIBUTING.md](https://github.com/ipsocode/hypervel-influxdb/blob/main/CONTRIBUTING.md).
 
 ## Security
 
 Report security issues privately, as described in
-[SECURITY.md](.github/SECURITY.md), rather than in a public issue.
+[SECURITY.md](https://github.com/ipsocode/hypervel-influxdb/blob/main/.github/SECURITY.md), rather than in a public issue.
 
 ## Credits
 

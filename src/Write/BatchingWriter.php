@@ -26,7 +26,7 @@ use Throwable;
  * cannot take goes to the connection's fallbacks, when it has any.
  *
  * @see src/docs/writing.md#batching-writes
- * @see docs/ai/internals.md#the-batching-writer
+ * @see https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/ai/internals.md#the-batching-writer
  */
 class BatchingWriter extends WriteApi
 {

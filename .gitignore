@@ -1,6 +1,8 @@
 /.DS_Store
 # Claude Code's local state, such as its settings and worktrees.
 /.claude
+# A local .mcp.json: the package configures no MCP server of its own.
+/.mcp.json
 /vendor
 composer.lock
 # The caches of PHPUnit, php-cs-fixer and PHPStan, and `composer test:coverage`'s report.

@@ -21,7 +21,7 @@ use RuntimeException;
  * is sent; the Dialect writes identifiers and literals. A statement the version
  * does not run is refused as it compiles, before anything is sent.
  *
- * @see docs/ai/internals.md#the-influxql-dialect
+ * @see https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/ai/internals.md#the-influxql-dialect
  */
 abstract class Grammar
 {
