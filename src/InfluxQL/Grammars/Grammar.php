@@ -335,7 +335,7 @@ abstract class Grammar
     /**
      * Compile the "order by" portions of the query.
      *
-     * @param list<array{column?: Expression|string, direction?: string, sql?: Expression|string}> $orders
+     * @param list<array{column: Expression|string, direction: string}|array{sql: Expression|string}> $orders
      */
     protected function compileOrders(Builder $query, array $orders): string
     {
@@ -473,6 +473,7 @@ abstract class Grammar
     protected function wrapDistinct(Expression|string $value): string
     {
         if (is_string($value) && stripos($value, ' as ') !== false) {
+            /** @var array{string, string} $segments */
             $segments = preg_split('/\s+as\s+/i', $value, 2);
 
             return 'distinct(' . $this->wrap($segments[0]) . ') as ' . $this->wrapValue($segments[1]);
@@ -486,6 +487,7 @@ abstract class Grammar
      */
     protected function wrapAliasedValue(string $value): string
     {
+        /** @var array{string, string} $segments */
         $segments = preg_split('/\s+as\s+/i', $value, 2);
 
         return $this->wrap($segments[0]) . ' as ' . $this->wrapValue($segments[1]);

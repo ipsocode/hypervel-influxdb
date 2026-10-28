@@ -326,7 +326,7 @@ class Builder extends QueryBuilder
      */
     public function whereNull(string|array|ExpressionContract $columns, string $boolean = 'and', bool $not = false): static
     {
-        $columns = array_map($this->unqualifyColumn(...), Arr::wrap($columns));
+        $columns = array_map($this->unqualifyColumn(...), is_array($columns) ? $columns : [$columns]);
 
         if ($not && $boolean === 'and' && array_all($columns, $this->comparesForEquality(...))) {
             return $this;
@@ -458,7 +458,10 @@ class Builder extends QueryBuilder
             return $query->runPaginationCountQuery($columns);
         });
 
-        return (int) $this->valueOf($results[0] ?? null, 'aggregate');
+        /** @var int<0, max> $count */
+        $count = (int) $this->valueOf($results[0] ?? null, 'aggregate');
+
+        return $count;
     }
 
     /**
@@ -705,7 +708,10 @@ class Builder extends QueryBuilder
         $column = $column instanceof ExpressionContract ? (string) $this->grammar->getValue($column) : $column;
 
         if (stripos($column, ' as ') !== false) {
-            return preg_split('/\s+as\s+/i', $column, 2)[1];
+            /** @var array{string, string} $segments */
+            $segments = preg_split('/\s+as\s+/i', $column, 2);
+
+            return $segments[1];
         }
 
         return Dialect::stripTypeHint($this->unqualify($column));
