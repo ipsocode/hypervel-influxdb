@@ -10,7 +10,7 @@ use Hypervel\Redis\RedisProxy;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use Ipsocode\InfluxDB\Write\FailedBatch;
 use Ipsocode\InfluxDB\Write\RedisFailureStore;
-use Mockery;
+use Mockery as m;
 use RuntimeException;
 
 /**
@@ -27,7 +27,7 @@ class RedisFailureStoreTest extends TestCase
     {
         parent::setUp();
 
-        $redis = Mockery::mock(RedisProxy::class);
+        $redis = m::mock(RedisProxy::class);
         $redis->shouldReceive('rPush')->andReturnUsing(function (string $key, string $entry) {
             if ($this->pushFails) {
                 return false;
@@ -46,7 +46,7 @@ class RedisFailureStoreTest extends TestCase
             return 1;
         });
 
-        $factory = Mockery::mock(Factory::class);
+        $factory = m::mock(Factory::class);
         $factory->shouldReceive('connection')->with('cache')->andReturn($redis);
         $this->app->instance(Factory::class, $factory);
     }

@@ -26,7 +26,7 @@ use Ipsocode\InfluxDB\Write\BufferFullException;
 use Ipsocode\InfluxDB\Write\FailedBatch;
 use Ipsocode\InfluxDB\Write\FailureStore;
 use Ipsocode\InfluxDB\Write\LogFailureStore;
-use Mockery;
+use Mockery as m;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -671,7 +671,7 @@ class BatchingWriterTest extends TestCase
     public function testTheLogDriverLogsTheFailedBatchAndDropsIt(array $batching): void
     {
         $reported = Exceptions::fake();
-        $logger = Mockery::mock(LoggerInterface::class);
+        $logger = m::mock(LoggerInterface::class);
         $logger->shouldReceive('warning')->once()->withArgs(fn (string $message, array $context): bool => str_contains($message, 'InfluxDB connection [main] dropped a batch for bucket [other-bucket] after 1 attempt: ')
             && $context['connection'] === 'main'
             && $context['bucket'] === 'other-bucket'
@@ -706,7 +706,7 @@ class BatchingWriterTest extends TestCase
         Exceptions::fake();
         $log = tempnam(sys_get_temp_dir(), 'influxdb');
         $previous = ini_set('error_log', $log);
-        $logger = Mockery::mock(LoggerInterface::class);
+        $logger = m::mock(LoggerInterface::class);
         $logger->shouldReceive('warning')->once()->andThrow(new RuntimeException('The logger is down.'));
         $this->app->instance(LoggerInterface::class, $logger);
         $writer = $this->writer([], [new Response(503)]);
@@ -754,7 +754,7 @@ class BatchingWriterTest extends TestCase
         $log = tempnam(sys_get_temp_dir(), 'influxdb');
         $previous = ini_set('error_log', $log);
 
-        $handler = Mockery::mock(ExceptionHandler::class);
+        $handler = m::mock(ExceptionHandler::class);
         $handler->shouldReceive('report')->once()->andThrow(new RuntimeException('The handler is down.'));
         $this->app->instance(ExceptionHandler::class, $handler);
 
