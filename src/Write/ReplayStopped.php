@@ -14,6 +14,6 @@ use RuntimeException;
  *
  * @see src/docs/writing.md#replaying-failed-batches
  */
-final class ReplayStopped extends RuntimeException
+class ReplayStopped extends RuntimeException
 {
 }

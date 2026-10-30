@@ -12,7 +12,7 @@ use stdClass;
  * InfluxDB answers a statement with one series per measurement and GROUP BY tag
  * set; rows() flattens one into the row objects the query builder returns.
  */
-final class Series
+class Series
 {
     /**
      * @param string $name the measurement the rows came from

@@ -14,7 +14,7 @@ namespace Ipsocode\InfluxDB\Write;
  *
  * @see src/docs/writing.md#falling-back-to-other-connections
  */
-final class Availability
+class Availability
 {
     /**
      * When each connection's cooldown ends, in hrtime() nanoseconds, by connection name.

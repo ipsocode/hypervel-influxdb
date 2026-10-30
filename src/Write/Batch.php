@@ -12,7 +12,7 @@ namespace Ipsocode\InfluxDB\Write;
  *
  * @see src/docs/writing.md#when-a-batch-cannot-be-written
  */
-final class Batch
+class Batch
 {
     /**
      * @param string $connection the name of the connection that buffered it

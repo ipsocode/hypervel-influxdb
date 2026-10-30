@@ -18,7 +18,7 @@ use Throwable;
  *
  * @see src/docs/writing.md#the-redis-driver
  */
-final class RedisFailureStore implements ReplayableFailureStore
+class RedisFailureStore implements ReplayableFailureStore
 {
     public const string DRIVER = 'redis';
 
