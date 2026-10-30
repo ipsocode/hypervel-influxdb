@@ -87,8 +87,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          line="**Base branch: \`${BRANCH}\`.** Branch from \`${BRANCH}\` and open the pull request against it, not the default branch. Close this issue by hand when the pull request merges there, since closing keywords act only on the default branch."
-          footer="> **How this issue works.** The routines action this umbrella top to bottom. Each pull request batches the next unchecked items in order, skipping any that wait on an open issue or are blocked, at most 10 changed files and one coherent change, on a new branch \`routine/group-${NUMBER}-<first item#>-<slug>\` cut from this issue's feature branch (the \"Base branch\" line above), and is opened ready for review against it. Its body says Refs this issue and Closes #N for each item it completes. Closing keywords act only on the default branch, so whoever merges a part closes its issues by hand, with a comment naming the pull request, and ticks their boxes here. Don't tick boxes when a pull request opens."
+          line="**Base branch: \`${BRANCH}\`.** Branch from \`${BRANCH}\` and open the pull request against it, not the default branch. Close this issue when the pull request merges there, since closing keywords act only on the default branch."
+          footer="> **How this issue works.** The routines action this umbrella top to bottom. Each pull request batches the next unchecked items in order, skipping any that wait on an open issue or are blocked, at most 10 changed files and one coherent change, on a new branch \`routine/group-${NUMBER}-<first item#>-<slug>\` cut from this issue's feature branch (the \"Base branch\" line above), and is opened ready for review against it. Its body says Refs this issue and Closes #N for each item it completes. Closing keywords act only on the default branch, so whoever merges a part closes its issues, with a comment naming the pull request, and ticks their boxes here. Don't tick boxes when a pull request opens."
 
           issue=$(gh api "repos/${REPO}/issues/${NUMBER}")
           body=$(jq -r '(.body // "") | gsub("\r"; "")' <<< "${issue}")
