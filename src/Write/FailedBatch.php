@@ -12,7 +12,7 @@ use Throwable;
  *
  * @see src/docs/writing.md#when-a-batch-cannot-be-written
  */
-final class FailedBatch
+class FailedBatch
 {
     /**
      * @param string $connection the name of the connection that buffered it

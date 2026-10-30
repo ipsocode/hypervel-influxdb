@@ -16,7 +16,7 @@ use Ipsocode\InfluxDB\InfluxQL\Version;
  *
  * @see src/docs/writing.md#when-a-batch-is-sent
  */
-final class BatchOptions
+class BatchOptions
 {
     /**
      * Past `maxBuffered`, write() sends the buffer itself before it returns.

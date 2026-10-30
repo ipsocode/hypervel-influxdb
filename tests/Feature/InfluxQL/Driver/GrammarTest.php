@@ -22,7 +22,7 @@ use Ipsocode\InfluxDB\InfluxQL\Regex;
 use Ipsocode\InfluxDB\InfluxQL\Version;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use LogicException;
-use Mockery;
+use Mockery as m;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 
@@ -1168,7 +1168,7 @@ class GrammarTest extends TestCase
      */
     private function builder(Version $version = Version::V1, ?string $retentionPolicy = null): Builder
     {
-        $connection = Mockery::mock(Connection::class);
+        $connection = m::mock(Connection::class);
         $connection->shouldReceive('prepareBindings')->andReturnUsing(static fn (array $bindings): array => $bindings);
         $connection->shouldReceive('getDatabaseName')->andReturn('telegraf');
 

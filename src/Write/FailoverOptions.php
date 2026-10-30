@@ -12,7 +12,7 @@ use InvalidArgumentException;
  *
  * @see src/docs/writing.md#falling-back-to-other-connections
  */
-final class FailoverOptions
+class FailoverOptions
 {
     /**
      * The seconds a connection that failed is skipped when `cooldown` is not set.
