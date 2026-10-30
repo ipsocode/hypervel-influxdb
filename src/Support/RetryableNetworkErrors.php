@@ -19,7 +19,7 @@ use Psr\Http\Message\RequestInterface;
  * implements PSR-18's NetworkExceptionInterface instead, so a refused connection, a DNS failure,
  * a reset or a timeout was never retried.
  */
-final class RetryableNetworkErrors implements Plugin
+class RetryableNetworkErrors implements Plugin
 {
     public function handleRequest(RequestInterface $request, callable $next, callable $first): Promise
     {

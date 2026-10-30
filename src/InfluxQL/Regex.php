@@ -10,7 +10,7 @@ namespace Ipsocode\InfluxDB\InfluxQL;
  * InfluxQL writes it as /pattern/, neither a string nor an identifier, so it travels
  * through the bindings as this type. The pattern is given without delimiters.
  */
-final class Regex
+class Regex
 {
     public function __construct(
         public readonly string $pattern,

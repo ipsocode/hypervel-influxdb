@@ -21,7 +21,7 @@ use Throwable;
  *
  * @see src/docs/writing.md#the-database-driver
  */
-final class DatabaseFailureStore implements ReplayableFailureStore
+class DatabaseFailureStore implements ReplayableFailureStore
 {
     public const string DRIVER = 'database';
 
