@@ -14,7 +14,7 @@ use Ipsocode\InfluxDB\Tests\Concerns\MocksWrites;
 use Ipsocode\InfluxDB\Tests\Fixtures\InMemoryFailureStore;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use Ipsocode\InfluxDB\Write\FailedBatch;
-use Mockery;
+use Mockery as m;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -105,7 +105,7 @@ class ReplayFailedTest extends TestCase
         $store = $this->store([$this->failed('cpu load=1i 1', 1)]);
         $this->connection($store, [new Response(400, [], 'refused')], ['maxAttempts' => 2]);
 
-        $logger = Mockery::mock(LoggerInterface::class);
+        $logger = m::mock(LoggerInterface::class);
         $logger->shouldReceive('warning')->once()->withArgs(fn (string $message): bool => str_contains($message, 'dropped a batch for bucket [main-bucket] after 2 attempts: '));
         $this->app->instance(LoggerInterface::class, $logger);
 
