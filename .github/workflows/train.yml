@@ -121,7 +121,7 @@ jobs:
           # Open this week's pull request.
           if [ -n "${current}" ]; then
             cur_branch="bug-fixes/fixes-${release:2}"
-            if ! gh api "repos/${REPO}/git/matching-refs/${cur_branch}" --jq '.[].ref' | grep -qxF "refs/heads/${cur_branch}"; then
+            if ! gh api "repos/${REPO}/git/matching-refs/heads/${cur_branch}" --jq '.[].ref' | grep -qxF "refs/heads/${cur_branch}"; then
               cur_branch=""
             fi
             if [ -z "${cur_branch}" ]; then
