@@ -34,7 +34,7 @@ abstract class Measurement extends Model
     /**
      * The primary key for the model.
      */
-    protected string $primaryKey = 'time';
+    protected ?string $primaryKey = 'time';
 
     /**
      * The "type" of the primary key: a timestamp, as the server returns it.
