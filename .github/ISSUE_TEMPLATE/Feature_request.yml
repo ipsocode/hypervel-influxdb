@@ -33,3 +33,9 @@ body:
       placeholder: "- [ ] The docs describe it."
     validations:
       required: false
+  - type: input
+    attributes:
+      label: Plan
+      description: The name of the plan a maintainer wrote for this feature, if there is one, such as `acl-package`. Leave it empty otherwise.
+    validations:
+      required: false
