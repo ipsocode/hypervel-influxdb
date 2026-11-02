@@ -29,11 +29,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           LABEL_TOKEN: ${{ secrets.TRAIN_TOKEN || github.token }}
+          HAS_TRAIN_TOKEN: ${{ secrets.TRAIN_TOKEN != '' }}
           REPO: ${{ github.repository }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
+
+          if [ "${HAS_TRAIN_TOKEN}" != true ]; then
+            echo "::warning::The TRAIN_TOKEN secret is not set; labelling with the workflow's token."
+          fi
 
           if ! [[ "${HEAD_BRANCH}" =~ ^(bug-fixes|feature|routine)/ ]]; then
             echo "${HEAD_BRANCH} is not a train, feature or routine branch; nothing to do."
@@ -71,6 +76,9 @@ jobs:
             body="The checks failed on ${HEAD_SHA:0:7}: labelled claude-fix (fix pass $((passes + 1)) of 3)."
           fi
 
+          if [ "${label}" = claude-fix ] && [[ "${HEAD_BRANCH}" =~ ^(bug-fixes|feature)/ ]]; then
+            GH_TOKEN="${LABEL_TOKEN}" gh api -X PATCH "repos/${REPO}/issues/${number}" -f 'assignees[]=ipsocode' > /dev/null
+          fi
           GH_TOKEN="${LABEL_TOKEN}" gh api -X POST "repos/${REPO}/issues/${number}/labels" -f "labels[]=${label}" > /dev/null
           GH_TOKEN="${LABEL_TOKEN}" gh api -X POST "repos/${REPO}/issues/${number}/comments" -f body="${body}" > /dev/null
           echo "Labelled #${number} ${label} after ${passes} earlier fix passes."
