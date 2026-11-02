@@ -14,7 +14,7 @@ on:
         type: string
         default: ''
       highlights:
-        description: Markdown placed above the generated notes — what a consumer must know
+        description: Markdown placed above the generated notes. Empty = the Release note sections of the pull requests merged since the previous tag
         type: string
         default: ''
       dry_run:
@@ -274,6 +274,38 @@ jobs:
           set -euo pipefail
 
           hypervel_constraint=$(jq -r '.require["hypervel/components"]' composer.json)
+
+          release_note() {
+            awk '/^## / { if (found) exit } /^## Release note[[:space:]]*$/ { found = 1; next } found' \
+              | sed -e 's/\r$//' -e 's/[[:space:]]*$//' \
+              | sed -e '/./,$!d' | sed -e ':a' -e '/^\n*$/{$d;N;ba' -e '}'
+          }
+
+          if [ -z "${HIGHLIGHTS}" ]; then
+            dir=$(mktemp -d)
+            : > "${dir}/0"; : > "${dir}/1"; : > "${dir}/2"
+            while IFS=$'\t' read -r merge_sha number labels; do
+              [ -n "${merge_sha}" ] || continue
+              git cat-file -e "${merge_sha}^{commit}" 2> /dev/null || continue
+              git merge-base --is-ancestor "${merge_sha}" "${SHA}" || continue
+              if [ -n "${PREVIOUS}" ] && git merge-base --is-ancestor "${merge_sha}" "${PREVIOUS}^{commit}"; then
+                continue
+              fi
+              note=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${number}" --jq '.body // ""' | release_note)
+              plain=$(tr '[:upper:]' '[:lower:]' <<< "${note}" | sed -e 's/^[-* ]*//' -e 's/\.$//')
+              if [ -z "${note}" ] || [ "${plain}" = none ]; then
+                continue
+              fi
+              case ",${labels}," in
+                *,breaking-change,*) rank=0 ;;
+                *,enhancement,*) rank=1 ;;
+                *) rank=2 ;;
+              esac
+              printf '%s\n' "${note}" >> "${dir}/${rank}"
+            done < <(gh pr list --repo "${GITHUB_REPOSITORY}" --state merged --base main --limit 200 \
+                       --json number,mergeCommit,labels --jq '.[] | "\(.mergeCommit.oid)\t\(.number)\t\(.labels | map(.name) | join(","))"')
+            HIGHLIGHTS=$(cat "${dir}/0" "${dir}/1" "${dir}/2")
+          fi
 
           {
             echo "Requires \`hypervel/components\` \`${hypervel_constraint}\`, which also sets the PHP version."
