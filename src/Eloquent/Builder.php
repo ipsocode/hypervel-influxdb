@@ -89,7 +89,7 @@ class Builder extends EloquentBuilder
     public function whereKey(mixed $id, string $boolean = 'and', bool $not = false): static
     {
         if ($id instanceof DateTimeInterface) {
-            $this->query->where($this->model->getQualifiedKeyName(), $not ? '<>' : '=', $id, $boolean);
+            $this->query->where($this->getModel()->getQualifiedKeyName(), $not ? '<>' : '=', $id, $boolean);
 
             return $this;
         }
@@ -140,7 +140,7 @@ class Builder extends EloquentBuilder
      */
     protected function refuseTimeKeyedPaging(?string $column, string $method): void
     {
-        if ($column === null || $column === $this->model->getKeyName()) {
+        if ($column === null || $column === $this->getModel()->getKeyName()) {
             throw new LogicException(sprintf('%s pages on time, which several series can share, so it would skip points; page with chunk() or lazy().', $method));
         }
     }
