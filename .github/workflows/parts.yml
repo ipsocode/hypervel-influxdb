@@ -62,8 +62,28 @@ jobs:
             parent=$(gh api "repos/${REPO}/issues/${NUMBER}/parent" 2> /dev/null) || parent=""
           fi
           if [ -z "${parent}" ]; then
-            echo "#${NUMBER} has no parent issue; nothing to link."
-            exit 0
+            high=$(jq -r 'any(.labels[].name; . == "priority: high")' <<< "${issue}")
+            if [ "${priority:-}" = "high" ]; then
+              high=true
+            fi
+            if [ "${high}" = "true" ] || ! jq -e '[.labels[].name] as $l | (($l | index("bug")) or ($l | index("performance"))) and ($l | index("breaking-change") | not)' <<< "${issue}" > /dev/null; then
+              echo "#${NUMBER} is not a bug or performance issue for the weekly train; nothing to link."
+              exit 0
+            fi
+
+            train=$(gh api --paginate "repos/${REPO}/issues?state=open&labels=bug&per_page=100" \
+              --jq '.[] | select(.pull_request | not) | select(.title | startswith("[Tracking] Fixes for ")) | "\(.title)\t\(.number)\t\(.milestone.number // "")"' | sort | head -n 1)
+            if [ -z "${train}" ]; then
+              summary "There is no open fixes train for #${NUMBER} to join; the next weekly run of train.yml creates one."
+              exit 0
+            fi
+            IFS=$'\t' read -r _ umbrella milestone <<< "${train}"
+            gh api -X POST "repos/${REPO}/issues/${umbrella}/sub_issues" -F sub_issue_id="$(jq -r '.id' <<< "${issue}")" > /dev/null
+            if [ -n "${milestone}" ] && jq -e '.milestone == null' <<< "${issue}" > /dev/null; then
+              gh api -X PATCH "repos/${REPO}/issues/${NUMBER}" -F milestone="${milestone}" > /dev/null
+            fi
+            summary "Attached #${NUMBER} to the current fixes train #${umbrella}."
+            parent=$(gh api "repos/${REPO}/issues/${umbrella}")
           fi
 
           umbrella=$(jq -r '.number' <<< "${parent}")

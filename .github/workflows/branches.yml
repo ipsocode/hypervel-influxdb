@@ -3,7 +3,7 @@ name: branches
 
 on:
   issues:
-    types: [opened, edited, milestoned]
+    types: [opened, edited, milestoned, labeled]
 
 permissions:
   contents: write
@@ -15,8 +15,8 @@ concurrency:
 
 jobs:
   link:
-    name: Create the umbrella's feature branch
-    if: github.event.issue.state == 'open' && !github.event.issue.pull_request && github.event.issue.milestone && startsWith(github.event.issue.title, '[Tracking]')
+    name: Create the feature's branch
+    if: github.event.issue.state == 'open' && !github.event.issue.pull_request && github.event.issue.milestone && (contains(github.event.issue.labels.*.name, 'enhancement') || contains(github.event.issue.labels.*.name, 'breaking-change'))
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
@@ -36,20 +36,12 @@ jobs:
             exit 0
           fi
 
-          for prefix in feature bug-fixes; do
-            existing=$(gh api "repos/${REPO}/git/matching-refs/heads/${prefix}/${NUMBER}-" --jq '.[0].ref // empty')
-            if [ -n "${existing}" ]; then
-              echo "#${NUMBER} already has ${existing#refs/heads/}."
-              echo "branch=${existing#refs/heads/}" >> "${GITHUB_OUTPUT}"
-              exit 0
-            fi
-          done
-
-          kind=$(jq -r '
-            [.labels[].name]
-            | map(select(IN("bug", "coroutine-safety", "security", "performance", "conformance", "enhancement", "documentation", "breaking-change")))
-            | if length > 0 and (any(IN("enhancement", "breaking-change")) | not) then "bug-fixes" else "feature" end
-          ' <<< "${issue}")
+          existing=$(gh api "repos/${REPO}/git/matching-refs/heads/feature/${NUMBER}-" --jq '.[0].ref // empty')
+          if [ -n "${existing}" ]; then
+            echo "#${NUMBER} already has ${existing#refs/heads/}."
+            echo "branch=${existing#refs/heads/}" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
 
           slug=$(jq -r '
             .title
@@ -64,9 +56,9 @@ jobs:
             slug="${slug:0:40}"
           fi
           slug="${slug%-}"
-          slug="${slug:-umbrella}"
+          slug="${slug:-feature}"
 
-          branch="${kind}/${NUMBER}-${slug}"
+          branch="feature/${NUMBER}-${slug}"
           if ! gh issue develop "${NUMBER}" --repo "${REPO}" --base main --name "${branch}"; then
             if ! gh api "repos/${REPO}/git/matching-refs/heads/${branch}" --jq '.[].ref' | grep -qxF "refs/heads/${branch}"; then
               echo "gh issue develop failed and ${branch} does not exist."
@@ -77,7 +69,7 @@ jobs:
           echo "Created ${branch}, linked to #${NUMBER}."
           echo "Created \`${branch}\`, linked to #${NUMBER}." >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Write the umbrella's body
+      - name: Write the issue's base-branch line
         if: steps.branch.outputs.branch != ''
         env:
           GH_TOKEN: ${{ github.token }}
@@ -87,28 +79,21 @@ jobs:
         run: |
           set -euo pipefail
 
-          line="**Base branch: \`${BRANCH}\`.** Branch from \`${BRANCH}\` and open the pull request against it, not the default branch. Close this issue when the pull request merges there, since closing keywords act only on the default branch."
-          footer="> **How this issue works.** The routines action this umbrella top to bottom. Each pull request batches the next unchecked items in order, skipping any that wait on an open issue or are blocked, at most 10 changed files and one coherent change, on a new branch \`routine/group-${NUMBER}-<first item#>-<slug>\` cut from this issue's feature branch (the \"Base branch\" line above), and is opened ready for review against it. Its body says Refs this issue and Closes #N for each item it completes. Closing keywords act only on the default branch, so whoever merges a part closes its issues, with a comment naming the pull request, and ticks their boxes here. Don't tick boxes when a pull request opens."
+          line="**Base branch: \`${BRANCH}\`.** Commit the work to \`${BRANCH}\`. Its pull request into \`main\` is the only one, and it closes this issue when it merges."
 
           issue=$(gh api "repos/${REPO}/issues/${NUMBER}")
           body=$(jq -r '(.body // "") | gsub("\r"; "")' <<< "${issue}")
 
-          new=$(jq -rn --arg body "${body}" --arg line "${line}" --arg footer "${footer}" '
+          new=$(jq -rn --arg body "${body}" --arg line "${line}" '
             ($body | sub("^\\s+"; "") | sub("\\s+$"; "")) as $old
-            | $old
-            | if test("Base branch: `") then . else ([$line, .] | map(select(. != "")) | join("\n\n")) end
-            | if test("(?m)^##\\s+Parts\\s*$") then .
-              elif test("(?m)^> \\*\\*How this issue works") then sub("(?m)^> \\*\\*How this issue works"; "## Parts\n\n> **How this issue works")
-              else . + "\n\n## Parts" end
-            | if test("How this issue works") then . else . + "\n\n" + $footer end
-            | if . == $old then empty else . end
+            | if $old | test("Base branch: `") then empty else ([$line, $old] | map(select(. != "")) | join("\n\n")) end
           ')
 
           if [ -z "${new}" ]; then
-            echo "#${NUMBER}'s body already has its base-branch line, parts and footer."
+            echo "#${NUMBER}'s body already has its base-branch line."
             exit 0
           fi
 
           gh api -X PATCH "repos/${REPO}/issues/${NUMBER}" -f body="${new}" > /dev/null
-          echo "Wrote #${NUMBER}'s base-branch line, parts and footer."
-          echo "Wrote #${NUMBER}'s base-branch line, parts and footer." >> "${GITHUB_STEP_SUMMARY}"
+          echo "Wrote #${NUMBER}'s base-branch line."
+          echo "Wrote #${NUMBER}'s base-branch line." >> "${GITHUB_STEP_SUMMARY}"
