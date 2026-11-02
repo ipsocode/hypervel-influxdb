@@ -72,7 +72,7 @@ jobs:
             fi
 
             train=$(gh api --paginate "repos/${REPO}/issues?state=open&labels=bug&per_page=100" \
-              --jq '.[] | select(.pull_request | not) | select(.title | startswith("[Tracking] Fixes for ")) | "\(.title)\t\(.number)\t\(.milestone.number // "")"' | sort | head -n 1)
+              --jq '.[] | select(.pull_request | not) | select(.title | startswith("[Tracking] Fixes for ")) | "\(.title)\t\(.number)\t\(.milestone.number // "")"' | sort | tail -n 1)
             if [ -z "${train}" ]; then
               summary "There is no open fixes train for #${NUMBER} to join; the next weekly run of train.yml creates one."
               exit 0

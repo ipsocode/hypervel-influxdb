@@ -24,7 +24,7 @@ jobs:
       - name: Open next week's train, carry unfinished parts over, open this week's PR
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_TOKEN: ${{ secrets.TRAIN_TOKEN || github.token }}
+          PR_TOKEN: ${{ secrets.TRAIN_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -39,6 +39,15 @@ jobs:
               --jq '.[] | select(.pull_request | not) | select(.title | startswith("[Tracking] Fixes for ")) | "\(.title | ltrimstr("[Tracking] Fixes for "))\t\(.number)\t\(.milestone.number // "")"'
           }
 
+          if [ -z "${PR_TOKEN}" ]; then
+            echo "::error::The TRAIN_TOKEN secret is not set. The train's pull request would open without CI and without ipsocode as its author, which the final-PR review refuses."
+            exit 1
+          fi
+          if ! GH_TOKEN="${PR_TOKEN}" gh api user --jq .login > /dev/null; then
+            echo "::error::TRAIN_TOKEN does not authenticate (expired or revoked). Replace it before the train's pull request can open."
+            exit 1
+          fi
+
           today=$(date -u +%F)
           release="${today}"
           until [ "$(date -u -d "${release}" +%u)" = 2 ] && [ "${release}" != "${today}" ]; do
@@ -49,6 +58,8 @@ jobs:
           current_line=$(trains | awk -F '\t' -v d="${release}" '$1 == d' | head -n 1)
           if [ -n "${current_line}" ]; then
             IFS=$'\t' read -r _ current _ <<< "${current_line}"
+            next=$(date -u -d "${release} + 7 days" +%F)
+          elif [ "${release}" = "$(date -u -d "${today} + 1 day" +%F)" ]; then
             next=$(date -u -d "${release} + 7 days" +%F)
           else
             next="${release}"
@@ -143,8 +154,12 @@ jobs:
                 fixed=$(gh api --paginate "repos/${REPO}/issues/${current}/sub_issues?per_page=100" --jq '.[] | select(.state == "closed") | "- #\(.number) \(.title)"')
                 pr_body=$(printf 'Closes #%s\n\nFixes in this release:\n\n%s\n' "${current}" "${fixed}")
                 url=$(GH_TOKEN="${PR_TOKEN}" gh pr create --repo "${REPO}" --base main --head "${cur_branch}" --title "Fixes for ${release}" --body "${pr_body}" --label bug --milestone "${release}")
-                GH_TOKEN="${PR_TOKEN}" gh pr edit "${url}" --repo "${REPO}" --add-assignee dangerdd1 > /dev/null
-                [ -z "${conflict}" ] || GH_TOKEN="${PR_TOKEN}" gh pr edit "${url}" --repo "${REPO}" --add-label claude-fix > /dev/null
+                if [ -z "${conflict}" ]; then
+                  GH_TOKEN="${PR_TOKEN}" gh pr edit "${url}" --repo "${REPO}" --add-assignee dangerdd1 > /dev/null
+                else
+                  GH_TOKEN="${PR_TOKEN}" gh pr edit "${url}" --repo "${REPO}" --add-assignee ipsocode > /dev/null
+                  GH_TOKEN="${PR_TOKEN}" gh pr edit "${url}" --repo "${REPO}" --add-label claude-fix > /dev/null
+                fi
                 summary "Opened ${url} for #${current}$([ -z "${conflict}" ] || echo ', with merge conflicts: labelled claude-fix')."
               fi
             fi
