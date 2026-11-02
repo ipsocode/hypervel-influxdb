@@ -12,6 +12,8 @@ Closes #
 
 ## Behaviour change
 
+## Release note
+
 ## Coroutine safety
 
 Hypervel runs in long-lived Swoole workers serving concurrent requests via coroutines.

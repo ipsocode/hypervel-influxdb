@@ -152,7 +152,8 @@ jobs:
                 conflict=""
                 gh api -X POST "repos/${REPO}/merges" -f base="${cur_branch}" -f head=main -f commit_message="Merge main into ${cur_branch}" > /dev/null 2>&1 || conflict=yes
                 fixed=$(gh api --paginate "repos/${REPO}/issues/${current}/sub_issues?per_page=100" --jq '.[] | select(.state == "closed") | "- #\(.number) \(.title)"')
-                pr_body=$(printf 'Closes #%s\n\nFixes in this release:\n\n%s\n' "${current}" "${fixed}")
+                notes=$(gh api --paginate "repos/${REPO}/issues/${current}/sub_issues?per_page=100" --jq '.[] | select(.state == "closed") | "- Fixed: \(.title) (#\(.number))"')
+                pr_body=$(printf 'Closes #%s\n\nFixes in this release:\n\n%s\n\n## Release note\n\n%s\n' "${current}" "${fixed}" "${notes:-none}")
                 url=$(GH_TOKEN="${PR_TOKEN}" gh pr create --repo "${REPO}" --base main --head "${cur_branch}" --title "Fixes for ${release}" --body "${pr_body}" --label bug --milestone "${release}")
                 if [ -z "${conflict}" ]; then
                   GH_TOKEN="${PR_TOKEN}" gh pr edit "${url}" --repo "${REPO}" --add-assignee dangerdd1 > /dev/null
