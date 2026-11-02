@@ -13,7 +13,7 @@ use stdClass;
  * one of these per statement, in order. A statement that failed carries its
  * error message here instead of series — the HTTP status is still 200.
  */
-final class Result
+class Result
 {
     /**
      * @param list<Series> $series

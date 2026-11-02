@@ -13,7 +13,7 @@ use Ipsocode\InfluxDB\Jobs\ReplayFailedBatch;
  *
  * @see src/docs/writing.md#the-queue-driver
  */
-final class QueueFailureStore implements FailureStore
+class QueueFailureStore implements FailureStore
 {
     public const string DRIVER = 'queue';
 

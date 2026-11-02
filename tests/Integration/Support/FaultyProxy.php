@@ -15,7 +15,7 @@ use Swoole\Coroutine;
  * is passed to the server unchanged, and a client opens a new connection for the one after a drop.
  * Run it in the test's coroutine, where the socket functions yield to the other coroutines.
  */
-final class FaultyProxy
+class FaultyProxy
 {
     /**
      * The connections accepted so far.

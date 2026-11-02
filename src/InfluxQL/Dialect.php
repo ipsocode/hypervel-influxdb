@@ -19,7 +19,7 @@ use Stringable;
  *
  * @see https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/ai/internals.md#the-influxql-dialect
  */
-final class Dialect
+class Dialect
 {
     /**
      * The format a timestamp is embedded in: RFC3339, in UTC, to the microsecond.

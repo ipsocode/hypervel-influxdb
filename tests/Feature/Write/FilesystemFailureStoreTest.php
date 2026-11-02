@@ -10,7 +10,7 @@ use Hypervel\Contracts\Filesystem\Filesystem;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use Ipsocode\InfluxDB\Write\FailedBatch;
 use Ipsocode\InfluxDB\Write\FilesystemFailureStore;
-use Mockery;
+use Mockery as m;
 use RuntimeException;
 
 /**
@@ -165,9 +165,9 @@ class FilesystemFailureStoreTest extends TestCase
 
     public function testADiskThatCannotBeWrittenToIsReported(): void
     {
-        $disk = Mockery::mock(Filesystem::class);
+        $disk = m::mock(Filesystem::class);
         $disk->shouldReceive('put')->once()->andReturn(false);
-        $factory = Mockery::mock(Factory::class);
+        $factory = m::mock(Factory::class);
         $factory->shouldReceive('disk')->with('failed')->andReturn($disk);
         $this->app->instance(Factory::class, $factory);
 

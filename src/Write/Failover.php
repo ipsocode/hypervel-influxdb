@@ -23,7 +23,7 @@ use Throwable;
  * @see src/docs/writing.md#falling-back-to-other-connections
  * @see https://github.com/ipsocode/hypervel-influxdb/blob/main/docs/ai/internals.md#falling-back
  */
-final class Failover
+class Failover
 {
     use ReportsFailures;
 

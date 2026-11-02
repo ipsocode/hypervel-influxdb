@@ -10,7 +10,7 @@ use Ipsocode\InfluxDB\Write\BatchWriteException;
 /**
  * An invokable `onFailure`, standing in for the spill an application writes failed batches to.
  */
-final class RecordsFailures
+class RecordsFailures
 {
     /**
      * The batches it was handed, oldest first.

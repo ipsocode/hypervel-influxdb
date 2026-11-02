@@ -16,7 +16,7 @@ use Throwable;
  *
  * @see src/docs/writing.md#when-a-batch-cannot-be-written
  */
-final class LogFailureStore implements FailureStore
+class LogFailureStore implements FailureStore
 {
     public const string DRIVER = 'log';
 
