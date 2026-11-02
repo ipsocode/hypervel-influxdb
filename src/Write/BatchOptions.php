@@ -189,6 +189,7 @@ class BatchOptions
      * Read an option of a failure store driver that must be a non-empty string.
      *
      * @param array<array-key, mixed> $options
+     * @return ($default is string ? string : null|string)
      */
     private static function storeOption(array $options, string $key, ?string $default, string $connection): ?string
     {
