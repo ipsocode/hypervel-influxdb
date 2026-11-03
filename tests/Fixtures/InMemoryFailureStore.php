@@ -7,6 +7,7 @@ namespace Ipsocode\InfluxDB\Tests\Fixtures;
 use Ipsocode\InfluxDB\Write\FailedBatch;
 use Ipsocode\InfluxDB\Write\ReplayableFailureStore;
 use RuntimeException;
+use Throwable;
 
 /**
  * A ReplayableFailureStore that keeps its batches in an array, oldest first.
@@ -19,6 +20,11 @@ final class InMemoryFailureStore implements ReplayableFailureStore
     public bool $broken = false;
 
     /**
+     * What store() throws instead of keeping a batch, when set.
+     */
+    public ?Throwable $storeFailure = null;
+
+    /**
      * @param list<FailedBatch> $batches
      */
     public function __construct(public array $batches = [])
@@ -27,6 +33,10 @@ final class InMemoryFailureStore implements ReplayableFailureStore
 
     public function store(FailedBatch $batch): void
     {
+        if ($this->storeFailure !== null) {
+            throw $this->storeFailure;
+        }
+
         $this->batches[] = $batch;
     }
 

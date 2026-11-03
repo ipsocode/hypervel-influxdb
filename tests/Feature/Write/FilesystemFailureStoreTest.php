@@ -7,6 +7,8 @@ namespace Ipsocode\InfluxDB\Tests\Feature\Write;
 use DateTimeImmutable;
 use Hypervel\Contracts\Filesystem\Factory;
 use Hypervel\Contracts\Filesystem\Filesystem;
+use Hypervel\Contracts\Foundation\Application as ApplicationContract;
+use Hypervel\Filesystem\Filesystem as Files;
 use Hypervel\Testing\ParallelTesting;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use Ipsocode\InfluxDB\Write\FailedBatch;
@@ -21,29 +23,26 @@ class FilesystemFailureStoreTest extends TestCase
 {
     private string $root;
 
-    protected function setUp(): void
+    protected function defineEnvironment(ApplicationContract $app): void
     {
-        parent::setUp();
-
         $this->root = ParallelTesting::tempDir('influxdb-failed');
-        mkdir($this->root, recursive: true);
 
-        $config = $this->app->get('config');
+        $config = $app->get('config');
         $config->set('filesystems.disks.failed', ['driver' => 'local', 'root' => $this->root]);
         $config->set('filesystems.default', 'failed');
     }
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        (new Files)->deleteDirectory($this->root);
+        mkdir($this->root, recursive: true);
+    }
+
     protected function tearDown(): void
     {
-        foreach (glob($this->root . '/*/*') ?: [] as $file) {
-            unlink($file);
-        }
-
-        foreach (glob($this->root . '/*') ?: [] as $entry) {
-            is_dir($entry) ? rmdir($entry) : unlink($entry);
-        }
-
-        rmdir($this->root);
+        (new Files)->deleteDirectory($this->root);
 
         parent::tearDown();
     }

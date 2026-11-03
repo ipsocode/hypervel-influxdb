@@ -14,6 +14,7 @@ use Http\Client\Common\PluginClient;
 use Http\Client\Exception\NetworkException;
 use Hypervel\Context\CoroutineContext;
 use Hypervel\Database\Pool\ConnectionLease;
+use Hypervel\Filesystem\Filesystem;
 use Hypervel\Testing\ParallelTesting;
 use InfluxDB2\ApiException;
 use InfluxDB2\Client;
@@ -43,21 +44,15 @@ class NetworkRetryTest extends TestCase
         parent::setUp();
 
         $directory = ParallelTesting::tempDir('influxdb-retry');
-
-        if (! is_dir($directory)) {
-            mkdir($directory, recursive: true);
-        }
+        (new Filesystem)->deleteDirectory($directory);
+        mkdir($directory, recursive: true);
 
         $this->log = $directory . '/client.log';
     }
 
     protected function tearDown(): void
     {
-        if (is_file($this->log)) {
-            unlink($this->log);
-        }
-
-        rmdir(dirname($this->log));
+        (new Filesystem)->deleteDirectory(dirname($this->log));
 
         parent::tearDown();
     }
@@ -112,19 +107,21 @@ class NetworkRetryTest extends TestCase
         $lease->shouldReceive('releaseIfIdle')->twice();
         CoroutineContext::set('__influxdb.test.lease', $lease);
 
-        $options = (new InfluxDBFactory)->make($this->config())->options;
+        $httpClient = (new InfluxDBFactory)->make($this->config())->options['httpClient'];
 
-        $plugins = (new ReflectionProperty(PluginClient::class, 'plugins'))->getValue($options['httpClient']);
+        $plugins = (new ReflectionProperty(PluginClient::class, 'plugins'))->getValue($httpClient);
 
         $this->assertInstanceOf(ReleasesIdleDatabaseConnections::class, $plugins[0]);
         $this->assertInstanceOf(RetryableNetworkErrors::class, $plugins[1]);
 
-        $client = new PluginClient(
-            new Guzzle(['handler' => HandlerStack::create(new MockHandler([new Response(204), new Response(204)]))]),
-            [new ReleasesIdleDatabaseConnections],
-        );
-        $client->sendRequest(new Request('GET', 'http://localhost'));
-        $client->sendRequest(new Request('GET', 'http://localhost'));
+        // The factory's own client, with only its transport answering here instead of over the network.
+        $emulated = (new ReflectionProperty(PluginClient::class, 'client'))->getValue($httpClient);
+        (new ReflectionProperty($emulated, 'httpClient'))->setValue($emulated, new Guzzle([
+            'handler' => HandlerStack::create(new MockHandler([new Response(204), new Response(204)])),
+        ]));
+
+        $httpClient->sendRequest(new Request('GET', 'http://localhost'));
+        $httpClient->sendRequest(new Request('GET', 'http://localhost'));
     }
 
     public function testAConnectionsOwnHttpClientIsUsedAsGiven(): void

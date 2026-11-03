@@ -11,6 +11,7 @@ use Hypervel\Contracts\Debug\ExceptionHandler;
 use Hypervel\Coordinator\Constants;
 use Hypervel\Coordinator\CoordinatorManager;
 use Hypervel\Coroutine\Coroutine;
+use Hypervel\Filesystem\Filesystem;
 use Hypervel\Support\Facades\Exceptions;
 use Hypervel\Testing\ParallelTesting;
 use InfluxDB2\ApiException;
@@ -728,8 +729,7 @@ class BatchingWriterTest extends TestCase
             $this->assertStringContainsString('InfluxDB connection [main] dropped a batch for bucket [main-bucket] after 1 attempt', (string) file_get_contents($log));
         } finally {
             ini_set('error_log', $previous === false ? '' : $previous);
-            unlink($log);
-            rmdir(dirname($log));
+            (new Filesystem)->deleteDirectory(dirname($log));
         }
     }
 
@@ -778,8 +778,7 @@ class BatchingWriterTest extends TestCase
             $this->assertStringContainsString('InfluxDB connection [main] dropped a batch of 1 point (13 bytes) for bucket [main-bucket]', (string) file_get_contents($log));
         } finally {
             ini_set('error_log', (string) $previous);
-            unlink($log);
-            rmdir(dirname($log));
+            (new Filesystem)->deleteDirectory(dirname($log));
         }
     }
 
@@ -947,6 +946,45 @@ class BatchingWriterTest extends TestCase
         $writer->flush();
 
         $this->assertSame(0, $writer->getPendingPoints());
+
+        // Each point reached onFailure once: refused past the cap, or sent and failed.
+        $lines = explode("\n", implode("\n", $handed));
+        sort($lines);
+        $this->assertSame(array_map(static fn (int $point): string => "cpu load={$point}i {$point}", range(1, 6)), $lines);
+    }
+
+    public function testManyCoroutinesOverflowingLoseAndRepeatNoPoint(): void
+    {
+        Exceptions::fake();
+        $handed = [];
+        $writer = $this->writer(
+            ['batchSize' => 2, 'maxBuffered' => 3, 'onFailure' => function (Batch $batch) use (&$handed): void {
+                $handed[] = $batch->payload;
+            }],
+            self::accepted(20),
+            delay: 20,
+        );
+
+        parallel(array_map(
+            static fn (int $point): Closure => static function () use ($writer, $point): void {
+                $writer->write("cpu load={$point}i {$point}");
+                usleep(1_000);
+                $writer->write('cpu load=' . ($point + 100) . 'i ' . ($point + 100));
+            },
+            range(1, 10),
+        ));
+
+        $writer->flush();
+
+        $this->assertSame(0, $writer->getPendingPoints());
+        $this->assertNotSame([], $handed, 'Some writes went past the cap.');
+
+        $lines = [...array_merge(...$this->sentBatches()), ...explode("\n", implode("\n", $handed))];
+        sort($lines);
+        $expected = array_map(static fn (int $point): string => "cpu load={$point}i {$point}", [...range(1, 10), ...range(101, 110)]);
+        sort($expected);
+
+        $this->assertSame($expected, $lines, 'Every point was sent or handed to onFailure, once.');
     }
 
     public function testPastMaxBufferedAWriteIsRefusedWhenOverflowIsRefuse(): void
@@ -1013,10 +1051,8 @@ class BatchingWriterTest extends TestCase
     private function errorLog(): string
     {
         $directory = ParallelTesting::tempDir('influxdb-error-log');
-
-        if (! is_dir($directory)) {
-            mkdir($directory, recursive: true);
-        }
+        (new Filesystem)->deleteDirectory($directory);
+        mkdir($directory, recursive: true);
 
         $log = $directory . '/php.log';
         touch($log);
