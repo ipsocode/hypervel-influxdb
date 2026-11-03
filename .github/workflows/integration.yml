@@ -12,9 +12,6 @@ permissions:
 
 env:
   OTEL_SDK_DISABLED: 'true'
-  COMPOSER_CACHE_DIR: /tmp/composer-cache
-  COMPOSER_MEMORY_LIMIT: '-1'
-  COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
 
 jobs:
   influxdb1:
@@ -47,17 +44,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Cache Composer downloads
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: /tmp/composer-cache
-          key: composer-8.4-${{ hashFiles('composer.json') }}
-          restore-keys: composer-8.4-
-
       - name: Install dependencies
-        run: |
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-          composer update --prefer-dist --no-interaction --optimize-autoloader
+        uses: ipsocode/hypervel-packages-ci/tests/install@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        with:
+          php: '8.4'
+          restore-only: 'true'
 
       - name: Run the integration suite against InfluxDB 1.x
         run: composer test:integration
@@ -99,17 +90,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Cache Composer downloads
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: /tmp/composer-cache
-          key: composer-8.4-${{ hashFiles('composer.json') }}
-          restore-keys: composer-8.4-
-
       - name: Install dependencies
-        run: |
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-          composer update --prefer-dist --no-interaction --optimize-autoloader
+        uses: ipsocode/hypervel-packages-ci/tests/install@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        with:
+          php: '8.4'
+          restore-only: 'true'
 
       - name: Run the integration suite against InfluxDB 2.x
         run: composer test:integration
@@ -149,17 +134,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Cache Composer downloads
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: /tmp/composer-cache
-          key: composer-8.4-${{ hashFiles('composer.json') }}
-          restore-keys: composer-8.4-
-
       - name: Install dependencies
-        run: |
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-          composer update --prefer-dist --no-interaction --optimize-autoloader
+        uses: ipsocode/hypervel-packages-ci/tests/install@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        with:
+          php: '8.4'
+          restore-only: 'true'
 
       - name: Run the integration suite against InfluxDB 3 Core
         run: composer test:integration
