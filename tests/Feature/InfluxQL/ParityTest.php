@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ipsocode\InfluxDB\Tests\Feature\InfluxQL;
 
+use BadMethodCallException;
 use Closure;
 use Hypervel\Support\Facades\DB;
 use Ipsocode\InfluxDB\InfluxQL\Regex;
@@ -11,6 +12,7 @@ use Ipsocode\InfluxDB\InfluxQL\Version;
 use Ipsocode\InfluxDB\Tests\Concerns\MocksInfluxQLDriver;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -25,6 +27,12 @@ use Throwable;
  * - Joins exist only on the driver's builder, so its `delete()` also refuses them, and its message says so.
  *   No shared case joins; the test drops "join, " from that message.
  * - `delete()` returns a bool on the table stack and the number of rows on the driver; only the statement is compared.
+ * - A where InfluxQL cannot express is a BadMethodCallException as it is called on the table stack, whose
+ *   builder does not have it, and a RuntimeException as it compiles on the driver, whose builder is Hypervel's.
+ *   testBothStacksRefuseAWhereInfluxQLCannotExpressBeforeSendingAnything holds each to its own. The relative-date
+ *   clauses, such as wherePast(), and whereAny() and whereAll() run on the driver and are refused on the table stack.
+ * - `chunk()` adds `order by "time" asc` to a query with no order on the driver, as Hypervel's does, and no order on
+ *   the table stack, since InfluxQL returns points in time order anyway; the chunk case orders by time itself.
  *
  * GrammarTest and Driver\GrammarTest cover what each grammar compiles; BuilderTest covers each builder's own state.
  */
@@ -62,6 +70,49 @@ class ParityTest extends TestCase
     public static function cases(): iterable
     {
         foreach (self::definitions() as $name => $apply) {
+            foreach (Version::cases() as $version) {
+                yield "{$name} on {$version->value}" => [$apply, $version];
+            }
+        }
+    }
+
+    /**
+     * @param Closure(object): mixed $apply
+     */
+    #[DataProvider('refusedWheres')]
+    public function testBothStacksRefuseAWhereInfluxQLCannotExpressBeforeSendingAnything(Closure $apply, Version $version): void
+    {
+        $table = $this->send($version, 'table', $apply);
+        $this->assertSame([], $this->statements());
+
+        $driver = $this->send($version, 'driver', $apply);
+        $this->assertSame([], $this->statements());
+
+        $this->assertStringStartsWith(BadMethodCallException::class . ': ', (string) $table['refusal']);
+        $this->assertStringStartsWith(RuntimeException::class . ': ', (string) $driver['refusal']);
+    }
+
+    /**
+     * The clauses both stacks refuse, each the way its own builder does (see the intended differences).
+     *
+     * @return iterable<string, array{Closure, Version}>
+     */
+    public static function refusedWheres(): iterable
+    {
+        $wheres = [
+            'whereNull' => fn (object $q) => $q->whereNull('host'),
+            'orWhereNotNull' => fn (object $q) => $q->where('host', 'web1')->orWhereNotNull('region'),
+            'whereNot' => fn (object $q) => $q->whereNot(fn ($w) => $w->where('host', 'web1')),
+            'whereNone' => fn (object $q) => $q->whereNone(['host', 'region'], 'web1'),
+            'whereLike' => fn (object $q) => $q->whereLike('host', 'web%'),
+            'whereDate' => fn (object $q) => $q->whereDate('time', '2024-01-01'),
+            'whereToday' => fn (object $q) => $q->whereToday('time'),
+            'whereExists' => fn (object $q) => $q->whereExists(fn ($w) => $w->from('mem')),
+            'whereJsonContains' => fn (object $q) => $q->whereJsonContains('host', 'web1'),
+            'whereFullText' => fn (object $q) => $q->whereFullText('host', 'web'),
+        ];
+
+        foreach ($wheres as $name => $apply) {
             foreach (Version::cases() as $version) {
                 yield "{$name} on {$version->value}" => [$apply, $version];
             }
@@ -107,6 +158,35 @@ class ParityTest extends TestCase
 
                 return $q;
             },
+            'chunk' => fn (object $q) => $q->where('host', 'web1')->orderBy('time')->chunk(2, fn (): null => null),
+            'first leaves the builder as it was' => function (object $q): object {
+                $q->where('host', 'web1')->first();
+                $q->get();
+
+                return $q;
+            },
+            'aggregate leaves the builder as it was' => function (object $q): object {
+                $q->where('host', 'web1')->aggregate('max', ['usage_user']);
+                $q->get();
+
+                return $q;
+            },
+            'count leaves the builder as it was' => function (object $q): object {
+                $q->select('usage_user')->count();
+                $q->get();
+
+                return $q;
+            },
+            'pluck' => fn (object $q) => $q->where('host', 'web1')->pluck('usage_user'),
+            'pluck with a key' => fn (object $q) => $q->pluck('usage_user', 'host'),
+            'count' => fn (object $q) => $q->where('host', 'web1')->count(),
+            'count of a column' => fn (object $q) => $q->count('usage_user'),
+            'sum' => fn (object $q) => $q->sum('usage_user'),
+            'avg' => fn (object $q) => $q->avg('usage_user'),
+            'min' => fn (object $q) => $q->min('usage_user'),
+            'whereIn with no values' => fn (object $q) => $q->whereIn('host', []),
+            'whereNotIn with no values' => fn (object $q) => $q->whereNotIn('host', []),
+            'fill with an unknown keyword' => fn (object $q) => $q->selectRaw('mean("usage_user")')->groupByTime('1h')->fill('nearest'),
             'orderBy' => fn (object $q) => $q->orderBy('time', 'desc'),
             'latest' => fn (object $q) => $q->latest(),
             'oldest' => fn (object $q) => $q->oldest(),
