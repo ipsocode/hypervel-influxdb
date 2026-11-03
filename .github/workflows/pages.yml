@@ -26,7 +26,7 @@ jobs:
       contents: read
       pages: read
     outputs:
-      sha: ${{ steps.ref.outputs.sha }}
+      sha: ${{ steps.build.outputs.sha }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -35,112 +35,11 @@ jobs:
           fetch-tags: true
           persist-credentials: false
 
-      - name: Choose the commit
-        id: ref
-        env:
-          REF: ${{ inputs.ref }}
-        run: |
-          set -euo pipefail
-          ref="${REF:-$(git tag --list 'v*' --sort=-v:refname | head -n 1)}"
-          [ -n "${ref}" ] || {
-            echo "::error::No v* tag to publish the docs of. Pass a ref, or release first."
-            exit 1
-          }
-          sha=$(git rev-parse --verify "${ref}^{commit}")
-          git checkout --quiet --detach "${sha}"
-          echo "sha=${sha}" >> "${GITHUB_OUTPUT}"
-          echo "Publishing src/docs/ at ${ref} (${sha})" >> "${GITHUB_STEP_SUMMARY}"
-
-      - name: Configure Pages
-        id: pages
-        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
-
-      - name: Stage the pages
-        env:
-          SHA: ${{ steps.ref.outputs.sha }}
-          BASE_PATH: ${{ steps.pages.outputs.base_path }}
-        run: |
-          set -euo pipefail
-          [ -f src/docs/index.md ] || {
-            echo "::error::src/docs/index.md is missing at ${SHA}. The site starts from it."
-            exit 1
-          }
-          python3 -I - <<'PY'
-          import json, os, pathlib, re, shutil, sys
-
-          src = pathlib.Path('src/docs')
-          out = pathlib.Path('site-src')
-          blob = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/blob/{os.environ['SHA']}"
-          composer = json.loads(pathlib.Path('composer.json').read_text())
-
-          shutil.copytree(src, out)
-
-          failed = False
-          for page in sorted(out.rglob('*.md')):
-              text = page.read_text()
-              if re.search(r'\{%-?\s*(end)?raw\b', text):
-                  print(f"::error file=src/docs/{page.relative_to(out)}::holds a raw or endraw tag, which the page's own raw block cannot contain.")
-                  failed = True
-                  continue
-
-              text = re.sub(r'\]\(\s*\.\./\.\./', f'](' + blob + '/', text)
-              text = re.sub(r'\]\(\s*\.\./', f'](' + blob + '/src/', text)
-
-              heading = re.search(r'^#\s+(.+?)\s*#*\s*$', text, re.M)
-              title = heading.group(1) if heading else page.stem
-              page.write_text(
-                  '---\n'
-                  f'title: {json.dumps(title)}\n'
-                  '---\n'
-                  '{% raw %}\n'
-                  f'{text.rstrip()}\n'
-                  '{% endraw %}\n'
-              )
-
-          if failed:
-              sys.exit(1)
-
-          name = composer['name'].split('/')[-1]
-          (out / '_config.yml').write_text(
-              f'title: {json.dumps(name)}\n'
-              f"description: {json.dumps(composer.get('description', ''))}\n"
-              f"baseurl: {json.dumps(os.environ['BASE_PATH'])}\n"
-          )
-          PY
-
-      - name: Build with Jekyll
-        uses: actions/jekyll-build-pages@44a6e6beabd48582f863aeeb6cb2151cc1716697 # v1.0.13
+      - name: Build the site
+        id: build
+        uses: ipsocode/hypervel-packages-ci/pages/build@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
         with:
-          source: ./site-src
-          destination: ./_site
-
-      - name: Check the template syntax survived
-        run: |
-          set -euo pipefail
-          python3 -I - <<'PY'
-          import html, pathlib, re, sys
-
-          failed = False
-          for page in sorted(pathlib.Path('src/docs').rglob('*.md')):
-              built = pathlib.Path('_site') / page.relative_to('src/docs').with_suffix('.html')
-              if not built.is_file():
-                  print(f'::error file={page}::was not built: no {built}.')
-                  failed = True
-                  continue
-              rendered = html.unescape(re.sub(r'<[^>]*>', '', built.read_text()))
-              for token in ('{{', '{%'):
-                  want, got = page.read_text().count(token), rendered.count(token)
-                  if got < want:
-                      print(f'::error file={page}::{want} {token} in the source, {got} on the built page: Liquid rendered some of them.')
-                      failed = True
-
-          sys.exit(1 if failed else 0)
-          PY
-
-      - name: Upload the site
-        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
-        with:
-          path: ./_site
+          ref: ${{ inputs.ref }}
 
   deploy:
     name: Deploy
