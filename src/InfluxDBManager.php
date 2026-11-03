@@ -21,14 +21,11 @@ use Ipsocode\InfluxDB\Write\Availability;
 use Ipsocode\InfluxDB\Write\BatchingWriter;
 use Ipsocode\InfluxDB\Write\BatchOptions;
 use Ipsocode\InfluxDB\Write\FailedBatch;
+use Ipsocode\InfluxDB\Write\FailedBatchReplayer;
 use Ipsocode\InfluxDB\Write\Failover;
 use Ipsocode\InfluxDB\Write\FailoverOptions;
 use Ipsocode\InfluxDB\Write\FailoverWriter;
-use Ipsocode\InfluxDB\Write\LogFailureStore;
-use Ipsocode\InfluxDB\Write\QueueFailureStore;
 use Ipsocode\InfluxDB\Write\ReplayableFailureStore;
-use Ipsocode\InfluxDB\Write\ReplayStopped;
-use Swoole\Coroutine\CanceledException;
 use Throwable;
 
 /**
@@ -77,11 +74,9 @@ class InfluxDBManager
     protected array $influxql = [];
 
     /**
-     * The memoized synchronous WriteApi instances that replay failed batches, keyed by connection name.
-     *
-     * @var array<string, WriteApi>
+     * What writes the batches the connections' failure stores kept, created on first use.
      */
-    protected array $replayApis = [];
+    protected ?FailedBatchReplayer $replayer = null;
 
     /**
      * Which connections are skipped for a while after failing, shared by every writer that falls back to others.
@@ -183,44 +178,8 @@ class InfluxDBManager
     public function replayFailed(?string $name = null, int $limit = ReplayableFailureStore::DEFAULT_LIMIT): int
     {
         $name = $name ?: $this->getDefaultConnection();
-        $writeApi = $this->writeApi($name);
-        $store = $writeApi instanceof BatchingWriter ? $writeApi->getBatchOptions()->onFailure : null;
 
-        if ($store instanceof QueueFailureStore) {
-            throw new InvalidArgumentException("InfluxDB connection [{$name}] has no failure store that can replay its batches: its queue driver leaves the replaying to the queue's workers.");
-        }
-
-        if (! $store instanceof ReplayableFailureStore) {
-            throw new InvalidArgumentException("InfluxDB connection [{$name}] has no failure store that can replay its batches: set write.onFailure to a ReplayableFailureStore.");
-        }
-
-        $maxAttempts = $writeApi->getBatchOptions()->maxAttempts;
-        $written = 0;
-        $stopped = false;
-
-        try {
-            $store->replay(function (FailedBatch $batch) use ($name, $store, $maxAttempts, &$written, &$stopped): void {
-                if ($stopped) {
-                    throw new ReplayStopped;
-                }
-
-                try {
-                    $this->writeFailed($batch, $name);
-                    ++$written;
-                } catch (CanceledException $exception) {
-                    // Canceled mid-write, the batch keeps its attempts and stays in the store.
-                    throw $exception;
-                } catch (Throwable $exception) {
-                    $again = $batch->replayFailed($exception);
-
-                    ($again->attempts >= $maxAttempts ? new LogFailureStore : $store)->store($again);
-                    $stopped = true;
-                }
-            }, $limit);
-        } catch (ReplayStopped) {
-        }
-
-        return $written;
+        return $this->replayer()->replay($name, $this->writeApi($name), $limit);
     }
 
     /**
@@ -236,10 +195,7 @@ class InfluxDBManager
      */
     public function writeFailed(FailedBatch $batch, ?string $name = null): void
     {
-        $name ??= $batch->connection;
-        $replayApi = $this->replayApis[$name] ??= $this->connection($name)->createWriteApi(['writeType' => WriteType::SYNCHRONOUS, 'maxRetries' => 0]);
-
-        $replayApi->writeRaw($batch->payload, $batch->precision, $batch->bucket, $batch->org);
+        $this->replayer()->write($batch, $name ?? $batch->connection);
     }
 
     /**
@@ -354,11 +310,21 @@ class InfluxDBManager
 
         $writeApi = $this->writeApis[$name] ?? null;
 
-        unset($this->connections[$name], $this->writeApis[$name], $this->writeApiOptions[$name], $this->replayApis[$name], $this->influxql[$name]);
+        unset($this->connections[$name], $this->writeApis[$name], $this->writeApiOptions[$name], $this->influxql[$name]);
+
+        $this->replayer?->forget($name);
 
         if ($writeApi instanceof BatchingWriter) {
             $writeApi->close();
         }
+    }
+
+    /**
+     * Get what writes the batches the connections' failure stores kept, creating it on first use.
+     */
+    protected function replayer(): FailedBatchReplayer
+    {
+        return $this->replayer ??= new FailedBatchReplayer($this->connection(...));
     }
 
     /**
