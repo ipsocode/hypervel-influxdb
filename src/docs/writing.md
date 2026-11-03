@@ -551,6 +551,11 @@ A replay ends at the first batch that fails again: that batch is stored again or
 dropped as above, and the batches after it are not touched, so an outage costs
 one attempt of the oldest batch per run and the rest wait for the next run.
 
+A replay whose coroutine is canceled while it writes a batch, such as by a
+queued job that times out, throws the cancellation on and leaves that batch in
+the store with the attempts it had: a cancellation is not counted as a failed
+attempt, and never drops the batch.
+
 The count starts from the sends the batch already had (up to `maxRetries` + 1,
 so 4 with the defaults). A batch that used all its retries gets `maxAttempts` −
 (`maxRetries` + 1) replays, 6 with the defaults, and always at least one, so

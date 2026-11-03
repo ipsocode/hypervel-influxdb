@@ -16,6 +16,7 @@ use Ipsocode\InfluxDB\Tests\TestCase;
 use Ipsocode\InfluxDB\Write\FailedBatch;
 use Mockery;
 use Psr\Log\LoggerInterface;
+use Swoole\Coroutine\CanceledException;
 
 /**
  * Replaying the batches a ReplayableFailureStore kept, through the manager and the command.
@@ -78,6 +79,25 @@ class ReplayFailedTest extends TestCase
         $this->assertCount(1, $this->sentTo());
         $this->assertSame(['cpu b=1i 2', 1], [$store->batches[0]->payload, $store->batches[0]->attempts]);
         $this->assertSame(['cpu a=1i 1', 2], [$store->batches[1]->payload, $store->batches[1]->attempts]);
+    }
+
+    public function testAReplayCanceledMidWriteLeavesItsBatchAsItWas(): void
+    {
+        $store = $this->store([$this->failed('cpu a=1i 1', 1)]);
+        $logger = Mockery::mock(LoggerInterface::class);
+        $logger->shouldNotReceive('warning');
+        $this->app->instance(LoggerInterface::class, $logger);
+        $this->connection($store, [$canceled = new CanceledException('The replay was canceled.')], ['maxAttempts' => 2]);
+
+        try {
+            $this->app->get(InfluxDBManager::class)->replayFailed('main');
+            $this->fail('The cancellation should reach the caller.');
+        } catch (CanceledException $exception) {
+            $this->assertSame($canceled, $exception);
+        }
+
+        $this->assertCount(1, $store->batches);
+        $this->assertSame(['cpu a=1i 1', 1], [$store->batches[0]->payload, $store->batches[0]->attempts]);
     }
 
     public function testBatchesAfterTheOneThatFailedAgainAreLeftUntouched(): void
@@ -228,7 +248,7 @@ class ReplayFailedTest extends TestCase
     /**
      * Make the `main` connection batch, with the given store as its `onFailure`.
      *
-     * @param list<Response> $responses
+     * @param list<Response|Throwable> $responses
      * @param array<string, mixed> $write
      */
     private function connection(?InMemoryFailureStore $store, array $responses, array $write = []): void

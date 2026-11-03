@@ -28,6 +28,7 @@ use Ipsocode\InfluxDB\Write\LogFailureStore;
 use Ipsocode\InfluxDB\Write\QueueFailureStore;
 use Ipsocode\InfluxDB\Write\ReplayableFailureStore;
 use Ipsocode\InfluxDB\Write\ReplayStopped;
+use Swoole\Coroutine\CanceledException;
 use Throwable;
 
 /**
@@ -152,7 +153,8 @@ class InfluxDBManager
      *
      * A batch that fails again is stored again with one more attempt, and dropped and logged
      * once that reaches `write.maxAttempts`. Each batch is removed from the store only after
-     * it was written, stored again or dropped. The replay ends at the first batch that fails
+     * it was written, stored again or dropped, and a replay canceled mid-write leaves its batch
+     * as it was. The replay ends at the first batch that fails
      * again, and leaves the later ones untouched for the next run.
      *
      * @return int the batches written
@@ -188,6 +190,9 @@ class InfluxDBManager
                 try {
                     $this->writeFailed($batch, $name);
                     ++$written;
+                } catch (CanceledException $exception) {
+                    // Canceled mid-write, the batch keeps its attempts and stays in the store.
+                    throw $exception;
                 } catch (Throwable $exception) {
                     $again = $batch->replayFailed($exception);
 
