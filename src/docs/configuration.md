@@ -31,6 +31,12 @@ set, makes the client log each request and response, headers and body, to
 `logFile` (`php://output` unless set). A connection that leaves out
 `verifySSL`, `precision` or `debug` gets these defaults.
 
+The package's config file reads `INFLUXDB_VERIFY_SSL` and `INFLUXDB_DEBUG` as
+booleans (`1`, `0`, `on`, `off`, `true` and `false` all work; a value it cannot
+read leaves `verifySSL` on and `debug` off) and the numeric `INFLUXDB_*` settings
+below as numbers, so the code reads them already typed. A number that is not
+one is passed on as written, and the write options refuse it.
+
 The package's `config/influxdb.php` also reads `INFLUXDB_DATABASE`,
 `INFLUXDB_RETENTION_POLICY` and `INFLUXDB_EPOCH` into the connection's
 `influxql` block (see [Configuring InfluxQL](influxql.md#configuring-influxql)),
@@ -207,7 +213,7 @@ use InfluxDB2\WriteType;
 ],
 ```
 
-`timeout`, `proxy` and `verifySSL` configure the Guzzle client that the
+`timeout` (10 seconds unless set), `proxy` and `verifySSL` configure the Guzzle client that the
 connection builds for itself, which reports a refused connection, a DNS failure,
 a reset or a timeout to the client's write retries as a network error. With
 `httpClient` set to a PSR-18 client of your own, they are not applied, so

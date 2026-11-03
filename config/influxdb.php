@@ -35,9 +35,10 @@ return [
             'token' => env('INFLUXDB_TOKEN'),
             'bucket' => env('INFLUXDB_BUCKET'),
             'org' => env('INFLUXDB_ORG'),
-            'verifySSL' => env('INFLUXDB_VERIFY_SSL', true),
+            // env() converts only the words true and false, so `0` and `off` are read here; anything else verifies.
+            'verifySSL' => filter_var(env('INFLUXDB_VERIFY_SSL', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
             'precision' => env('INFLUXDB_PRECISION', 'ns'),
-            'debug' => env('INFLUXDB_DEBUG', false),
+            'debug' => filter_var(env('INFLUXDB_DEBUG', false), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
 
             // InfluxQL addresses a database and retention policy, which default to the
             // bucket split at its first slash (`db/rp`), or on v3, which has no retention
@@ -59,13 +60,14 @@ return [
             // INFLUXDB_FALLBACK names the connections, comma-separated, a write this connection cannot
             // take falls back to, in order; a connection that fails is skipped for `cooldown` seconds.
             // https://github.com/ipsocode/hypervel-influxdb/blob/main/src/docs/writing.md#falling-back-to-other-connections
+            // The numbers are read as numbers; a value that is not numeric is left for the write options to refuse.
             'write' => [
                 'writeType' => env('INFLUXDB_BATCHING', false) ? WriteType::BATCHING : WriteType::SYNCHRONOUS,
-                'batchSize' => env('INFLUXDB_BATCH_SIZE'),
-                'batchSizeMb' => env('INFLUXDB_BATCH_SIZE_MB'),
-                'flushInterval' => env('INFLUXDB_FLUSH_INTERVAL'),
+                'batchSize' => is_numeric(env('INFLUXDB_BATCH_SIZE')) ? env('INFLUXDB_BATCH_SIZE') + 0 : env('INFLUXDB_BATCH_SIZE'),
+                'batchSizeMb' => is_numeric(env('INFLUXDB_BATCH_SIZE_MB')) ? env('INFLUXDB_BATCH_SIZE_MB') + 0 : env('INFLUXDB_BATCH_SIZE_MB'),
+                'flushInterval' => is_numeric(env('INFLUXDB_FLUSH_INTERVAL')) ? env('INFLUXDB_FLUSH_INTERVAL') + 0 : env('INFLUXDB_FLUSH_INTERVAL'),
                 'fallback' => env('INFLUXDB_FALLBACK'),
-                'cooldown' => env('INFLUXDB_COOLDOWN'),
+                'cooldown' => is_numeric(env('INFLUXDB_COOLDOWN')) ? env('INFLUXDB_COOLDOWN') + 0 : env('INFLUXDB_COOLDOWN'),
             ],
 
             // Any other option InfluxDB2\Client accepts (timeout, proxy, tags, ...) can be added here.
