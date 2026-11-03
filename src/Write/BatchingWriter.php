@@ -11,8 +11,8 @@ use Hypervel\Coordinator\Timer;
 use Hypervel\Coroutine\Coroutine;
 use InfluxDB2\WriteApi;
 use InfluxDB2\WriteType;
-use InvalidArgumentException;
 use Ipsocode\InfluxDB\Write\Concerns\ReportsFailures;
+use Ipsocode\InfluxDB\Write\Concerns\ResolvesWriteTarget;
 use Psr\Http\Message\ResponseInterface;
 use Swoole\Coroutine\CanceledException;
 use Throwable;
@@ -31,6 +31,7 @@ use Throwable;
 class BatchingWriter extends WriteApi
 {
     use ReportsFailures;
+    use ResolvesWriteTarget;
 
     /**
      * The batches being filled, keyed by the bucket, org and precision their points go to.
@@ -156,18 +157,9 @@ class BatchingWriter extends WriteApi
      */
     public function writeRaw(string $data, ?string $precision = null, ?string $bucket = null, ?string $org = null): void
     {
-        $precision = $precision ?: ($this->options['precision'] ?? null);
-        $bucket = $bucket ?: ($this->options['bucket'] ?? null);
-        $org = $org ?: ($this->options['org'] ?? null);
+        [$precision, $bucket, $org] = $this->resolveWriteTarget($precision, $bucket, $org);
 
-        foreach (['precision' => $precision, 'bucket' => $bucket, 'org' => $org] as $option => $value) {
-            // The client's own check() lists every option, the token included, in its message.
-            if (trim((string) $value) === '') {
-                throw new InvalidArgumentException("The '{$option}' should be defined as argument or default option.");
-            }
-        }
-
-        $this->buffer(rtrim($data, "\n"), (string) $precision, (string) $bucket, (string) $org);
+        $this->buffer(rtrim($data, "\n"), $precision, $bucket, $org);
     }
 
     /**
