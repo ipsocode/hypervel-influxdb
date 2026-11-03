@@ -98,6 +98,10 @@ embedded, `getError()` the server's or the transport's message alone, and
 statements are sent together, the exception carries the error of the first
 one that failed.
 
+A coroutine canceled while a statement or the version check is in flight is not
+a failed statement: the `Swoole\Coroutine\CanceledException` comes through
+as it is, not wrapped in a `QueryException`.
+
 ## What carries over from Hypervel's builder
 
 The methods, and the way they combine, are Hypervel's: `select`, `addSelect`,

@@ -22,6 +22,7 @@ use Ipsocode\InfluxDB\InfluxQL\Grammars\Grammar;
 use RuntimeException;
 use SortDirection;
 use stdClass;
+use Swoole\Coroutine\CanceledException;
 use UnitEnum;
 
 /**
@@ -1078,6 +1079,8 @@ class Builder
 
         try {
             $version = $this->connection->getServerVersion();
+        } catch (CanceledException $exception) {
+            throw $exception;
         } catch (Exception $exception) {
             throw new QueryException($this->connection->getName(), $this->embedBindings($query, $bindings), $bindings, $exception);
         }

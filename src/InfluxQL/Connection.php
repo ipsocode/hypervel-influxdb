@@ -12,6 +12,7 @@ use InfluxDB2\Client;
 use InvalidArgumentException;
 use Ipsocode\InfluxDB\InfluxQL\Grammars\Grammar;
 use stdClass;
+use Swoole\Coroutine\CanceledException;
 
 /**
  * Runs InfluxQL statements on one InfluxDB connection.
@@ -328,7 +329,7 @@ abstract class Connection
     abstract protected function getDefaultQueryGrammar(): Grammar;
 
     /**
-     * Embed the bindings and run the statement, wrapping any failure in a QueryException.
+     * Embed the bindings and run the statement, wrapping any failure but a cancellation in a QueryException.
      *
      * @param list<mixed> $bindings
      * @param Closure(string): mixed $callback
@@ -343,7 +344,7 @@ abstract class Connection
 
         try {
             return $callback($sql);
-        } catch (QueryException $exception) {
+        } catch (QueryException|CanceledException $exception) {
             throw $exception;
         } catch (Exception $exception) {
             throw new QueryException($this->name, $sql, $bindings, $exception);

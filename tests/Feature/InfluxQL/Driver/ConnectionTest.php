@@ -567,6 +567,15 @@ class ConnectionTest extends TestCase
         DB::connection('influxql')->ping();
     }
 
+    public function testACanceledStatementIsNotWrappedInAQueryException(): void
+    {
+        $this->pings['v1.localhost'] = new CanceledException('The version check was canceled.');
+
+        $this->expectException(CanceledException::class);
+
+        DB::connection('influxql')->table('cpu')->get();
+    }
+
     public function testADisconnectedConnectionLetsGoOfItsInfluxqlConnectionAndReconnectsForItsNextStatement(): void
     {
         $this->responses->append(self::emptyResponse());

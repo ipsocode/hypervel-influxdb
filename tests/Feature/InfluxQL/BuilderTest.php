@@ -36,6 +36,7 @@ use ReflectionMethod;
 use RuntimeException;
 use SortDirection;
 use stdClass;
+use Swoole\Coroutine\CanceledException;
 use Throwable;
 
 /**
@@ -704,6 +705,28 @@ class BuilderTest extends TestCase
 
         $this->expectException(QueryException::class);
         $this->expectExceptionMessageIsOrContains('Connection refused');
+
+        $query->get();
+    }
+
+    #[UnitTest]
+    public function testACanceledQueryIsNotWrappedInAQueryException(): void
+    {
+        $query = $this->connection([new CanceledException('The query was canceled.')])->table('cpu');
+
+        $this->expectException(CanceledException::class);
+
+        $query->get();
+    }
+
+    #[UnitTest]
+    public function testACanceledVersionCheckIsNotWrappedInAQueryException(): void
+    {
+        $this->pingVersion = null;
+
+        $query = $this->connection([new CanceledException('The ping was canceled.')])->table('cpu');
+
+        $this->expectException(CanceledException::class);
 
         $query->get();
     }
