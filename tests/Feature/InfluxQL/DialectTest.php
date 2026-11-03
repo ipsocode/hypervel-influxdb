@@ -9,6 +9,7 @@ use Hypervel\Foundation\Testing\Attributes\UnitTest;
 use InvalidArgumentException;
 use Ipsocode\InfluxDB\InfluxQL\Dialect;
 use Ipsocode\InfluxDB\InfluxQL\Expression;
+use Ipsocode\InfluxDB\InfluxQL\Regex;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -36,6 +37,51 @@ class DialectTest extends TestCase
         return [
             'the InfluxQL builder\'s' => [new Expression('now() - 1h')],
             'Hypervel\'s query builder\'s' => [new QueryExpression('now() - 1h')],
+        ];
+    }
+
+    #[UnitTest]
+    #[DataProvider('regexes')]
+    public function testARegexIsQuotedSoOnlyItsClosingSlashEndsTheLiteral(string $pattern, string $literal): void
+    {
+        $this->assertSame($literal, Dialect::quoteRegex(new Regex($pattern)));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function regexes(): array
+    {
+        return [
+            'a plain pattern' => ['^web', '/^web/'],
+            'a slash' => ['a/b', '/a\/b/'],
+            'an escaped slash' => ['a\/b', '/a\/b/'],
+            'a slash after an escaped backslash' => ['a\\\/b', '/a\\\\\/b/'],
+            'an even trailing backslash run' => ['x\\\\', '/x\\\/'],
+            'an escaped dot' => ['a\.b', '/a\.b/'],
+        ];
+    }
+
+    #[UnitTest]
+    #[DataProvider('regexesEndingInALoneBackslash')]
+    public function testARegexEndingInALoneBackslashIsRefused(string $pattern): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIs('A regular expression cannot end in a lone backslash, which would escape the closing slash of its InfluxQL literal.');
+
+        Dialect::quoteRegex(new Regex($pattern));
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function regexesEndingInALoneBackslash(): array
+    {
+        return [
+            'one backslash' => ['x\\'],
+            'three backslashes' => ['x\\\\\\'],
+            'only a backslash' => ['\\'],
+            'a slash first' => ['a/b\\'],
         ];
     }
 

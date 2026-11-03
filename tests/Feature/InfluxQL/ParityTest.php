@@ -84,6 +84,8 @@ class ParityTest extends TestCase
             'orWhere' => fn (object $q) => $q->where('host', 'web1')->orWhere('host', 'web2'),
             'where regex' => fn (object $q) => $q->where('host', '=~', '^web')->where('region', '!~', '^eu'),
             'where Regex object' => fn (object $q) => $q->where('host', new Regex('^web')),
+            'where Regex ending in a backslash' => fn (object $q) => $q->where('host', new Regex('x\\')),
+            'where Regex with a slash' => fn (object $q) => $q->where('host', new Regex('a/b\\\/c')),
             'whereIn' => fn (object $q) => $q->whereIn('host', ['web1', 'web2']),
             'whereNotIn' => fn (object $q) => $q->whereNotIn('host', ['web1', 'web2']),
             'whereBetween' => fn (object $q) => $q->whereBetween('usage_user', [1, 5]),

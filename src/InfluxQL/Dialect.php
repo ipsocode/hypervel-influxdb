@@ -145,12 +145,20 @@ final class Dialect
     /**
      * Quote a regular expression as the /pattern/ literal InfluxQL reads.
      *
-     * A slash inside the pattern ends the literal early unless escaped, so
-     * every one not already preceded by a backslash gets one.
+     * A slash inside the pattern ends the literal early unless escaped, so every one
+     * that is not already escaped gets a backslash. A backslash escapes the character
+     * after it, so a pattern ending in a lone one would escape the closing slash: it is
+     * refused, as it is no valid regular expression either.
+     *
+     * @throws InvalidArgumentException for a pattern that ends in a backslash with nothing to escape
      */
     public static function quoteRegex(Regex $regex): string
     {
-        return '/' . preg_replace('~(?<!\\\)/~', '\/', $regex->pattern) . '/';
+        if (preg_match('~^(?:\\\.|[^\\\])*\\\$~sD', $regex->pattern) === 1) {
+            throw new InvalidArgumentException('A regular expression cannot end in a lone backslash, which would escape the closing slash of its InfluxQL literal.');
+        }
+
+        return '/' . preg_replace_callback('~\\\.|/~s', static fn (array $match): string => $match[0] === '/' ? '\/' : $match[0], $regex->pattern) . '/';
     }
 
     /**

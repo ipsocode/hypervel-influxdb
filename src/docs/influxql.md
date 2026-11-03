@@ -191,6 +191,8 @@ InfluxDB::table('cpu')
   value, which turns `=` and `!=` into `=~` and `!~`.
   `from(new Regex('^cpu'))` queries every measurement that matches. A pattern
   is given without its `/` delimiters, and a `/` inside it is escaped for you.
+  A pattern ending in a lone `\` is refused with an
+  `InvalidArgumentException`, since the backslash would escape the closing `/`.
   `=~` and `!~` take a regular expression only, and a `Regex` takes no
   operator but `=`, `!=`, `<>`, `=~` and `!~`: either mistake throws an
   `InvalidArgumentException`.
