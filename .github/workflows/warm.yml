@@ -11,9 +11,6 @@ permissions:
 
 env:
   OTEL_SDK_DISABLED: 'true'
-  COMPOSER_CACHE_DIR: /tmp/composer-cache
-  COMPOSER_MEMORY_LIMIT: '-1'
-  COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
 
 jobs:
   caches:
@@ -39,30 +36,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Cache Composer downloads
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: /tmp/composer-cache
-          key: composer-${{ matrix.php }}-${{ hashFiles('composer.json') }}
-          restore-keys: composer-${{ matrix.php }}-
-
       - name: Install dependencies
-        run: |
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-          composer update --prefer-dist --no-interaction --optimize-autoloader
-
-      - name: Cache tests/.cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: ipsocode/hypervel-packages-ci/tests/install@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
         with:
-          path: tests/.cache
-          key: tests-cache-${{ matrix.php }}-${{ hashFiles('composer.json', 'phpstan.neon', 'phpunit.xml', '.php-cs-fixer.dist.php') }}-${{ github.sha }}
-          restore-keys: tests-cache-${{ matrix.php }}-${{ hashFiles('composer.json', 'phpstan.neon', 'phpunit.xml', '.php-cs-fixer.dist.php') }}-
+          php: ${{ matrix.php }}
 
-      - name: Run PHPStan
-        continue-on-error: true
-        run: vendor/bin/phpstan analyse --memory-limit 1G -c phpstan.neon --no-progress
-
-      - name: Check code style
-        if: matrix.php == '8.4'
-        continue-on-error: true
-        run: vendor/bin/php-cs-fixer fix --dry-run --diff
+      - name: Warm the tools' caches
+        uses: ipsocode/hypervel-packages-ci/warm/caches@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        with:
+          style: ${{ matrix.php == '8.4' }}
