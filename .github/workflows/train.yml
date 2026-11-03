@@ -125,7 +125,7 @@ jobs:
 
           # Write the new umbrella's body from its sub-issues.
           parts=$(gh api --paginate "repos/${REPO}/issues/${new}/sub_issues?per_page=100" --jq '.[] | "- [\(if .state == "closed" then "x" else " " end)] #\(.number) — \(.title)"')
-          footer="> **How this issue works.** Bug and performance issues attach themselves to the current train as sub-issues. The nightly routine fixes each one with a commit on this branch, closes it and ticks its box. What is unfinished on Monday moves to the next train. On the Monday before the Tuesday release the branch's pull request into \`main\` opens, gets the final review and closes this issue when it merges."
+          footer="> **How this issue works.** Bug and performance issues, and enhancements that change no config and break nothing, attach themselves to the current train as sub-issues. The nightly routine works the bugs first, the enhancements once none is left, one with a commit on this branch, closes it and ticks its box. What is unfinished on Monday moves to the next train. On the Monday before the Tuesday release the branch's pull request into \`main\` opens, gets the final review and closes this issue when it merges."
           new_body=$(printf '%s\n\n## Parts\n\n%s\n\n%s\n' "${line}" "${parts}" "${footer}")
           gh api -X PATCH "repos/${REPO}/issues/${new}" -f body="${new_body}" > /dev/null
 
@@ -152,9 +152,13 @@ jobs:
                 conflict=""
                 gh api -X POST "repos/${REPO}/merges" -f base="${cur_branch}" -f head=main -f commit_message="Merge main into ${cur_branch}" > /dev/null 2>&1 || conflict=yes
                 fixed=$(gh api --paginate "repos/${REPO}/issues/${current}/sub_issues?per_page=100" --jq '.[] | select(.state == "closed") | "- #\(.number) \(.title)"')
-                notes=$(gh api --paginate "repos/${REPO}/issues/${current}/sub_issues?per_page=100" --jq '.[] | select(.state == "closed") | "- Fixed: \(.title) (#\(.number))"')
+                notes=$(gh api --paginate "repos/${REPO}/issues/${current}/sub_issues?per_page=100" --jq '.[] | select(.state == "closed") | "- \(if any(.labels[].name; . == "enhancement") then "Added" else "Fixed" end): \(.title) (#\(.number))"')
+                labels=bug
+                if [ "$(gh api --paginate "repos/${REPO}/issues/${current}/sub_issues?per_page=100" --jq '[.[] | select(.state == "closed") | select(any(.labels[].name; . == "enhancement"))] | length')" != 0 ]; then
+                  labels="bug,enhancement"
+                fi
                 pr_body=$(printf 'Closes #%s\n\nFixes in this release:\n\n%s\n\n## Release note\n\n%s\n' "${current}" "${fixed}" "${notes:-none}")
-                url=$(GH_TOKEN="${PR_TOKEN}" gh pr create --repo "${REPO}" --base main --head "${cur_branch}" --title "Fixes for ${release}" --body "${pr_body}" --label bug --milestone "${release}")
+                url=$(GH_TOKEN="${PR_TOKEN}" gh pr create --repo "${REPO}" --base main --head "${cur_branch}" --title "Fixes for ${release}" --body "${pr_body}" --label "${labels}" --milestone "${release}")
                 if [ -z "${conflict}" ]; then
                   GH_TOKEN="${PR_TOKEN}" gh pr edit "${url}" --repo "${REPO}" --add-assignee dangerdd1 > /dev/null
                 else

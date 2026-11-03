@@ -26,6 +26,16 @@ body:
         - Not sure
     validations:
       required: true
+  - type: dropdown
+    attributes:
+      label: Configuration
+      description: Would it add or change a config file, a config key, an environment variable or a publish tag? Answer No and, with a Public contract of No too, it joins the weekly fixes train after the bugs.
+      options:
+        - "No: no configuration changes"
+        - "Yes: configuration changes"
+        - Not sure
+    validations:
+      required: true
   - type: textarea
     attributes:
       label: Acceptance

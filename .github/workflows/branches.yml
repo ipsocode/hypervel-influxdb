@@ -36,6 +36,11 @@ jobs:
             exit 0
           fi
 
+          if gh api "repos/${REPO}/issues/${NUMBER}/parent" > /dev/null 2>&1; then
+            echo "#${NUMBER} is a sub-issue; its parent's branch carries it."
+            exit 0
+          fi
+
           existing=$(gh api "repos/${REPO}/git/matching-refs/heads/feature/${NUMBER}-" --jq '.[0].ref // empty')
           if [ -n "${existing}" ]; then
             echo "#${NUMBER} already has ${existing#refs/heads/}."

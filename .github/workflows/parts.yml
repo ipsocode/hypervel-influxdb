@@ -66,8 +66,17 @@ jobs:
             if [ "${priority:-}" = "high" ]; then
               high=true
             fi
-            if [ "${high}" = "true" ] || ! jq -e '[.labels[].name] as $l | (($l | index("bug")) or ($l | index("performance"))) and ($l | index("breaking-change") | not)' <<< "${issue}" > /dev/null; then
-              echo "#${NUMBER} is not a bug or performance issue for the weekly train; nothing to link."
+            if [ "${high}" = "true" ] || ! jq -e '
+              def answer($h): (.body // "") | gsub("\r"; "") | ((capture("(?m)^### " + $h + "[ \t]*\n\\s*(?<v>[^\n]+)") | .v) // "") | ascii_downcase;
+              [.labels[].name] as $l
+              | ($l | index("breaking-change") | not)
+              and (($l | index("bug")) or ($l | index("performance"))
+                or (($l | index("enhancement")) and (.milestone == null)
+                  and (answer("Public contract") | startswith("no:"))
+                  and (answer("Configuration") | startswith("no:"))
+                  and (answer("Plan") | . == "" or . == "_no response_")))
+            ' <<< "${issue}" > /dev/null; then
+              echo "#${NUMBER} is not a bug, a performance issue or a plain enhancement for the weekly train; nothing to link."
               exit 0
             fi
 
