@@ -135,9 +135,11 @@ Each of these changes state that every coroutine on the worker reads:
   change the [cooldowns](writing.md#cooldowns) every writer on the worker
   reads before it picks the connection to write through.
 
-The container's `InfluxDB2\Client` binding (`influxdb.connection`) is a
-singleton too: once resolved, it keeps the client it got, and follows neither
-`reconnect()` nor `setDefaultConnection()`.
+The container's `InfluxDB2\Client` binding (`influxdb.connection`) resolves
+the default connection through the manager each time, so it follows
+`reconnect()`, `disconnect()` and `setDefaultConnection()`. An object that was
+given the client when it was built, such as a singleton service, keeps the one
+it got.
 
 ### Batches when a console command finishes
 

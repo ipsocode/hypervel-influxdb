@@ -36,8 +36,7 @@ class InfluxDBServiceProvider extends ServiceProvider
         $this->registerFactory();
         $this->registerManager();
         $this->registerConnection();
-        $this->registerSqlDriver();
-        $this->registerInfluxqlDriver();
+        $this->registerDatabaseDrivers();
     }
 
     /**
@@ -64,7 +63,9 @@ class InfluxDBServiceProvider extends ServiceProvider
             __DIR__ . '/../database/migrations' => database_path('migrations'),
         ], 'influxdb-migrations');
 
-        $this->commands([ReplayFailedCommand::class]);
+        if ($this->app->runningInConsole()) {
+            $this->commands([ReplayFailedCommand::class]);
+        }
 
         $this->registerAboutSection();
 
@@ -129,7 +130,7 @@ class InfluxDBServiceProvider extends ServiceProvider
     {
         $this->app->singleton('influxdb', function (Application $app): InfluxDBManager {
             return new InfluxDBManager(
-                $app->make('config'),
+                $app->get('config'),
                 $app->make('influxdb.factory'),
             );
         });
@@ -140,11 +141,12 @@ class InfluxDBServiceProvider extends ServiceProvider
     /**
      * Register the default connection binding.
      *
-     * Resolving InfluxDB2\Client from the container yields the default connection.
+     * Resolving InfluxDB2\Client from the container yields the default connection. It is
+     * bound afresh, not shared, so that it follows the manager's reconnect() and disconnect().
      */
     protected function registerConnection(): void
     {
-        $this->app->singleton('influxdb.connection', function (Application $app): Client {
+        $this->app->bind('influxdb.connection', function (Application $app): Client {
             return $app->make('influxdb')->connection();
         });
 
@@ -152,30 +154,21 @@ class InfluxDBServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register the `influxdb` database driver, which runs SQL on InfluxDB 3.
+     * Register the `influxdb` and `influxql` database drivers.
      *
-     * SqlConnection::fromConfig() makes each `'driver' => 'influxdb'` database connection from
-     * the InfluxDB connection it names; Hypervel's database manager and its pool keep them.
+     * The `influxdb` driver runs SQL on InfluxDB 3: SqlConnection::fromConfig() makes each
+     * `'driver' => 'influxdb'` database connection from the InfluxDB connection it names. The `influxql`
+     * driver runs InfluxQL on InfluxDB 1.x, 2.x and 3: InfluxQL\Driver\Connection::fromConfig() does the
+     * same for `'driver' => 'influxql'`. Hypervel's database manager and its pool keep them.
      */
-    protected function registerSqlDriver(): void
+    protected function registerDatabaseDrivers(): void
     {
         $this->callAfterResolving('db', function (DatabaseManager $db): void {
             $db->extend('influxdb', fn (array $config): SqlConnection => SqlConnection::fromConfig(
                 $this->app->make(InfluxDBManager::class),
                 $config,
             ));
-        });
-    }
 
-    /**
-     * Register the `influxql` database driver, which runs InfluxQL on InfluxDB 1.x, 2.x and 3.
-     *
-     * InfluxQL\Driver\Connection::fromConfig() makes each `'driver' => 'influxql'` database connection
-     * from the InfluxDB connection it names; Hypervel's database manager and its pool keep them.
-     */
-    protected function registerInfluxqlDriver(): void
-    {
-        $this->callAfterResolving('db', function (DatabaseManager $db): void {
             $db->extend('influxql', fn (array $config): InfluxQLDriverConnection => InfluxQLDriverConnection::fromConfig(
                 $this->app->make(InfluxDBManager::class),
                 $config,
