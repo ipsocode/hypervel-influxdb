@@ -1400,8 +1400,10 @@ class Builder
             throw new InvalidArgumentException('The chunk size should be at least 1');
         }
 
-        $skip = $this->getOffset();
-        $remaining = $this->getLimit();
+        $clone = clone $this;
+
+        $skip = $clone->getOffset();
+        $remaining = $clone->getLimit();
 
         $page = 1;
 
@@ -1414,7 +1416,7 @@ class Builder
                 break;
             }
 
-            $results = $this->offset($offset)->limit($limit)->get();
+            $results = $clone->offset($offset)->limit($limit)->get();
 
             $countResults = $results->count();
 

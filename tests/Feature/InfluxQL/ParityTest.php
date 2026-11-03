@@ -91,6 +91,12 @@ class ParityTest extends TestCase
             'whereColumn' => fn (object $q) => $q->whereColumn('usage_user', '>', 'usage_system'),
             'whereRaw' => fn (object $q) => $q->whereRaw('"host" =~ ?', new Regex('^web')),
             'nested where' => fn (object $q) => $q->where(fn ($w) => $w->where('host', 'web1')->orWhere('host', 'web2'))->where('usage_user', '>', 1),
+            'chunk leaves the builder as it was' => function (object $q): object {
+                $q->chunk(2, fn (): null => null);
+                $q->get();
+
+                return $q;
+            },
             'orderBy' => fn (object $q) => $q->orderBy('time', 'desc'),
             'latest' => fn (object $q) => $q->latest(),
             'oldest' => fn (object $q) => $q->oldest(),

@@ -507,6 +507,26 @@ class BuilderTest extends TestCase
     }
 
     #[UnitTest]
+    public function testChunkLeavesTheBuilderWithItsOwnOffsetAndLimit(): void
+    {
+        $connection = $this->connection([
+            self::seriesResponse([self::series('cpu', ['time', 'value'], [['t1', 1], ['t2', 2]])]),
+            self::seriesResponse([self::series('cpu', ['time', 'value'], [['t3', 3]])]),
+            self::emptyResponse(),
+        ]);
+
+        $query = $connection->table('cpu')->offset(10)->limit(3);
+        $query->chunk(2, fn (): null => null);
+
+        $this->assertSame(10, $query->getOffset());
+        $this->assertSame(3, $query->getLimit());
+
+        $query->get();
+
+        $this->assertSame('select * from "cpu" limit 3 offset 10', $this->lastStatement());
+    }
+
+    #[UnitTest]
     public function testChunkSendsNothingOnceTheLimitIsUsedUp(): void
     {
         $connection = $this->connection([
