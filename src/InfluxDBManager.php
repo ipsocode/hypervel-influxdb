@@ -109,7 +109,7 @@ class InfluxDBManager
     /**
      * Get the memoized WriteApi for the given connection, creating it on first use.
      *
-     * InfluxDB2\Client keeps every WriteApi it creates, so createWriteApi() on each request
+     * The Client keeps every WriteApi it creates, so createWriteApi() on each request
      * leaks one, with its HTTP client, for the worker's life: write through this instead.
      * With `'writeType' => WriteType::BATCHING` it is a BatchingWriter, and with a `fallback` it
      * falls back to the connections named when this one cannot take a write.

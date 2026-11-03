@@ -234,6 +234,19 @@ class Connection extends DatabaseConnection
     }
 
     /**
+     * Refuse a change of database.
+     *
+     * The statements go to the InfluxQL connection's database, so a name set here would
+     * only make getDatabaseName() and the QueryException name one they never reach.
+     *
+     * @throws LogicException
+     */
+    public function setDatabaseName(string $database): static
+    {
+        throw new LogicException('The database of an influxql connection is fixed by its InfluxDB connection\'s configuration; use another InfluxDB connection to read another database.');
+    }
+
+    /**
      * Determine whether the connection is responsive.
      *
      * A connection that has let go of its driver resources has nothing open

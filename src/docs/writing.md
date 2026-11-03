@@ -24,8 +24,8 @@ InfluxDB::writeApi('analytics')->write([     // a named connection's
 Write through `writeApi()`, on the facade or on an injected `InfluxDBManager`
 (see [Using a connection](getting-started.md#using-a-connection)). It keeps one
 `WriteApi` per connection for the life of the worker. The client's own
-`createWriteApi()` is reachable through the facade and the manager too, but
-the client keeps a reference to every `WriteApi` it creates, each holding an
+`createWriteApi()` is still forwarded by the facade and the manager (the facade's
+IDE hints no longer list it), but the client keeps a reference to every `WriteApi` it creates, each holding an
 HTTP client, so calling it on each request leaks one per request until the
 worker exits.
 
