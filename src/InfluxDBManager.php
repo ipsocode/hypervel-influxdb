@@ -180,7 +180,7 @@ class InfluxDBManager
      *
      * @see src/docs/writing.md#replaying-failed-batches
      */
-    public function replayFailed(?string $name = null, int $limit = 100): int
+    public function replayFailed(?string $name = null, int $limit = ReplayableFailureStore::DEFAULT_LIMIT): int
     {
         $name = $name ?: $this->getDefaultConnection();
         $writeApi = $this->writeApi($name);

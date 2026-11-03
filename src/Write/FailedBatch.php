@@ -15,6 +15,11 @@ use Throwable;
 final class FailedBatch
 {
     /**
+     * How a batch's `failedAt` is written where a store keeps it as text, with its offset and microseconds.
+     */
+    public const string FAILED_AT_FORMAT = 'Y-m-d\TH:i:s.uP';
+
+    /**
      * @param string $connection the name of the connection that buffered it
      * @param string $bucket the bucket it was going to
      * @param string $org the org it was going to
@@ -69,6 +74,44 @@ final class FailedBatch
             $this->attempts + 1,
             new DateTimeImmutable,
             sprintf('%s: %s', $cause::class, $cause->getMessage()),
+        );
+    }
+
+    /**
+     * Describe this batch as the array a store keeps as JSON.
+     *
+     * @return array{connection: string, bucket: string, org: string, precision: string, payload: string, attempts: int, failedAt: string, exception: string}
+     */
+    public function toArray(): array
+    {
+        return [
+            'connection' => $this->connection,
+            'bucket' => $this->bucket,
+            'org' => $this->org,
+            'precision' => $this->precision,
+            'payload' => $this->payload,
+            'attempts' => $this->attempts,
+            'failedAt' => $this->failedAt->format(self::FAILED_AT_FORMAT),
+            'exception' => $this->exception,
+        ];
+    }
+
+    /**
+     * Read a batch back from the array toArray() made.
+     *
+     * @param array<string, mixed> $data
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            $data['connection'],
+            $data['bucket'],
+            $data['org'],
+            $data['precision'],
+            $data['payload'],
+            $data['attempts'],
+            new DateTimeImmutable($data['failedAt']),
+            $data['exception'],
         );
     }
 }

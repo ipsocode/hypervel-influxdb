@@ -278,7 +278,7 @@ class BatchingWriter extends WriteApi
             }
         }
 
-        $key = serialize([$bucket, $org, $precision]);
+        $key = self::batchKey($bucket, $org, $precision);
         $bytes = strlen($lines);
 
         // Lines that would take the batch past a limit start the next one, so no request outgrows them.
@@ -288,7 +288,7 @@ class BatchingWriter extends WriteApi
             $this->dispatch($this->take($key));
         }
 
-        $this->batches[$key] ??= ['bucket' => $bucket, 'org' => $org, 'precision' => $precision, 'lines' => [], 'points' => 0, 'bytes' => -1];
+        $this->batches[$key] ??= self::emptyBatch($bucket, $org, $precision);
         $this->batches[$key]['lines'][] = $lines;
         $this->batches[$key]['points'] += $points;
         $this->batches[$key]['bytes'] += 1 + $bytes;
@@ -300,6 +300,24 @@ class BatchingWriter extends WriteApi
         }
 
         $this->scheduleFlush();
+    }
+
+    /**
+     * Get the key of the batch for a bucket, org and precision.
+     */
+    protected static function batchKey(string $bucket, string $org, string $precision): string
+    {
+        return serialize([$bucket, $org, $precision]);
+    }
+
+    /**
+     * Start a batch for a bucket, org and precision, with no lines.
+     *
+     * @return array{bucket: string, org: string, precision: string, lines: list<string>, points: int, bytes: int}
+     */
+    protected static function emptyBatch(string $bucket, string $org, string $precision): array
+    {
+        return ['bucket' => $bucket, 'org' => $org, 'precision' => $precision, 'lines' => [], 'points' => 0, 'bytes' => -1];
     }
 
     /**
@@ -369,13 +387,13 @@ class BatchingWriter extends WriteApi
      */
     protected function restore(Batch $batch): void
     {
-        $key = serialize([$batch->bucket, $batch->org, $batch->precision]);
+        $key = self::batchKey($batch->bucket, $batch->org, $batch->precision);
 
         $this->sending -= $batch->points;
         $this->buffered += $batch->points;
         $this->bufferedSince ??= hrtime(true); // @phpstan-ignore assign.propertyType (hrtime(true) is an int on 64-bit PHP)
 
-        $this->batches[$key] ??= ['bucket' => $batch->bucket, 'org' => $batch->org, 'precision' => $batch->precision, 'lines' => [], 'points' => 0, 'bytes' => -1];
+        $this->batches[$key] ??= self::emptyBatch($batch->bucket, $batch->org, $batch->precision);
         $this->batches[$key]['lines'] = [$batch->payload, ...$this->batches[$key]['lines']];
         $this->batches[$key]['points'] += $batch->points;
         $this->batches[$key]['bytes'] += 1 + strlen($batch->payload);

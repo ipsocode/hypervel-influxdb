@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Ipsocode\InfluxDB\Write;
 
-use DateTimeImmutable;
 use DateTimeZone;
 use Hypervel\Container\Container;
 use Hypervel\Contracts\Filesystem\Factory;
@@ -23,8 +22,6 @@ use Throwable;
 final class FilesystemFailureStore implements ReplayableFailureStore
 {
     public const string DRIVER = 'filesystem';
-
-    private const string FAILED_AT = 'Y-m-d\TH:i:s.uP';
 
     private ?Filesystem $filesystem = null;
 
@@ -45,16 +42,7 @@ final class FilesystemFailureStore implements ReplayableFailureStore
     {
         $name = sprintf('%s/%s-%s.json', $this->path, $batch->failedAt->setTimezone(new DateTimeZone('UTC'))->format('YmdHisu'), bin2hex(random_bytes(4)));
 
-        $contents = json_encode([
-            'connection' => $batch->connection,
-            'bucket' => $batch->bucket,
-            'org' => $batch->org,
-            'precision' => $batch->precision,
-            'payload' => $batch->payload,
-            'attempts' => $batch->attempts,
-            'failedAt' => $batch->failedAt->format(self::FAILED_AT),
-            'exception' => $batch->exception,
-        ], JSON_THROW_ON_ERROR);
+        $contents = json_encode($batch->toArray(), JSON_THROW_ON_ERROR);
 
         if ($this->filesystem()->put($name, $contents) === false) {
             throw new RuntimeException("The failure store could not write [{$name}].");
@@ -66,7 +54,7 @@ final class FilesystemFailureStore implements ReplayableFailureStore
      *
      * @throws RuntimeException when a stored file cannot be read as a batch; the file is left in place
      */
-    public function replay(callable $writer, int $limit = 100): int
+    public function replay(callable $writer, int $limit = self::DEFAULT_LIMIT): int
     {
         $filesystem = $this->filesystem();
         $handed = 0;
@@ -91,16 +79,7 @@ final class FilesystemFailureStore implements ReplayableFailureStore
         try {
             $data = json_decode((string) $filesystem->get($file), true, flags: JSON_THROW_ON_ERROR);
 
-            return new FailedBatch(
-                $data['connection'],
-                $data['bucket'],
-                $data['org'],
-                $data['precision'],
-                $data['payload'],
-                $data['attempts'],
-                new DateTimeImmutable($data['failedAt']),
-                $data['exception'],
-            );
+            return FailedBatch::fromArray($data);
         } catch (Throwable $exception) {
             throw new RuntimeException("The failure store could not read [{$file}] as a failed batch.", previous: $exception);
         }

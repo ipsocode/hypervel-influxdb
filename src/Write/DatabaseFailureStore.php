@@ -63,7 +63,7 @@ final class DatabaseFailureStore implements ReplayableFailureStore
      *
      * @throws RuntimeException when a stored row cannot be read as a batch; the row is left in place
      */
-    public function replay(callable $writer, int $limit = 100): int
+    public function replay(callable $writer, int $limit = self::DEFAULT_LIMIT): int
     {
         if ($limit < 1) {
             return 0;

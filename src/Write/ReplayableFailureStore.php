@@ -14,6 +14,11 @@ namespace Ipsocode\InfluxDB\Write;
 interface ReplayableFailureStore extends FailureStore
 {
     /**
+     * The most batches a replay hands to the writer when no limit is given.
+     */
+    public const int DEFAULT_LIMIT = 100;
+
+    /**
      * Hand up to the given number of stored batches, oldest first, to the writer.
      *
      * A batch is removed only after the writer returns for it; a writer that throws leaves
@@ -23,5 +28,5 @@ interface ReplayableFailureStore extends FailureStore
      *
      * @return int the batches handed to the writer
      */
-    public function replay(callable $writer, int $limit = 100): int;
+    public function replay(callable $writer, int $limit = self::DEFAULT_LIMIT): int;
 }

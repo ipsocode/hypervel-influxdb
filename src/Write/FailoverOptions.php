@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ipsocode\InfluxDB\Write;
 
 use InvalidArgumentException;
+use Ipsocode\InfluxDB\Write\Concerns\DescribesInvalidOptions;
 
 /**
  * Which connections a write falls back to when its own cannot take it, and
@@ -14,6 +15,8 @@ use InvalidArgumentException;
  */
 final class FailoverOptions
 {
+    use DescribesInvalidOptions;
+
     /**
      * The seconds a connection that failed is skipped when `cooldown` is not set.
      */
@@ -100,23 +103,5 @@ final class FailoverOptions
         }
 
         throw self::invalid($connection, 'cooldown', $value, 'a number of seconds, zero or above');
-    }
-
-    /**
-     * Describe an option that is of the wrong kind.
-     */
-    private static function invalid(string $connection, string $key, mixed $value, string $expected): InvalidArgumentException
-    {
-        return new InvalidArgumentException(sprintf(
-            'InfluxDB connection [%s] has an invalid write.%s [%s]; expected %s.',
-            $connection,
-            $key,
-            match (true) {
-                is_string($value) => $value,
-                is_scalar($value) => var_export($value, true),
-                default => get_debug_type($value),
-            },
-            $expected,
-        ));
     }
 }
