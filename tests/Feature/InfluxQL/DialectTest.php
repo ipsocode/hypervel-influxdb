@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ipsocode\InfluxDB\Tests\Feature\InfluxQL;
 
+use DateTimeZone;
 use Hypervel\Database\Query\Expression as QueryExpression;
 use Hypervel\Foundation\Testing\Attributes\UnitTest;
 use InvalidArgumentException;
@@ -12,10 +13,12 @@ use Ipsocode\InfluxDB\InfluxQL\Expression;
 use Ipsocode\InfluxDB\InfluxQL\Regex;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionProperty;
 
 /**
- * The Dialect paths no grammar reaches: a raw Expression, literals handed over already escaped, and the
- * type hint stripped from a plucked column's name. GrammarTest covers the rest through a grammar.
+ * The Dialect paths no grammar reaches: a raw Expression, literals handed over already escaped, the
+ * type hint stripped from a plucked column's name and the time zone list a worker keeps. GrammarTest
+ * covers the rest through a grammar.
  */
 class DialectTest extends TestCase
 {
@@ -98,6 +101,14 @@ class DialectTest extends TestCase
     }
 
     #[UnitTest]
+    public function testWithNoLiteralsTheStatementIsReturnedAsGiven(): void
+    {
+        $statement = 'SELECT * FROM "c?pu" WHERE "host" = \'it\\\'s?\' AND "value" > ? AND "path" = \'unterminated\\';
+
+        $this->assertSame($statement, Dialect::substituteBindings($statement, []));
+    }
+
+    #[UnitTest]
     public function testSubstitutionTakesTheLiteralsInOrderWhateverTheirKeys(): void
     {
         $this->assertSame("'b' 'a'", Dialect::substituteBindings('? ?', [1 => "'b'", 0 => "'a'"]));
@@ -131,5 +142,20 @@ class DialectTest extends TestCase
             'a suffix that is not a hint' => ['host::name', 'host::name', '"host::name"'],
             'a hint with no name before it' => ['::tag', '::tag', '"::tag"'],
         ];
+    }
+
+    #[UnitTest]
+    public function testTheTimeZoneNamesAreReadOnceAndFlushedWithTheStaticState(): void
+    {
+        $timeZones = new ReflectionProperty(Dialect::class, 'timeZones');
+
+        Dialect::ensureTimeZone('Europe/Amsterdam');
+        Dialect::ensureTimeZone('US/Eastern');
+
+        $this->assertSame(array_flip(DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC)), $timeZones->getValue());
+
+        Dialect::flushState();
+
+        $this->assertNull($timeZones->getValue());
     }
 }

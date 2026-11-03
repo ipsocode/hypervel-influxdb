@@ -46,6 +46,11 @@ class Builder
     }
 
     /**
+     * A where-method's name: `where` or `orWhere`, then what it compares.
+     */
+    private const string WHERE_METHOD = '/^(?:or)?[wW]here(.+)$/';
+
+    /**
      * The where clauses of Hypervel's builder that this one does not implement.
      *
      * Named so that a call fails loudly instead of the dynamic where compiling
@@ -1729,7 +1734,7 @@ class Builder
             return $this->macroCall($method, $parameters);
         }
 
-        if (preg_match('/^(?:or)?[wW]here(?:' . implode('|', self::UNSUPPORTED_WHERES) . ')$/', $method) === 1) {
+        if (preg_match(self::WHERE_METHOD, $method, $matches) === 1 && in_array($matches[1], self::UNSUPPORTED_WHERES, true)) {
             throw new BadMethodCallException(sprintf('%s::%s() is not supported: InfluxQL has no NOT, NULL, LIKE, date part, sub-select, JSON or full-text clause, and a relative date is a comparison on time, such as where(\'time\', \'<\', now()).', static::class, $method));
         }
 

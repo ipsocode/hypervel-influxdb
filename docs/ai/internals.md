@@ -123,6 +123,8 @@ package keeps state, shared by every coroutine of a worker, in these places:
   `RefPoint::flushState()`.
 - **The InfluxQL builder's macros.** A static, reset by
   `InfluxQL\Builder::flushState()`.
+- **The time zone names `tz()` accepts.** PHP's list, flipped for a lookup and
+  read once per worker into a static, reset by `InfluxQL\Dialect::flushState()`.
 
 `Testing\TestState` flushes the static state: its `register()` hands
 `flushState()` to Hypervel's `AfterEachTestCleanup`. It is declared in
@@ -361,7 +363,7 @@ names their outcomes instead.
 ## The InfluxQL dialect
 
 How InfluxQL writes identifiers and literals lives in `InfluxQL\Dialect`, a
-class of static methods with no state. Both grammars delegate to it,
+class of static methods whose only state is the time zone list above. Both grammars delegate to it,
 `Grammars\Grammar` for `InfluxDB::table()`'s builder and `Driver\Grammar` for
 the `influxql` driver, so a statement reads the same whichever compiled it. It
 knows neither grammar's raw expression type: each grammar embeds its own
