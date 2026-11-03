@@ -223,9 +223,13 @@ something else:
   clauses throw a `BadMethodCallException`. For a relative date, compare
   `time` directly: `where('time', '<', now())`.
 
-InfluxDB answers an `OR` between time ranges with no points, so keep `time`
-out of `whereIn()`, `whereNotBetween()` and `orWhere()`. They work as expected
-on fields and tags.
+InfluxDB answers an `OR` between time ranges with no points and no error, so a
+statement that joins a comparison on `time` to another with `OR` is refused with
+a `RuntimeException`, before anything is sent: `whereIn('time', ...)` given more
+than one value, `whereNotBetween('time', ...)`, and `orWhere()` on `time`, or
+after a clause on `time`, including inside a nested group. Query each time range
+on its own and merge the results. `whereIn('time', [$one])` is a single
+comparison and stays allowed, and none of this applies to fields and tags.
 
 A statement the server refuses throws a `QueryException`: see
 [Running statements](#running-statements).

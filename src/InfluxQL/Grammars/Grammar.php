@@ -9,6 +9,7 @@ use InvalidArgumentException;
 use Ipsocode\InfluxDB\InfluxQL\Builder;
 use Ipsocode\InfluxDB\InfluxQL\Dialect;
 use Ipsocode\InfluxDB\InfluxQL\Expression;
+use Ipsocode\InfluxDB\InfluxQL\Grammars\Concerns\RefusesAnOrOnTime;
 use Ipsocode\InfluxDB\InfluxQL\Grammars\Concerns\RefusesWhatTheVersionLacks;
 use Ipsocode\InfluxDB\InfluxQL\Regex;
 use Ipsocode\InfluxDB\InfluxQL\Version;
@@ -25,6 +26,7 @@ use RuntimeException;
  */
 abstract class Grammar
 {
+    use RefusesAnOrOnTime;
     use RefusesWhatTheVersionLacks;
 
     /**
@@ -196,9 +198,13 @@ abstract class Grammar
      * Get an array of all the where clauses for the query.
      *
      * @return list<string>
+     *
+     * @throws RuntimeException when a comparison on `time` is joined to another by OR
      */
     protected function compileWheresToArray(Builder $query): array
     {
+        $this->ensureNoOrOnTime($query->wheres);
+
         return array_map(
             fn (array $where): string => strtolower($where['boolean']) . ' ' . $this->{"where{$where['type']}"}($query, $where),
             $query->wheres,
