@@ -13,9 +13,6 @@ permissions:
 env:
   RUN_BLOCKING_TESTS: 'true'
   OTEL_SDK_DISABLED: 'true'
-  COMPOSER_CACHE_DIR: /tmp/composer-cache
-  COMPOSER_MEMORY_LIMIT: '-1'
-  COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
 
 jobs:
   initial:
@@ -41,54 +38,21 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Cache Composer downloads
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: /tmp/composer-cache
-          key: composer-8.4-${{ hashFiles('composer.json') }}
-          restore-keys: composer-8.4-
-
       - name: Install dependencies
-        run: |
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-          composer update --prefer-dist --no-interaction --optimize-autoloader
-
-      - name: Cache tests/.cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: ipsocode/hypervel-packages-ci/tests/install@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
         with:
-          path: tests/.cache
-          key: tests-cache-8.4-${{ hashFiles('composer.json', 'phpstan.neon', 'phpunit.xml', '.php-cs-fixer.dist.php') }}-${{ github.sha }}
-          restore-keys: tests-cache-8.4-${{ hashFiles('composer.json', 'phpstan.neon', 'phpunit.xml', '.php-cs-fixer.dist.php') }}-
+          php: '8.4'
 
-      - name: Check code style
-        run: vendor/bin/php-cs-fixer fix --dry-run --diff
-
-      - name: Run PHPStan
-        run: vendor/bin/phpstan analyse --memory-limit 1G -c phpstan.neon --no-progress
-
-      - name: Assert a coverage driver is loaded
-        run: php -m | grep -qx pcov
-
-      - name: Run the suite under the coverage gate
-        id: gate
-        env:
-          MIN_COVERAGE: '100'
-        run: |
-          vendor/bin/testbench package:test --parallel \
-            --coverage --min="${MIN_COVERAGE}" --coverage-clover tests/coverage/clover.xml
-
-      - name: Upload the coverage report
-        if: ${{ always() && (github.event_name != 'pull_request' || steps.gate.outcome == 'failure') }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - name: Check style, analyse and run the suite under the coverage gate
+        uses: ipsocode/hypervel-packages-ci/tests/suite@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
         with:
-          name: clover-php8.4
-          path: tests/coverage/clover.xml
-          if-no-files-found: ignore
-          retention-days: 14
+          php: '8.4'
+          style: 'true'
+          min-coverage: '100'
 
   php85:
     name: PHP 8.5
-    needs: php84
+    needs: initial
     runs-on: ubuntu-latest
     timeout-minutes: 7
 
@@ -105,27 +69,38 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Cache Composer downloads
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: /tmp/composer-cache
-          key: composer-8.5-${{ hashFiles('composer.json') }}
-          restore-keys: composer-8.5-
-
       - name: Install dependencies
-        run: |
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-          composer update --prefer-dist --no-interaction --optimize-autoloader
-
-      - name: Cache tests/.cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: ipsocode/hypervel-packages-ci/tests/install@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
         with:
-          path: tests/.cache
-          key: tests-cache-8.5-${{ hashFiles('composer.json', 'phpstan.neon', 'phpunit.xml', '.php-cs-fixer.dist.php') }}-${{ github.sha }}
-          restore-keys: tests-cache-8.5-${{ hashFiles('composer.json', 'phpstan.neon', 'phpunit.xml', '.php-cs-fixer.dist.php') }}-
+          php: '8.5'
 
-      - name: Run PHPStan
-        run: vendor/bin/phpstan analyse --memory-limit 1G -c phpstan.neon --no-progress
+      - name: Analyse and run the suite
+        uses: ipsocode/hypervel-packages-ci/tests/suite@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        with:
+          php: '8.5'
 
-      - name: Run the suite
-        run: vendor/bin/testbench package:test --parallel
+  fix:
+    name: Ask for a fix
+    needs: [initial, php84, php85]
+    if: >-
+      failure()
+      && github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.event.pull_request.draft == false
+      && (startsWith(github.head_ref, 'bug-fixes/') || startsWith(github.head_ref, 'feature/') || startsWith(github.head_ref, 'routine/'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    permissions:
+      issues: write
+      pull-requests: write
+
+    concurrency:
+      group: checks-${{ github.head_ref }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Ask for a fix
+        uses: ipsocode/hypervel-packages-ci/tests/fix@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        with:
+          label-token: ${{ secrets.TRAIN_TOKEN }}

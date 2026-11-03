@@ -309,15 +309,26 @@ final class Conventions
                         $this->violation($path, $index + 1, $rule, "The suite runs with --min={$value}. Use --min=100, or --min=\"\${MIN_COVERAGE}\" with MIN_COVERAGE at 100.");
                     }
                 }
+
+                preg_match_all('/\bmin-coverage:\s*[\'"]?([^\'"\s#]+)/', $text, $matches);
+
+                foreach ($matches[1] as $value) {
+                    ++$settings;
+                    ++$flags;
+
+                    if ($value !== '100') {
+                        $this->violation($path, $index + 1, $rule, "min-coverage is {$value}. The gate is 100.");
+                    }
+                }
             }
         }
 
         if ($settings === 0) {
-            $this->violation('.github/workflows', 0, $rule, 'No workflow sets MIN_COVERAGE, so no release is gated on coverage.');
+            $this->violation('.github/workflows', 0, $rule, 'No workflow sets MIN_COVERAGE (or the suite action\'s min-coverage), so no release is gated on coverage.');
         }
 
         if ($flags === 0) {
-            $this->violation('.github/workflows', 0, $rule, 'No workflow runs the suite with --min, so MIN_COVERAGE gates nothing.');
+            $this->violation('.github/workflows', 0, $rule, 'No workflow runs the suite with --min (or the suite action\'s min-coverage), so the gate gates nothing.');
         }
 
         libxml_use_internal_errors(true);
