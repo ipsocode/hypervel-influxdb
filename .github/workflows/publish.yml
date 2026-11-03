@@ -232,6 +232,8 @@ jobs:
     uses: ./.github/workflows/tests.yml
     permissions:
       contents: read
+      issues: write
+      pull-requests: write
 
   release:
     name: ${{ needs.plan.outputs.tag }}
