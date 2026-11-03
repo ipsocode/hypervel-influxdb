@@ -156,27 +156,42 @@ final class BatchOptions
         $name = is_array($driver) ? $driver['driver'] : $driver;
         $options = is_array($driver) ? $driver : [];
 
-        return match ($name) {
-            LogFailureStore::DRIVER => new LogFailureStore,
-            FilesystemFailureStore::DRIVER => new FilesystemFailureStore(
+        // Not a match: PHP compiles one on these constants with or without a jump table,
+        // depending on whether the stores were loaded first, which moves its covered lines.
+        if ($name === LogFailureStore::DRIVER) {
+            return new LogFailureStore;
+        }
+
+        if ($name === FilesystemFailureStore::DRIVER) {
+            return new FilesystemFailureStore(
                 self::storeOption($options, 'path', "influxdb/failed/{$connection}", $connection),
                 self::storeOption($options, 'disk', null, $connection),
-            ),
-            RedisFailureStore::DRIVER => new RedisFailureStore(
+            );
+        }
+
+        if ($name === RedisFailureStore::DRIVER) {
+            return new RedisFailureStore(
                 "influxdb:failed:{$connection}",
                 self::storeOption($options, 'connection', null, $connection),
-            ),
-            DatabaseFailureStore::DRIVER => new DatabaseFailureStore(
+            );
+        }
+
+        if ($name === DatabaseFailureStore::DRIVER) {
+            return new DatabaseFailureStore(
                 $connection,
                 self::storeOption($options, 'table', DatabaseFailureStore::DEFAULT_TABLE, $connection),
                 self::storeOption($options, 'connection', null, $connection),
-            ),
-            QueueFailureStore::DRIVER => new QueueFailureStore(
+            );
+        }
+
+        if ($name === QueueFailureStore::DRIVER) {
+            return new QueueFailureStore(
                 self::storeOption($options, 'connection', null, $connection),
                 self::storeOption($options, 'queue', null, $connection),
-            ),
-            default => throw self::invalid($connection, 'onFailure', $name, sprintf('a callable, the name of an invokable class, or the driver %s, %s, %s, %s or %s', ...self::DRIVERS)),
-        };
+            );
+        }
+
+        throw self::invalid($connection, 'onFailure', $name, sprintf('a callable, the name of an invokable class, or the driver %s, %s, %s, %s or %s', ...self::DRIVERS));
     }
 
     /**
