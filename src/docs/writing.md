@@ -243,7 +243,7 @@ The `write` block takes these options for batching:
 | `batchSizeMb` | [By `version`](#when-a-batch-is-sent) | The megabytes a batch is sent at |
 | `flushInterval` | `1` | The seconds after the buffer's first point that it is sent at the latest |
 | `maxBuffered` | 10 × `batchSize` | The points a writer [holds](#how-much-a-worker-holds), buffered or being sent |
-| `overflow` | `'flush'` | What a write past `maxBuffered` does: `'flush'` or `'refuse'` (`BatchOptions::FLUSH`, `BatchOptions::REFUSE`) |
+| `overflow` | `'flush'` | What a write past `maxBuffered` does: `'flush'` (send the buffer in the background, and hand the lines to `onFailure` while the cap is still exceeded) or `'refuse'` (`BatchOptions::FLUSH`, `BatchOptions::REFUSE`) |
 | `maxAttempts` | `10` | The sends a batch a [store kept](#replaying-failed-batches) gets, replays included, before a replay drops it |
 | `onFailure` | `'log'` | `'log'`, `'filesystem'`, `'redis'`, `'database'`, `'queue'`, a [driver array](#the-filesystem-driver), a callable, or the name of an invokable class, handed each batch that [cannot be written](#when-a-batch-cannot-be-written) |
 | `maxRetries` | `3` | The client's option: the retries a batch gets |
@@ -578,9 +578,15 @@ matters.
 ### How much a worker holds
 
 `maxBuffered` caps the points a writer holds, buffered or being sent, at ten
-batches' worth by default: 10 × `batchSize`. A write that would take it past
-the cap sends the buffer itself before it returns, so while the server falls
-behind, writes slow to its pace as synchronous ones would. With
+batches' worth by default: 10 × `batchSize`. A write never waits on a send or
+its retries. One that would take the writer past the cap hands every buffered
+batch to its send coroutine, as a full batch is, and returns. While earlier
+sends are still going, as when the server is down and they are retrying, the
+points held can already be past the cap when the next write arrives: that
+write's lines are not held but handed to the connection's `onFailure`, the
+path of a batch that could not be written, so they are logged by default or
+kept by a [failure store](#replaying-failed-batches) to replay. The writer
+holds at most `maxBuffered` points plus the write that went over. With
 `'overflow' => 'refuse'`, such a write throws an
 `Ipsocode\InfluxDB\Write\BufferFullException` instead, and keeps none of the
 points it refuses. The writer's `getPendingPoints()` counts what it holds.

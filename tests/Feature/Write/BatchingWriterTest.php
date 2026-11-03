@@ -32,6 +32,8 @@ use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Swoole\Coroutine\CanceledException;
 
+use function Hypervel\Coroutine\parallel;
+
 /**
  * The batching writer inside a coroutine; BatchingWriterOutsideCoroutineTest covers it outside one.
  *
@@ -852,9 +854,9 @@ class BatchingWriterTest extends TestCase
         $this->assertSame(0, $writer->getPendingPoints());
     }
 
-    public function testPastMaxBufferedAWriteSendsTheBufferBeforeItReturns(): void
+    public function testPastMaxBufferedAWriteHandsTheBufferToItsSendsAndDoesNotWaitOnThem(): void
     {
-        $writer = $this->writer(['maxBuffered' => 2], self::accepted());
+        $writer = $this->writer(['maxBuffered' => 2], self::accepted(2), delay: 50);
 
         $writer->write('cpu load=1i 1');
         $writer->write('cpu load=2i 2');
@@ -863,7 +865,73 @@ class BatchingWriterTest extends TestCase
 
         $writer->write('cpu load=3i 3');
 
-        $this->assertSame([['cpu load=1i 1', 'cpu load=2i 2', 'cpu load=3i 3']], $this->sentBatches());
+        $this->assertSame([], $this->history, 'The write returned before any send finished.');
+        $this->assertSame(3, $writer->getPendingPoints());
+
+        $writer->flush();
+
+        $this->assertSame([['cpu load=1i 1', 'cpu load=2i 2'], ['cpu load=3i 3']], $this->sentBatches());
+        $this->assertSame(0, $writer->getPendingPoints());
+    }
+
+    public function testPastMaxBufferedWhileSendsAreStillRetryingTheOverflowGoesToOnFailure(): void
+    {
+        Exceptions::fake();
+        $handed = [];
+        $writer = $this->writer(
+            ['maxBuffered' => 2, 'onFailure' => function (Batch $batch) use (&$handed): void {
+                $handed[] = $batch->payload;
+            }],
+            self::accepted(2),
+            delay: 50,
+        );
+
+        $writer->write('cpu load=1i 1');
+        $writer->write('cpu load=2i 2');
+        $writer->write('cpu load=3i 3');
+
+        $this->assertSame([], $handed);
+
+        // [1, 2] is still being sent and 3 is buffered: three points are held, past the cap of two.
+        $writer->write('cpu load=4i 4');
+
+        $this->assertSame(['cpu load=4i 4'], $handed);
+        $this->assertSame(3, $writer->getPendingPoints(), 'The refused lines are not held.');
+
+        $writer->flush();
+
+        $this->assertSame([['cpu load=1i 1', 'cpu load=2i 2'], ['cpu load=3i 3']], $this->sentBatches());
+    }
+
+    public function testManyCoroutinesOverflowingDuringAnOutageReturnWithoutWaitingOnTheRetries(): void
+    {
+        Exceptions::fake();
+        $handed = [];
+        $writer = $this->writer(
+            ['batchSize' => 1, 'maxBuffered' => 2, 'onFailure' => function (Batch $batch) use (&$handed): void {
+                $handed[] = $batch->payload;
+            }],
+            array_fill(0, 12, new Response(503, [], 'unavailable')),
+            delay: 200,
+        );
+
+        $started = hrtime(true);
+
+        $returned = parallel(array_map(
+            static fn (int $point): Closure => static function () use ($writer, $point): int {
+                $writer->write("cpu load={$point}i {$point}");
+
+                return $point;
+            },
+            range(1, 6),
+        ));
+
+        $this->assertSame(range(1, 6), $returned);
+        $this->assertLessThan(150_000_000, hrtime(true) - $started, 'No write waited on a send that takes 200 ms.');
+        $this->assertGreaterThanOrEqual(1, count($handed), 'The writes past the cap were handed to onFailure.');
+
+        $writer->flush();
+
         $this->assertSame(0, $writer->getPendingPoints());
     }
 

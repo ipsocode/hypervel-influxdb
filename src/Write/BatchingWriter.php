@@ -260,6 +260,24 @@ class BatchingWriter extends WriteApi
             throw new BufferFullException($this->connection, $points, $waiting, $this->batching->maxBuffered);
         }
 
+        if ($overflowing) {
+            // Every buffered batch goes to its send coroutine, as a full one does: the write never waits on a send.
+            foreach (array_keys($this->batches) as $batchKey) {
+                $this->dispatch($this->take($batchKey));
+            }
+
+            // Held points already past the cap, sends still retrying: these lines are not held, but handed to `onFailure`.
+            if ($waiting > $this->batching->maxBuffered) {
+                $this->fail(
+                    new Batch($this->connection, $bucket, $org, $precision, $lines, $points),
+                    new BufferFullException($this->connection, $points, $waiting, $this->batching->maxBuffered),
+                    0,
+                );
+
+                return;
+            }
+        }
+
         $key = serialize([$bucket, $org, $precision]);
         $bytes = strlen($lines);
 
@@ -281,12 +299,7 @@ class BatchingWriter extends WriteApi
             $this->dispatch($this->take($key));
         }
 
-        // A send coroutine never flushes: its own batch is still counted, and it would wait on sends that wait on it.
-        if ($overflowing && ! $this->sendingHere()) {
-            $this->flush();
-        } else {
-            $this->scheduleFlush();
-        }
+        $this->scheduleFlush();
     }
 
     /**

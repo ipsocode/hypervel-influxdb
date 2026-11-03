@@ -19,7 +19,7 @@ use Ipsocode\InfluxDB\InfluxQL\Version;
 final class BatchOptions
 {
     /**
-     * Past `maxBuffered`, write() sends the buffer itself before it returns.
+     * Past `maxBuffered`, write() hands the buffer to its sends without waiting on them, and hands its own lines to `onFailure` while the points held are still past the cap.
      */
     public const string FLUSH = 'flush';
 
