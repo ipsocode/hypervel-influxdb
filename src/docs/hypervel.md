@@ -60,10 +60,10 @@ shows how a test answers it.
 Hypervel turns Swoole's runtime hooks on (`SWOOLE_HOOK_ALL`, unless the
 application defines `SWOOLE_HOOK_FLAGS`), and they cover curl when Swoole is
 built with it (`php --ri swoole` lists `curl-native => enabled`). The InfluxDB
-client sends through a Guzzle client of its own by default (Guzzle comes with
-`hypervel/foundation`), which goes through curl, so a write or a query
-suspends the coroutine that made it and lets the worker serve other requests
-meanwhile. Without curl support in Swoole, each call to InfluxDB blocks the
+client sends through a Guzzle client of its own by default (from Hypervel's
+fork of Guzzle, `hypervel/guzzle`, which this package requires), which goes
+through curl, so a write or a query suspends the coroutine that made it and
+lets the worker serve other requests meanwhile. Without curl support in Swoole, each call to InfluxDB blocks the
 whole worker until it returns.
 
 An `httpClient` set on a connection replaces that Guzzle client (see
