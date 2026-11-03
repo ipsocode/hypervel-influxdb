@@ -68,7 +68,9 @@ whole worker until it returns.
 
 An `httpClient` set on a connection replaces that Guzzle client (see
 [Passing options to the client](configuration.md#passing-options-to-the-client)),
-and yields only where Swoole's hooks cover what it sends through.
+and yields only where Swoole's hooks cover what it sends through. It does not
+return the request's idle database sessions before each request either, which
+the client the connection builds does: see the same section.
 
 ## The connection manager
 

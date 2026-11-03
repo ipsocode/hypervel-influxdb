@@ -213,6 +213,13 @@ a reset or a timeout to the client's write retries as a network error. With
 `httpClient` set to a PSR-18 client of your own, they are not applied, so
 configure that client instead; it is used as given, so its network failures are
 retried only if they reach the client as `Http\Client\Exception\NetworkException`.
+The client the connection builds also returns the request's idle database
+sessions before each request, as Hypervel's own HTTP client does, so a request
+that has queried the database does not hold its pooled session while InfluxDB
+answers; a session in a transaction or pinned is kept. A client of your own
+does not do this, so add Hypervel's `ReleaseIdleDatabaseConnections` Guzzle
+middleware to it, or call `Hypervel\Database\ConnectionResolver::releaseIdleConnections()`
+before its requests.
 `allow_redirects`, `debug` and the token apply to either.
 
 The package's own requests go through transports built from the same options:

@@ -12,13 +12,17 @@ use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use Http\Client\Common\PluginClient;
 use Http\Client\Exception\NetworkException;
+use Hypervel\Context\CoroutineContext;
+use Hypervel\Database\Pool\ConnectionLease;
 use InfluxDB2\ApiException;
 use InfluxDB2\Client;
 use Ipsocode\InfluxDB\InfluxDBFactory;
+use Ipsocode\InfluxDB\Support\ReleasesIdleDatabaseConnections;
 use Ipsocode\InfluxDB\Support\RetryableNetworkErrors;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use Ipsocode\InfluxDB\Write\BatchingWriter;
 use Ipsocode\InfluxDB\Write\BatchOptions;
+use Mockery as m;
 use ReflectionProperty;
 use RuntimeException;
 
@@ -87,6 +91,26 @@ class NetworkRetryTest extends TestCase
         $this->assertSame(3, $config['timeout']);
         $this->assertFalse($config['verify']);
         $this->assertSame('http://proxy.localhost:8080', $config['proxy']);
+    }
+
+    public function testTheClientTheFactoryBuildsReleasesIdleDatabaseSessionsBeforeEachRequest(): void
+    {
+        $lease = m::mock(ConnectionLease::class);
+        $lease->shouldReceive('releaseIfIdle')->twice();
+        CoroutineContext::set('__influxdb.test.lease', $lease);
+
+        $options = (new InfluxDBFactory)->make($this->config())->options;
+
+        $plugins = (new ReflectionProperty(PluginClient::class, 'plugins'))->getValue($options['httpClient']);
+
+        $this->assertInstanceOf(ReleasesIdleDatabaseConnections::class, $plugins[0]);
+
+        $client = new PluginClient(
+            new Guzzle(['handler' => HandlerStack::create(new MockHandler([new Response(204), new Response(204)]))]),
+            [new ReleasesIdleDatabaseConnections],
+        );
+        $client->sendRequest(new Request('GET', 'http://localhost'));
+        $client->sendRequest(new Request('GET', 'http://localhost'));
     }
 
     public function testAConnectionsOwnHttpClientIsUsedAsGiven(): void
