@@ -44,9 +44,10 @@ names [fallbacks](#falling-back-to-other-connections) to write through instead.
 
 `writeApi()` builds the `WriteApi` from the connection's `write` block (see
 [Passing options to the client](configuration.md#passing-options-to-the-client)).
-Write options given as its second argument are used instead, but only by the
-connection's first call in the worker: later calls return the `WriteApi`
-already built, and ignore them. A connection that is not configured throws an
+Write options given as its second argument are used instead, but the
+`WriteApi` is built once per worker, from the connection's first call: later
+calls return it, and a call that passes options different from the ones it was
+built with throws an `InvalidArgumentException`. A connection that is not configured throws an
 `InvalidArgumentException`. How the manager keeps the `WriteApi`, and what
 `disconnect()` does to it, is in
 [The connection manager](hypervel.md#the-connection-manager).

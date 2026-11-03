@@ -63,6 +63,13 @@ class InfluxDBManager
     protected array $writeApis = [];
 
     /**
+     * The write options each memoized WriteApi was built with, keyed by connection name.
+     *
+     * @var array<string, null|array<string, mixed>>
+     */
+    protected array $writeApiOptions = [];
+
+    /**
      * The memoized InfluxQL connections, keyed by connection name.
      *
      * @var array<string, Connection>
@@ -109,16 +116,26 @@ class InfluxDBManager
      *
      * @param null|array<string, mixed> $writeOptions the options to create it with on first use, instead of the connection's `write` block
      *
-     * @throws InvalidArgumentException when the connection is not configured, its batching or failover options are out of range, or a fallback is not configured
+     * @throws InvalidArgumentException when the connection is not configured, its batching or failover options are out of range, a fallback is not configured, or the options differ from those the WriteApi was built with
      */
     public function writeApi(?string $connection = null, ?array $writeOptions = null): WriteApi
     {
         $name = $connection ?: $this->getDefaultConnection();
 
-        return $this->writeApis[$name] ??= $this->makeWriteApi(
-            $name,
-            $writeOptions ?? $this->getConnectionConfig($name)['write'] ?? null,
-        );
+        if (isset($this->writeApis[$name])) {
+            // Loose, so options holding objects compare by their properties, not identity.
+            if ($writeOptions !== null && $writeOptions != $this->writeApiOptions[$name]) {
+                throw new InvalidArgumentException("InfluxDB connection [{$name}] already has a WriteApi, built once per worker with the options of its first call: later calls cannot pass different write options.");
+            }
+
+            return $this->writeApis[$name];
+        }
+
+        $writeOptions ??= $this->getConnectionConfig($name)['write'] ?? null;
+        $writeApi = $this->makeWriteApi($name, $writeOptions);
+        $this->writeApiOptions[$name] = $writeOptions;
+
+        return $this->writeApis[$name] = $writeApi;
     }
 
     /**
@@ -337,7 +354,7 @@ class InfluxDBManager
 
         $writeApi = $this->writeApis[$name] ?? null;
 
-        unset($this->connections[$name], $this->writeApis[$name], $this->replayApis[$name], $this->influxql[$name]);
+        unset($this->connections[$name], $this->writeApis[$name], $this->writeApiOptions[$name], $this->replayApis[$name], $this->influxql[$name]);
 
         if ($writeApi instanceof BatchingWriter) {
             $writeApi->close();
