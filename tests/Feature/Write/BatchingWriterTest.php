@@ -12,10 +12,12 @@ use Hypervel\Coordinator\Constants;
 use Hypervel\Coordinator\CoordinatorManager;
 use Hypervel\Coroutine\Coroutine;
 use Hypervel\Support\Facades\Exceptions;
+use Hypervel\Testing\ParallelTesting;
 use InfluxDB2\ApiException;
 use InfluxDB2\Point;
 use InvalidArgumentException;
 use Ipsocode\InfluxDB\Tests\Concerns\MocksWrites;
+use Ipsocode\InfluxDB\Tests\Fixtures\ManualTimer;
 use Ipsocode\InfluxDB\Tests\Fixtures\RecordsFailures;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use Ipsocode\InfluxDB\Write\Batch;
@@ -261,22 +263,26 @@ class BatchingWriterTest extends TestCase
 
     public function testTheBufferIsSentOnceTheFlushIntervalHasPassedSinceItsFirstPoint(): void
     {
-        $writer = $this->writer(['flushInterval' => 0.5], self::accepted(2));
+        $timer = new ManualTimer;
+        $writer = $this->writer(['flushInterval' => 0.5], self::accepted(2), timer: $timer);
 
         $writer->write('cpu load=1i 1');
-        usleep(100_000);
         $writer->write('cpu load=2i 2');
 
+        // One timer, armed by the first point for the whole interval; the second point arms none.
+        $this->assertSame([0.5], $timer->timeouts());
         $this->assertSame([], $this->history);
 
-        $this->waitUntil(fn (): bool => count($this->history) === 1);
+        $timer->fire();
 
         $this->assertSame([['cpu load=1i 1', 'cpu load=2i 2']], $this->sentBatches());
         $this->assertSame(0, $writer->getPendingPoints());
 
         $writer->write('cpu load=3i 3');
 
-        $this->waitUntil(fn (): bool => count($this->history) === 2);
+        $this->assertSame([0.5], $timer->timeouts());
+
+        $timer->fire();
 
         $this->assertSame([['cpu load=1i 1', 'cpu load=2i 2'], ['cpu load=3i 3']], $this->sentBatches());
     }
@@ -310,21 +316,23 @@ class BatchingWriterTest extends TestCase
 
     public function testAFlushCancelsTheFlushTimer(): void
     {
-        $writer = $this->writer(['flushInterval' => 0.3], self::accepted(2));
+        $timer = new ManualTimer;
+        $writer = $this->writer(['flushInterval' => 0.3], self::accepted(2), timer: $timer);
 
         $writer->write('cpu load=1i 1');
         $writer->flush();
 
-        // A timer the flush left armed would still fire 0.3s after the first
-        // point, and send the next one half an interval after it was written.
-        usleep(150_000);
-        $writtenAt = hrtime(true);
+        // A timer the flush left armed would send the next point before a whole interval had passed since it was written.
+        $this->assertSame([], $timer->armed);
+
         $writer->write('cpu load=2i 2');
 
-        $this->waitUntil(fn (): bool => count($this->history) === 2);
+        $this->assertSame([0.3], $timer->timeouts());
+        $this->assertSame([['cpu load=1i 1']], $this->sentBatches());
+
+        $timer->fire();
 
         $this->assertSame([['cpu load=1i 1'], ['cpu load=2i 2']], $this->sentBatches());
-        $this->assertGreaterThanOrEqual(300_000_000, $this->sentAt[1] - $writtenAt, 'The second point was sent before a whole flush interval had passed since it was written.');
     }
 
     public function testTheWorkerExitSendsTheBuffer(): void
@@ -706,7 +714,7 @@ class BatchingWriterTest extends TestCase
     public function testTheLogDriverUsesTheErrorLogWhenTheLoggerFails(): void
     {
         Exceptions::fake();
-        $log = tempnam(sys_get_temp_dir(), 'influxdb');
+        $log = $this->errorLog();
         $previous = ini_set('error_log', $log);
         $logger = Mockery::mock(LoggerInterface::class);
         $logger->shouldReceive('warning')->once()->andThrow(new RuntimeException('The logger is down.'));
@@ -721,6 +729,7 @@ class BatchingWriterTest extends TestCase
         } finally {
             ini_set('error_log', $previous === false ? '' : $previous);
             unlink($log);
+            rmdir(dirname($log));
         }
     }
 
@@ -753,7 +762,7 @@ class BatchingWriterTest extends TestCase
 
     public function testAFailureTheExceptionHandlerCannotReportIsLogged(): void
     {
-        $log = tempnam(sys_get_temp_dir(), 'influxdb');
+        $log = $this->errorLog();
         $previous = ini_set('error_log', $log);
 
         $handler = Mockery::mock(ExceptionHandler::class);
@@ -770,6 +779,7 @@ class BatchingWriterTest extends TestCase
         } finally {
             ini_set('error_log', (string) $previous);
             unlink($log);
+            rmdir(dirname($log));
         }
     }
 
@@ -821,7 +831,8 @@ class BatchingWriterTest extends TestCase
 
     public function testACancelledFlushArmsTheFlushTimerAgain(): void
     {
-        $writer = $this->writer(['flushInterval' => 0.05], [new CanceledException('Cancelled.'), new Response(204)]);
+        $timer = new ManualTimer;
+        $writer = $this->writer(['flushInterval' => 0.05], [new CanceledException('Cancelled.'), new Response(204)], timer: $timer);
 
         $writer->write('cpu load=1i 1');
 
@@ -830,7 +841,10 @@ class BatchingWriterTest extends TestCase
         } catch (CanceledException) {
         }
 
-        Coroutine::sleep(0.2);
+        $this->assertSame([0.05], $timer->timeouts());
+        $this->assertSame(1, $writer->getPendingPoints());
+
+        $timer->fire();
 
         $this->assertSame([['cpu load=1i 1'], ['cpu load=1i 1']], $this->sentBatches());
         $this->assertSame(0, $writer->getPendingPoints());
@@ -993,6 +1007,23 @@ class BatchingWriterTest extends TestCase
     /**
      * Yield until the condition holds, for up to two seconds.
      */
+    /**
+     * Create an empty file for PHP's error log in this worker's temporary directory.
+     */
+    private function errorLog(): string
+    {
+        $directory = ParallelTesting::tempDir('influxdb-error-log');
+
+        if (! is_dir($directory)) {
+            mkdir($directory, recursive: true);
+        }
+
+        $log = $directory . '/php.log';
+        touch($log);
+
+        return $log;
+    }
+
     private function waitUntil(callable $condition): void
     {
         $deadline = microtime(true) + 2;

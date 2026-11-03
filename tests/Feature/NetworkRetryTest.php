@@ -14,6 +14,7 @@ use Http\Client\Common\PluginClient;
 use Http\Client\Exception\NetworkException;
 use Hypervel\Context\CoroutineContext;
 use Hypervel\Database\Pool\ConnectionLease;
+use Hypervel\Testing\ParallelTesting;
 use InfluxDB2\ApiException;
 use InfluxDB2\Client;
 use Ipsocode\InfluxDB\InfluxDBFactory;
@@ -23,13 +24,15 @@ use Ipsocode\InfluxDB\Tests\TestCase;
 use Ipsocode\InfluxDB\Write\BatchingWriter;
 use Ipsocode\InfluxDB\Write\BatchOptions;
 use Mockery as m;
+use Psr\Http\Message\RequestInterface;
 use ReflectionProperty;
 use RuntimeException;
 
 /**
  * A refused connection, as Guzzle reports it, is retried by the client's writes.
  *
- * Nothing listens on port 1, so the connection is refused at once, as while InfluxDB restarts.
+ * The retries go through the factory's plugins over a Guzzle handler that refuses every
+ * request, as a server does while InfluxDB restarts, so no socket is opened.
  */
 class NetworkRetryTest extends TestCase
 {
@@ -39,12 +42,22 @@ class NetworkRetryTest extends TestCase
     {
         parent::setUp();
 
-        $this->log = tempnam(sys_get_temp_dir(), 'influxdb-retry');
+        $directory = ParallelTesting::tempDir('influxdb-retry');
+
+        if (! is_dir($directory)) {
+            mkdir($directory, recursive: true);
+        }
+
+        $this->log = $directory . '/client.log';
     }
 
     protected function tearDown(): void
     {
-        @unlink($this->log);
+        if (is_file($this->log)) {
+            unlink($this->log);
+        }
+
+        rmdir(dirname($this->log));
 
         parent::tearDown();
     }
@@ -104,6 +117,7 @@ class NetworkRetryTest extends TestCase
         $plugins = (new ReflectionProperty(PluginClient::class, 'plugins'))->getValue($options['httpClient']);
 
         $this->assertInstanceOf(ReleasesIdleDatabaseConnections::class, $plugins[0]);
+        $this->assertInstanceOf(RetryableNetworkErrors::class, $plugins[1]);
 
         $client = new PluginClient(
             new Guzzle(['handler' => HandlerStack::create(new MockHandler([new Response(204), new Response(204)]))]),
@@ -166,7 +180,7 @@ class NetworkRetryTest extends TestCase
     private function config(array $options = []): array
     {
         return $options + [
-            'url' => 'http://127.0.0.1:1',
+            'url' => 'http://influxdb.test:8086',
             'token' => 'main-token',
             'bucket' => 'main-bucket',
             'org' => 'main-org',
@@ -174,9 +188,20 @@ class NetworkRetryTest extends TestCase
         ];
     }
 
+    /**
+     * A client whose requests go through the factory's plugins to a server that refuses every connection.
+     */
     private function client(): Client
     {
-        return (new InfluxDBFactory)->make($this->config());
+        $refused = new Guzzle(['handler' => HandlerStack::create(new MockHandler([
+            static fn (RequestInterface $request): never => throw new ConnectException('Connection refused', $request),
+            static fn (RequestInterface $request): never => throw new ConnectException('Connection refused', $request),
+            static fn (RequestInterface $request): never => throw new ConnectException('Connection refused', $request),
+        ]))]);
+
+        return (new InfluxDBFactory)->make($this->config([
+            'httpClient' => new PluginClient($refused, [new ReleasesIdleDatabaseConnections, new RetryableNetworkErrors]),
+        ]));
     }
 
     private function assertRetried(): void

@@ -9,6 +9,7 @@ use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Response;
+use Hypervel\Coordinator\Timer;
 use Ipsocode\InfluxDB\Write\Availability;
 use Ipsocode\InfluxDB\Write\BatchingWriter;
 use Ipsocode\InfluxDB\Write\BatchOptions;
@@ -33,13 +34,6 @@ trait MocksWrites
     protected array $history = [];
 
     /**
-     * When each request was sent, in hrtime() nanoseconds, oldest first.
-     *
-     * @var list<int>
-     */
-    protected array $sentAt = [];
-
-    /**
      * A Guzzle client that answers with the given responses, in order, recording every request.
      *
      * Without a delay the option is left out: MockHandler sleeps any delay
@@ -52,9 +46,6 @@ trait MocksWrites
     {
         $stack = HandlerStack::create(new MockHandler($responses));
         $stack->push(Middleware::history($this->history));
-        $stack->push(Middleware::tap(function (): void {
-            $this->sentAt[] = hrtime(true);
-        }));
 
         return new Guzzle(['handler' => $stack] + ($delay > 0 ? ['delay' => $delay] : []));
     }
@@ -72,8 +63,9 @@ trait MocksWrites
      * @param array<string, mixed> $options client options, over the fixture's
      * @param null|Failover $failover the connections a batch the `main` connection cannot take falls back to
      * @param class-string<BatchingWriter> $class the writer to build
+     * @param null|Timer $timer the timer to arm the flush interval on, or a real one
      */
-    protected function writer(array $batching = [], array $responses = [], int $delay = 0, array $writeOptions = [], array $options = [], ?Failover $failover = null, string $class = BatchingWriter::class): BatchingWriter
+    protected function writer(array $batching = [], array $responses = [], int $delay = 0, array $writeOptions = [], array $options = [], ?Failover $failover = null, string $class = BatchingWriter::class, ?Timer $timer = null): BatchingWriter
     {
         return new $class(
             $options + self::clientOptions('main', $this->transport($responses, $delay)),
@@ -85,7 +77,8 @@ trait MocksWrites
                 'maxBuffered' => 1_000,
             ]),
             $writeOptions + ['maxRetries' => 0],
-            failover: $failover,
+            $timer,
+            $failover,
         );
     }
 

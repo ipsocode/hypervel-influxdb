@@ -7,6 +7,7 @@ namespace Ipsocode\InfluxDB\Tests\Feature\Write;
 use DateTimeImmutable;
 use Hypervel\Contracts\Filesystem\Factory;
 use Hypervel\Contracts\Filesystem\Filesystem;
+use Hypervel\Testing\ParallelTesting;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use Ipsocode\InfluxDB\Write\FailedBatch;
 use Ipsocode\InfluxDB\Write\FilesystemFailureStore;
@@ -14,7 +15,7 @@ use Mockery;
 use RuntimeException;
 
 /**
- * The filesystem driver, on a local disk under a temporary directory.
+ * The filesystem driver, on a local disk under this worker's temporary directory.
  */
 class FilesystemFailureStoreTest extends TestCase
 {
@@ -24,8 +25,8 @@ class FilesystemFailureStoreTest extends TestCase
     {
         parent::setUp();
 
-        $this->root = sys_get_temp_dir() . '/influxdb-failed-' . bin2hex(random_bytes(4));
-        mkdir($this->root);
+        $this->root = ParallelTesting::tempDir('influxdb-failed');
+        mkdir($this->root, recursive: true);
 
         $config = $this->app->get('config');
         $config->set('filesystems.disks.failed', ['driver' => 'local', 'root' => $this->root]);
