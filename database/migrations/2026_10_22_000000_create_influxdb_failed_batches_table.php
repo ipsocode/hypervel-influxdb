@@ -17,10 +17,10 @@ return new class extends Migration {
             $table->string('connection');
             $table->string('bucket');
             $table->string('org');
-            $table->string('precision', 2);
+            $table->string('precision');
             $table->longText('payload');
             $table->unsignedInteger('attempts');
-            $table->dateTime('failed_at', 6);
+            $table->timestamp('failed_at', 6);
             $table->text('exception');
 
             $table->index(['connection', 'id']);
