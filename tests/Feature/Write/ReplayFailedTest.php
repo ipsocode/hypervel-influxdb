@@ -85,7 +85,7 @@ class ReplayFailedTest extends TestCase
     public function testAReplayCanceledMidWriteLeavesItsBatchAsItWas(): void
     {
         $store = $this->store([$this->failed('cpu a=1i 1', 1)]);
-        $logger = Mockery::mock(LoggerInterface::class);
+        $logger = m::mock(LoggerInterface::class);
         $logger->shouldNotReceive('warning');
         $this->app->instance(LoggerInterface::class, $logger);
         $this->connection($store, [$canceled = new CanceledException('The replay was canceled.')], ['maxAttempts' => 2]);
