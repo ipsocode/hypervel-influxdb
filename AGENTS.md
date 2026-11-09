@@ -298,8 +298,8 @@ else in `vendor/hypervel/components/src/docs/`, which `docs/ai/framework.md` map
   fails any file there that git would commit; local settings stay ignored.
 - **`CLAUDE.md` only imports this file** (`@AGENTS.md`, which the conventions check requires) and
   names it the authoritative instruction file. A new `docs/ai/` page opens with when to read it.
-- **`main` changes only through a pull request** that is up to date, passes `initial / Conventions`
-  and `PHP 8.4`, and has every review conversation resolved; `PHP 8.5` reports without holding it.
+- **`main` changes only through a pull request** that is up to date, passes `initial / Conventions`,
+  `PHP 8.4` and `PHP 8.5`, and has every review conversation resolved.
 - **A setup file in a pull request into `main` needs a code owner's approval**, not the author's;
   `.github/CODEOWNERS` lists the setup files and their owners.
 - **A pull request into any other branch gets none of the required checks**: `tests.yml` runs only

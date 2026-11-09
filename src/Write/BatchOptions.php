@@ -17,7 +17,7 @@ use Ipsocode\InfluxDB\Write\Concerns\DescribesInvalidOptions;
  *
  * @see src/docs/writing.md#when-a-batch-is-sent
  */
-final class BatchOptions
+class BatchOptions
 {
     use DescribesInvalidOptions;
 

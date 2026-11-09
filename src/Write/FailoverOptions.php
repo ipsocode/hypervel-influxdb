@@ -13,7 +13,7 @@ use Ipsocode\InfluxDB\Write\Concerns\DescribesInvalidOptions;
  *
  * @see src/docs/writing.md#falling-back-to-other-connections
  */
-final class FailoverOptions
+class FailoverOptions
 {
     use DescribesInvalidOptions;
 

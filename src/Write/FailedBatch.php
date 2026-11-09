@@ -12,7 +12,7 @@ use Throwable;
  *
  * @see src/docs/writing.md#when-a-batch-cannot-be-written
  */
-final class FailedBatch
+class FailedBatch
 {
     /**
      * How a batch's `failedAt` is written where a store keeps it as text, with its offset and microseconds.

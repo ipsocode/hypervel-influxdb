@@ -12,7 +12,7 @@ use Throwable;
 /**
  * A ReplayableFailureStore that keeps its batches in an array, oldest first.
  */
-final class InMemoryFailureStore implements ReplayableFailureStore
+class InMemoryFailureStore implements ReplayableFailureStore
 {
     /**
      * Whether replay() throws before it hands over a batch.
