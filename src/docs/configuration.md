@@ -31,9 +31,9 @@ set, makes the client log each request and response, headers and body, to
 `logFile` (`php://output` unless set). A connection that leaves out
 `verifySSL`, `precision` or `debug` gets these defaults.
 
-The package's config file reads `INFLUXDB_VERIFY_SSL` and `INFLUXDB_DEBUG` as
-booleans (`1`, `0`, `on`, `off`, `true` and `false` all work; a value it cannot
-read leaves `verifySSL` on and `debug` off) and the numeric `INFLUXDB_*` settings
+The package's config file reads `INFLUXDB_VERIFY_SSL`, `INFLUXDB_DEBUG` and
+`INFLUXDB_BATCHING` as booleans (`1`, `0`, `on`, `off`, `true` and `false` all
+work; a value it cannot read leaves `verifySSL` on and `debug` and batching off) and the numeric `INFLUXDB_*` settings
 below as numbers, so the code reads them already typed. A number that is not
 one is passed on as written, and the write options refuse it.
 

@@ -62,7 +62,7 @@ return [
             // https://github.com/ipsocode/hypervel-influxdb/blob/main/src/docs/writing.md#falling-back-to-other-connections
             // The numbers are read as numbers; a value that is not numeric is left for the write options to refuse.
             'write' => [
-                'writeType' => env('INFLUXDB_BATCHING', false) ? WriteType::BATCHING : WriteType::SYNCHRONOUS,
+                'writeType' => (filter_var(env('INFLUXDB_BATCHING', false), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false) ? WriteType::BATCHING : WriteType::SYNCHRONOUS,
                 'batchSize' => is_numeric(env('INFLUXDB_BATCH_SIZE')) ? env('INFLUXDB_BATCH_SIZE') + 0 : env('INFLUXDB_BATCH_SIZE'),
                 'batchSizeMb' => is_numeric(env('INFLUXDB_BATCH_SIZE_MB')) ? env('INFLUXDB_BATCH_SIZE_MB') + 0 : env('INFLUXDB_BATCH_SIZE_MB'),
                 'flushInterval' => is_numeric(env('INFLUXDB_FLUSH_INTERVAL')) ? env('INFLUXDB_FLUSH_INTERVAL') + 0 : env('INFLUXDB_FLUSH_INTERVAL'),

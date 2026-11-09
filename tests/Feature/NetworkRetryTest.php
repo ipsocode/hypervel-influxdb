@@ -15,11 +15,11 @@ use Http\Client\Exception\NetworkException;
 use Hypervel\Context\CoroutineContext;
 use Hypervel\Database\Pool\ConnectionLease;
 use Hypervel\Filesystem\Filesystem;
+use Hypervel\Http\Client\Guzzle\ReleaseIdleDatabaseConnections;
 use Hypervel\Testing\ParallelTesting;
 use InfluxDB2\ApiException;
 use InfluxDB2\Client;
 use Ipsocode\InfluxDB\InfluxDBFactory;
-use Ipsocode\InfluxDB\Support\ReleasesIdleDatabaseConnections;
 use Ipsocode\InfluxDB\Support\RetryableNetworkErrors;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use Ipsocode\InfluxDB\Write\BatchingWriter;
@@ -111,14 +111,15 @@ class NetworkRetryTest extends TestCase
 
         $plugins = (new ReflectionProperty(PluginClient::class, 'plugins'))->getValue($httpClient);
 
-        $this->assertInstanceOf(ReleasesIdleDatabaseConnections::class, $plugins[0]);
-        $this->assertInstanceOf(RetryableNetworkErrors::class, $plugins[1]);
+        $this->assertCount(1, $plugins);
+        $this->assertInstanceOf(RetryableNetworkErrors::class, $plugins[0]);
 
-        // The factory's own client, with only its transport answering here instead of over the network.
+        // The factory's own client and handler stack, with only its transport answering here instead of over the network.
         $emulated = (new ReflectionProperty(PluginClient::class, 'client'))->getValue($httpClient);
-        (new ReflectionProperty($emulated, 'httpClient'))->setValue($emulated, new Guzzle([
-            'handler' => HandlerStack::create(new MockHandler([new Response(204), new Response(204)])),
-        ]));
+        $guzzle = (new ReflectionProperty($emulated, 'httpClient'))->getValue($emulated);
+        $stack = (new ReflectionProperty(Guzzle::class, 'config'))->getValue($guzzle)['handler'];
+
+        $stack->setHandler(new MockHandler([new Response(204), new Response(204)]));
 
         $httpClient->sendRequest(new Request('GET', 'http://localhost'));
         $httpClient->sendRequest(new Request('GET', 'http://localhost'));
@@ -190,14 +191,15 @@ class NetworkRetryTest extends TestCase
      */
     private function client(): Client
     {
-        $refused = new Guzzle(['handler' => HandlerStack::create(new MockHandler([
+        $stack = HandlerStack::create(new MockHandler([
             static fn (RequestInterface $request): never => throw new ConnectException('Connection refused', $request),
             static fn (RequestInterface $request): never => throw new ConnectException('Connection refused', $request),
             static fn (RequestInterface $request): never => throw new ConnectException('Connection refused', $request),
-        ]))]);
+        ]));
+        $stack->push(new ReleaseIdleDatabaseConnections, 'release_idle_database_connections');
 
         return (new InfluxDBFactory)->make($this->config([
-            'httpClient' => new PluginClient($refused, [new ReleasesIdleDatabaseConnections, new RetryableNetworkErrors]),
+            'httpClient' => new PluginClient(new Guzzle(['handler' => $stack]), [new RetryableNetworkErrors]),
         ]));
     }
 

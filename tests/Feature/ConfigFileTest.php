@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ipsocode\InfluxDB\Tests\Feature;
 
+use InfluxDB2\WriteType;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -48,6 +49,9 @@ class ConfigFileTest extends TestCase
         yield 'verify stays on for an unreadable value' => [['INFLUXDB_VERIFY_SSL' => 'maybe'], ['verifySSL' => true]];
         yield 'debug on as 1' => [['INFLUXDB_DEBUG' => '1'], ['debug' => true]];
         yield 'debug off for an unreadable value' => [['INFLUXDB_DEBUG' => 'maybe'], ['debug' => false]];
+        yield 'batching off as off' => [['INFLUXDB_BATCHING' => 'off'], ['writeType' => WriteType::SYNCHRONOUS]];
+        yield 'batching on as 1' => [['INFLUXDB_BATCHING' => '1'], ['writeType' => WriteType::BATCHING]];
+        yield 'batching off for an unreadable value' => [['INFLUXDB_BATCHING' => 'maybe'], ['writeType' => WriteType::SYNCHRONOUS]];
         yield 'numbers' => [
             ['INFLUXDB_BATCH_SIZE' => '250', 'INFLUXDB_BATCH_SIZE_MB' => '1.5', 'INFLUXDB_FLUSH_INTERVAL' => '2', 'INFLUXDB_COOLDOWN' => '30'],
             ['batchSize' => 250, 'batchSizeMb' => 1.5, 'flushInterval' => 2, 'cooldown' => 30],

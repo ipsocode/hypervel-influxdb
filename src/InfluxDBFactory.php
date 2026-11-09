@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Ipsocode\InfluxDB;
 
 use GuzzleHttp\Client as Guzzle;
+use GuzzleHttp\HandlerStack;
 use Http\Client\Common\PluginClient;
+use Hypervel\Http\Client\Guzzle\ReleaseIdleDatabaseConnections;
 use InfluxDB2\Client;
 use InvalidArgumentException;
-use Ipsocode\InfluxDB\Support\ReleasesIdleDatabaseConnections;
 use Ipsocode\InfluxDB\Support\RetryableNetworkErrors;
 
 class InfluxDBFactory
@@ -61,11 +62,15 @@ class InfluxDBFactory
         }
 
         if (empty($config['httpClient'])) {
+            $stack = HandlerStack::create();
+            $stack->push(new ReleaseIdleDatabaseConnections, 'release_idle_database_connections');
+
             $config['httpClient'] = new PluginClient(new Guzzle([
+                'handler' => $stack,
                 'timeout' => $config['timeout'] ?? 10,
                 'verify' => $config['verifySSL'],
                 'proxy' => $config['proxy'] ?? null,
-            ]), [new ReleasesIdleDatabaseConnections, new RetryableNetworkErrors]);
+            ]), [new RetryableNetworkErrors]);
         }
 
         return new Client($config);
