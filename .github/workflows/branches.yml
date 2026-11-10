@@ -21,6 +21,6 @@ jobs:
     timeout-minutes: 3
     steps:
       - name: Create the linked branch
-        uses: ipsocode/hypervel-packages-ci/branches/feature@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/branches/feature@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           number: ${{ github.event.issue.number }}

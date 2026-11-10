@@ -37,7 +37,7 @@ jobs:
 
       - name: Build the site
         id: build
-        uses: ipsocode/hypervel-packages-ci/pages/build@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/pages/build@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           ref: ${{ inputs.ref }}
 
