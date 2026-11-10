@@ -6,6 +6,8 @@ namespace Ipsocode\InfluxDB\Write;
 
 use InfluxDB2\WriteApi;
 use InfluxDB2\WriteType;
+use InvalidArgumentException;
+use Ipsocode\InfluxDB\Write\Concerns\ResolvesWriteTarget;
 
 /**
  * A synchronous WriteApi whose writes fall back to other connections when its own cannot take them.
@@ -20,6 +22,8 @@ use InfluxDB2\WriteType;
  */
 class FailoverWriter extends WriteApi
 {
+    use ResolvesWriteTarget;
+
     /**
      * The connections a write falls back to, with this writer's write options.
      */
@@ -42,24 +46,19 @@ class FailoverWriter extends WriteApi
     /**
      * Post line protocol through the connection, or, when it cannot take it, through the first fallback that can.
      *
+     * @throws InvalidArgumentException when the precision, bucket or org is empty
      * @throws FailoverException when no connection took the write
      * @throws \InfluxDB2\ApiException when the connection refuses the write for its own fault, such as a line it cannot parse
      */
     public function writeRaw(string $data, ?string $precision = null, ?string $bucket = null, ?string $org = null): void
     {
-        $precision ??= $this->options['precision'] ?? null;
-        $bucket ??= $this->options['bucket'] ?? null;
-        $org ??= $this->options['org'] ?? null;
-
-        $this->check('precision', $precision);
-        $this->check('bucket', $bucket);
-        $this->check('org', $org);
+        [$precision, $bucket, $org] = $this->resolveWriteTarget($precision, $bucket, $org);
 
         $this->failover->write(
             $data,
-            (string) $precision,
-            (string) $bucket,
-            (string) $org,
+            $precision,
+            $bucket,
+            $org,
             fn () => parent::writeRaw($data, $precision, $bucket, $org),
         );
     }

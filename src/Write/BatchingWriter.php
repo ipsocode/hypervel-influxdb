@@ -11,8 +11,8 @@ use Hypervel\Coordinator\Timer;
 use Hypervel\Coroutine\Coroutine;
 use InfluxDB2\WriteApi;
 use InfluxDB2\WriteType;
-use InvalidArgumentException;
 use Ipsocode\InfluxDB\Write\Concerns\ReportsFailures;
+use Ipsocode\InfluxDB\Write\Concerns\ResolvesWriteTarget;
 use Psr\Http\Message\ResponseInterface;
 use Swoole\Coroutine\CanceledException;
 use Throwable;
@@ -31,6 +31,7 @@ use Throwable;
 class BatchingWriter extends WriteApi
 {
     use ReportsFailures;
+    use ResolvesWriteTarget;
 
     /**
      * The batches being filled, keyed by the bucket, org and precision their points go to.
@@ -156,18 +157,9 @@ class BatchingWriter extends WriteApi
      */
     public function writeRaw(string $data, ?string $precision = null, ?string $bucket = null, ?string $org = null): void
     {
-        $precision = $precision ?: ($this->options['precision'] ?? null);
-        $bucket = $bucket ?: ($this->options['bucket'] ?? null);
-        $org = $org ?: ($this->options['org'] ?? null);
+        [$precision, $bucket, $org] = $this->resolveWriteTarget($precision, $bucket, $org);
 
-        foreach (['precision' => $precision, 'bucket' => $bucket, 'org' => $org] as $option => $value) {
-            // The client's own check() lists every option, the token included, in its message.
-            if (trim((string) $value) === '') {
-                throw new InvalidArgumentException("The '{$option}' should be defined as argument or default option.");
-            }
-        }
-
-        $this->buffer(rtrim($data, "\n"), (string) $precision, (string) $bucket, (string) $org);
+        $this->buffer(rtrim($data, "\n"), $precision, $bucket, $org);
     }
 
     /**
@@ -268,7 +260,25 @@ class BatchingWriter extends WriteApi
             throw new BufferFullException($this->connection, $points, $waiting, $this->batching->maxBuffered);
         }
 
-        $key = serialize([$bucket, $org, $precision]);
+        if ($overflowing) {
+            // Every buffered batch goes to its send coroutine, as a full one does: the write never waits on a send.
+            foreach (array_keys($this->batches) as $batchKey) {
+                $this->dispatch($this->take($batchKey));
+            }
+
+            // Held points already past the cap, sends still retrying: these lines are not held, but handed to `onFailure`.
+            if ($waiting > $this->batching->maxBuffered) {
+                $this->fail(
+                    new Batch($this->connection, $bucket, $org, $precision, $lines, $points),
+                    new BufferFullException($this->connection, $points, $waiting, $this->batching->maxBuffered),
+                    0,
+                );
+
+                return;
+            }
+        }
+
+        $key = self::batchKey($bucket, $org, $precision);
         $bytes = strlen($lines);
 
         // Lines that would take the batch past a limit start the next one, so no request outgrows them.
@@ -278,7 +288,7 @@ class BatchingWriter extends WriteApi
             $this->dispatch($this->take($key));
         }
 
-        $this->batches[$key] ??= ['bucket' => $bucket, 'org' => $org, 'precision' => $precision, 'lines' => [], 'points' => 0, 'bytes' => -1];
+        $this->batches[$key] ??= self::emptyBatch($bucket, $org, $precision);
         $this->batches[$key]['lines'][] = $lines;
         $this->batches[$key]['points'] += $points;
         $this->batches[$key]['bytes'] += 1 + $bytes;
@@ -289,12 +299,25 @@ class BatchingWriter extends WriteApi
             $this->dispatch($this->take($key));
         }
 
-        // A send coroutine never flushes: its own batch is still counted, and it would wait on sends that wait on it.
-        if ($overflowing && ! $this->sendingHere()) {
-            $this->flush();
-        } else {
-            $this->scheduleFlush();
-        }
+        $this->scheduleFlush();
+    }
+
+    /**
+     * Get the key of the batch for a bucket, org and precision.
+     */
+    protected static function batchKey(string $bucket, string $org, string $precision): string
+    {
+        return serialize([$bucket, $org, $precision]);
+    }
+
+    /**
+     * Start a batch for a bucket, org and precision, with no lines.
+     *
+     * @return array{bucket: string, org: string, precision: string, lines: list<string>, points: int, bytes: int}
+     */
+    protected static function emptyBatch(string $bucket, string $org, string $precision): array
+    {
+        return ['bucket' => $bucket, 'org' => $org, 'precision' => $precision, 'lines' => [], 'points' => 0, 'bytes' => -1];
     }
 
     /**
@@ -364,13 +387,13 @@ class BatchingWriter extends WriteApi
      */
     protected function restore(Batch $batch): void
     {
-        $key = serialize([$batch->bucket, $batch->org, $batch->precision]);
+        $key = self::batchKey($batch->bucket, $batch->org, $batch->precision);
 
         $this->sending -= $batch->points;
         $this->buffered += $batch->points;
         $this->bufferedSince ??= hrtime(true); // @phpstan-ignore assign.propertyType (hrtime(true) is an int on 64-bit PHP)
 
-        $this->batches[$key] ??= ['bucket' => $batch->bucket, 'org' => $batch->org, 'precision' => $batch->precision, 'lines' => [], 'points' => 0, 'bytes' => -1];
+        $this->batches[$key] ??= self::emptyBatch($batch->bucket, $batch->org, $batch->precision);
         $this->batches[$key]['lines'] = [$batch->payload, ...$this->batches[$key]['lines']];
         $this->batches[$key]['points'] += $batch->points;
         $this->batches[$key]['bytes'] += 1 + strlen($batch->payload);

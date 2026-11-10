@@ -11,6 +11,7 @@ use Hypervel\Database\Query\Grammars\Grammar as QueryGrammar;
 use Hypervel\Database\Query\JoinClause;
 use InvalidArgumentException;
 use Ipsocode\InfluxDB\InfluxQL\Dialect;
+use Ipsocode\InfluxDB\InfluxQL\Grammars\Concerns\RefusesAnOrOnTime;
 use Ipsocode\InfluxDB\InfluxQL\Grammars\Concerns\RefusesWhatTheVersionLacks;
 use Ipsocode\InfluxDB\InfluxQL\Version;
 use LogicException;
@@ -28,6 +29,7 @@ use RuntimeException;
  */
 class Grammar extends QueryGrammar
 {
+    use RefusesAnOrOnTime;
     use RefusesWhatTheVersionLacks;
 
     /**
@@ -172,7 +174,7 @@ class Grammar extends QueryGrammar
      * Get an array of all the where clauses for the query.
      *
      * @return list<string>
-     * @throws RuntimeException for whereNot() and orWhereNot(): InfluxQL has no NOT
+     * @throws RuntimeException for whereNot() and orWhereNot(): InfluxQL has no NOT, or when a comparison on `time` is joined to another by OR
      */
     protected function compileWheresToArray(Builder $query): array
     {
@@ -181,6 +183,8 @@ class Grammar extends QueryGrammar
                 throw new RuntimeException('InfluxQL has no NOT; negate the comparison instead, such as != for = or !~ for =~.');
             }
         }
+
+        $this->ensureNoOrOnTime($query->wheres);
 
         /** @var list<string> $clauses */
         $clauses = parent::compileWheresToArray($query);

@@ -11,11 +11,14 @@ use Hypervel\Contracts\Debug\ExceptionHandler;
 use Hypervel\Coordinator\Constants;
 use Hypervel\Coordinator\CoordinatorManager;
 use Hypervel\Coroutine\Coroutine;
+use Hypervel\Filesystem\Filesystem;
 use Hypervel\Support\Facades\Exceptions;
+use Hypervel\Testing\ParallelTesting;
 use InfluxDB2\ApiException;
 use InfluxDB2\Point;
 use InvalidArgumentException;
 use Ipsocode\InfluxDB\Tests\Concerns\MocksWrites;
+use Ipsocode\InfluxDB\Tests\Fixtures\ManualTimer;
 use Ipsocode\InfluxDB\Tests\Fixtures\RecordsFailures;
 use Ipsocode\InfluxDB\Tests\TestCase;
 use Ipsocode\InfluxDB\Write\Batch;
@@ -31,6 +34,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Swoole\Coroutine\CanceledException;
+
+use function Hypervel\Coroutine\parallel;
 
 /**
  * The batching writer inside a coroutine; BatchingWriterOutsideCoroutineTest covers it outside one.
@@ -259,22 +264,26 @@ class BatchingWriterTest extends TestCase
 
     public function testTheBufferIsSentOnceTheFlushIntervalHasPassedSinceItsFirstPoint(): void
     {
-        $writer = $this->writer(['flushInterval' => 0.5], self::accepted(2));
+        $timer = new ManualTimer;
+        $writer = $this->writer(['flushInterval' => 0.5], self::accepted(2), timer: $timer);
 
         $writer->write('cpu load=1i 1');
-        usleep(100_000);
         $writer->write('cpu load=2i 2');
 
+        // One timer, armed by the first point for the whole interval; the second point arms none.
+        $this->assertSame([0.5], $timer->timeouts());
         $this->assertSame([], $this->history);
 
-        $this->waitUntil(fn (): bool => count($this->history) === 1);
+        $timer->fire();
 
         $this->assertSame([['cpu load=1i 1', 'cpu load=2i 2']], $this->sentBatches());
         $this->assertSame(0, $writer->getPendingPoints());
 
         $writer->write('cpu load=3i 3');
 
-        $this->waitUntil(fn (): bool => count($this->history) === 2);
+        $this->assertSame([0.5], $timer->timeouts());
+
+        $timer->fire();
 
         $this->assertSame([['cpu load=1i 1', 'cpu load=2i 2'], ['cpu load=3i 3']], $this->sentBatches());
     }
@@ -308,21 +317,23 @@ class BatchingWriterTest extends TestCase
 
     public function testAFlushCancelsTheFlushTimer(): void
     {
-        $writer = $this->writer(['flushInterval' => 0.3], self::accepted(2));
+        $timer = new ManualTimer;
+        $writer = $this->writer(['flushInterval' => 0.3], self::accepted(2), timer: $timer);
 
         $writer->write('cpu load=1i 1');
         $writer->flush();
 
-        // A timer the flush left armed would still fire 0.3s after the first
-        // point, and send the next one half an interval after it was written.
-        usleep(150_000);
-        $writtenAt = hrtime(true);
+        // A timer the flush left armed would send the next point before a whole interval had passed since it was written.
+        $this->assertSame([], $timer->armed);
+
         $writer->write('cpu load=2i 2');
 
-        $this->waitUntil(fn (): bool => count($this->history) === 2);
+        $this->assertSame([0.3], $timer->timeouts());
+        $this->assertSame([['cpu load=1i 1']], $this->sentBatches());
+
+        $timer->fire();
 
         $this->assertSame([['cpu load=1i 1'], ['cpu load=2i 2']], $this->sentBatches());
-        $this->assertGreaterThanOrEqual(300_000_000, $this->sentAt[1] - $writtenAt, 'The second point was sent before a whole flush interval had passed since it was written.');
     }
 
     public function testTheWorkerExitSendsTheBuffer(): void
@@ -704,7 +715,7 @@ class BatchingWriterTest extends TestCase
     public function testTheLogDriverUsesTheErrorLogWhenTheLoggerFails(): void
     {
         Exceptions::fake();
-        $log = tempnam(sys_get_temp_dir(), 'influxdb');
+        $log = $this->errorLog();
         $previous = ini_set('error_log', $log);
         $logger = m::mock(LoggerInterface::class);
         $logger->shouldReceive('warning')->once()->andThrow(new RuntimeException('The logger is down.'));
@@ -718,7 +729,7 @@ class BatchingWriterTest extends TestCase
             $this->assertStringContainsString('InfluxDB connection [main] dropped a batch for bucket [main-bucket] after 1 attempt', (string) file_get_contents($log));
         } finally {
             ini_set('error_log', $previous === false ? '' : $previous);
-            unlink($log);
+            (new Filesystem)->deleteDirectory(dirname($log));
         }
     }
 
@@ -751,7 +762,7 @@ class BatchingWriterTest extends TestCase
 
     public function testAFailureTheExceptionHandlerCannotReportIsLogged(): void
     {
-        $log = tempnam(sys_get_temp_dir(), 'influxdb');
+        $log = $this->errorLog();
         $previous = ini_set('error_log', $log);
 
         $handler = m::mock(ExceptionHandler::class);
@@ -767,7 +778,7 @@ class BatchingWriterTest extends TestCase
             $this->assertStringContainsString('InfluxDB connection [main] dropped a batch of 1 point (13 bytes) for bucket [main-bucket]', (string) file_get_contents($log));
         } finally {
             ini_set('error_log', (string) $previous);
-            unlink($log);
+            (new Filesystem)->deleteDirectory(dirname($log));
         }
     }
 
@@ -819,7 +830,8 @@ class BatchingWriterTest extends TestCase
 
     public function testACancelledFlushArmsTheFlushTimerAgain(): void
     {
-        $writer = $this->writer(['flushInterval' => 0.05], [new CanceledException('Cancelled.'), new Response(204)]);
+        $timer = new ManualTimer;
+        $writer = $this->writer(['flushInterval' => 0.05], [new CanceledException('Cancelled.'), new Response(204)], timer: $timer);
 
         $writer->write('cpu load=1i 1');
 
@@ -828,7 +840,10 @@ class BatchingWriterTest extends TestCase
         } catch (CanceledException) {
         }
 
-        Coroutine::sleep(0.2);
+        $this->assertSame([0.05], $timer->timeouts());
+        $this->assertSame(1, $writer->getPendingPoints());
+
+        $timer->fire();
 
         $this->assertSame([['cpu load=1i 1'], ['cpu load=1i 1']], $this->sentBatches());
         $this->assertSame(0, $writer->getPendingPoints());
@@ -852,9 +867,9 @@ class BatchingWriterTest extends TestCase
         $this->assertSame(0, $writer->getPendingPoints());
     }
 
-    public function testPastMaxBufferedAWriteSendsTheBufferBeforeItReturns(): void
+    public function testPastMaxBufferedAWriteHandsTheBufferToItsSendsAndDoesNotWaitOnThem(): void
     {
-        $writer = $this->writer(['maxBuffered' => 2], self::accepted());
+        $writer = $this->writer(['maxBuffered' => 2], self::accepted(2), delay: 50);
 
         $writer->write('cpu load=1i 1');
         $writer->write('cpu load=2i 2');
@@ -863,8 +878,113 @@ class BatchingWriterTest extends TestCase
 
         $writer->write('cpu load=3i 3');
 
-        $this->assertSame([['cpu load=1i 1', 'cpu load=2i 2', 'cpu load=3i 3']], $this->sentBatches());
+        $this->assertSame([], $this->history, 'The write returned before any send finished.');
+        $this->assertSame(3, $writer->getPendingPoints());
+
+        $writer->flush();
+
+        $this->assertSame([['cpu load=1i 1', 'cpu load=2i 2'], ['cpu load=3i 3']], $this->sentBatches());
         $this->assertSame(0, $writer->getPendingPoints());
+    }
+
+    public function testPastMaxBufferedWhileSendsAreStillRetryingTheOverflowGoesToOnFailure(): void
+    {
+        Exceptions::fake();
+        $handed = [];
+        $writer = $this->writer(
+            ['maxBuffered' => 2, 'onFailure' => function (Batch $batch) use (&$handed): void {
+                $handed[] = $batch->payload;
+            }],
+            self::accepted(2),
+            delay: 50,
+        );
+
+        $writer->write('cpu load=1i 1');
+        $writer->write('cpu load=2i 2');
+        $writer->write('cpu load=3i 3');
+
+        $this->assertSame([], $handed);
+
+        // [1, 2] is still being sent and 3 is buffered: three points are held, past the cap of two.
+        $writer->write('cpu load=4i 4');
+
+        $this->assertSame(['cpu load=4i 4'], $handed);
+        $this->assertSame(3, $writer->getPendingPoints(), 'The refused lines are not held.');
+
+        $writer->flush();
+
+        $this->assertSame([['cpu load=1i 1', 'cpu load=2i 2'], ['cpu load=3i 3']], $this->sentBatches());
+    }
+
+    public function testManyCoroutinesOverflowingDuringAnOutageReturnWithoutWaitingOnTheRetries(): void
+    {
+        Exceptions::fake();
+        $handed = [];
+        $writer = $this->writer(
+            ['batchSize' => 1, 'maxBuffered' => 2, 'onFailure' => function (Batch $batch) use (&$handed): void {
+                $handed[] = $batch->payload;
+            }],
+            array_fill(0, 12, new Response(503, [], 'unavailable')),
+            delay: 200,
+        );
+
+        $started = hrtime(true);
+
+        $returned = parallel(array_map(
+            static fn (int $point): Closure => static function () use ($writer, $point): int {
+                $writer->write("cpu load={$point}i {$point}");
+
+                return $point;
+            },
+            range(1, 6),
+        ));
+
+        $this->assertSame(range(1, 6), $returned);
+        $this->assertLessThan(150_000_000, hrtime(true) - $started, 'No write waited on a send that takes 200 ms.');
+        $this->assertGreaterThanOrEqual(1, count($handed), 'The writes past the cap were handed to onFailure.');
+
+        $writer->flush();
+
+        $this->assertSame(0, $writer->getPendingPoints());
+
+        // Each point reached onFailure once: refused past the cap, or sent and failed.
+        $lines = explode("\n", implode("\n", $handed));
+        sort($lines);
+        $this->assertSame(array_map(static fn (int $point): string => "cpu load={$point}i {$point}", range(1, 6)), $lines);
+    }
+
+    public function testManyCoroutinesOverflowingLoseAndRepeatNoPoint(): void
+    {
+        Exceptions::fake();
+        $handed = [];
+        $writer = $this->writer(
+            ['batchSize' => 2, 'maxBuffered' => 3, 'onFailure' => function (Batch $batch) use (&$handed): void {
+                $handed[] = $batch->payload;
+            }],
+            self::accepted(20),
+            delay: 20,
+        );
+
+        parallel(array_map(
+            static fn (int $point): Closure => static function () use ($writer, $point): void {
+                $writer->write("cpu load={$point}i {$point}");
+                usleep(1_000);
+                $writer->write('cpu load=' . ($point + 100) . 'i ' . ($point + 100));
+            },
+            range(1, 10),
+        ));
+
+        $writer->flush();
+
+        $this->assertSame(0, $writer->getPendingPoints());
+        $this->assertNotSame([], $handed, 'Some writes went past the cap.');
+
+        $lines = [...array_merge(...$this->sentBatches()), ...explode("\n", implode("\n", $handed))];
+        sort($lines);
+        $expected = array_map(static fn (int $point): string => "cpu load={$point}i {$point}", [...range(1, 10), ...range(101, 110)]);
+        sort($expected);
+
+        $this->assertSame($expected, $lines, 'Every point was sent or handed to onFailure, once.');
     }
 
     public function testPastMaxBufferedAWriteIsRefusedWhenOverflowIsRefuse(): void
@@ -925,6 +1045,21 @@ class BatchingWriterTest extends TestCase
     /**
      * Yield until the condition holds, for up to two seconds.
      */
+    /**
+     * Create an empty file for PHP's error log in this worker's temporary directory.
+     */
+    private function errorLog(): string
+    {
+        $directory = ParallelTesting::tempDir('influxdb-error-log');
+        (new Filesystem)->deleteDirectory($directory);
+        mkdir($directory, recursive: true);
+
+        $log = $directory . '/php.log';
+        touch($log);
+
+        return $log;
+    }
+
     private function waitUntil(callable $condition): void
     {
         $deadline = microtime(true) + 2;

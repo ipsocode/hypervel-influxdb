@@ -24,8 +24,8 @@ InfluxDB::writeApi('analytics')->write([     // a named connection's
 Write through `writeApi()`, on the facade or on an injected `InfluxDBManager`
 (see [Using a connection](getting-started.md#using-a-connection)). It keeps one
 `WriteApi` per connection for the life of the worker. The client's own
-`createWriteApi()` is reachable through the facade and the manager too, but
-the client keeps a reference to every `WriteApi` it creates, each holding an
+`createWriteApi()` is still forwarded by the facade and the manager (the facade's
+IDE hints no longer list it), but the client keeps a reference to every `WriteApi` it creates, each holding an
 HTTP client, so calling it on each request leaks one per request until the
 worker exits.
 
@@ -44,9 +44,10 @@ names [fallbacks](#falling-back-to-other-connections) to write through instead.
 
 `writeApi()` builds the `WriteApi` from the connection's `write` block (see
 [Passing options to the client](configuration.md#passing-options-to-the-client)).
-Write options given as its second argument are used instead, but only by the
-connection's first call in the worker: later calls return the `WriteApi`
-already built, and ignore them. A connection that is not configured throws an
+Write options given as its second argument are used instead, but the
+`WriteApi` is built once per worker, from the connection's first call: later
+calls return it, and a call that passes options different from the ones it was
+built with throws an `InvalidArgumentException`. A connection that is not configured throws an
 `InvalidArgumentException`. How the manager keeps the `WriteApi`, and what
 `disconnect()` does to it, is in
 [The connection manager](hypervel.md#the-connection-manager).
@@ -242,7 +243,7 @@ The `write` block takes these options for batching:
 | `batchSizeMb` | [By `version`](#when-a-batch-is-sent) | The megabytes a batch is sent at |
 | `flushInterval` | `1` | The seconds after the buffer's first point that it is sent at the latest |
 | `maxBuffered` | 10 × `batchSize` | The points a writer [holds](#how-much-a-worker-holds), buffered or being sent |
-| `overflow` | `'flush'` | What a write past `maxBuffered` does: `'flush'` or `'refuse'` (`BatchOptions::FLUSH`, `BatchOptions::REFUSE`) |
+| `overflow` | `'flush'` | What a write past `maxBuffered` does: `'flush'` (send the buffer in the background, and hand the lines to `onFailure` while the cap is still exceeded) or `'refuse'` (`BatchOptions::FLUSH`, `BatchOptions::REFUSE`) |
 | `maxAttempts` | `10` | The sends a batch a [store kept](#replaying-failed-batches) gets, replays included, before a replay drops it |
 | `onFailure` | `'log'` | `'log'`, `'filesystem'`, `'redis'`, `'database'`, `'queue'`, a [driver array](#the-filesystem-driver), a callable, or the name of an invokable class, handed each batch that [cannot be written](#when-a-batch-cannot-be-written) |
 | `maxRetries` | `3` | The client's option: the retries a batch gets |
@@ -551,6 +552,11 @@ A replay ends at the first batch that fails again: that batch is stored again or
 dropped as above, and the batches after it are not touched, so an outage costs
 one attempt of the oldest batch per run and the rest wait for the next run.
 
+A replay whose coroutine is canceled while it writes a batch, such as by a
+queued job that times out, throws the cancellation on and leaves that batch in
+the store with the attempts it had: a cancellation is not counted as a failed
+attempt, and never drops the batch.
+
 The count starts from the sends the batch already had (up to `maxRetries` + 1,
 so 4 with the defaults). A batch that used all its retries gets `maxAttempts` −
 (`maxRetries` + 1) replays, 6 with the defaults, and always at least one, so
@@ -572,9 +578,15 @@ matters.
 ### How much a worker holds
 
 `maxBuffered` caps the points a writer holds, buffered or being sent, at ten
-batches' worth by default: 10 × `batchSize`. A write that would take it past
-the cap sends the buffer itself before it returns, so while the server falls
-behind, writes slow to its pace as synchronous ones would. With
+batches' worth by default: 10 × `batchSize`. A write never waits on a send or
+its retries. One that would take the writer past the cap hands every buffered
+batch to its send coroutine, as a full batch is, and returns. While earlier
+sends are still going, as when the server is down and they are retrying, the
+points held can already be past the cap when the next write arrives: that
+write's lines are not held but handed to the connection's `onFailure`, the
+path of a batch that could not be written, so they are logged by default or
+kept by a [failure store](#replaying-failed-batches) to replay. The writer
+holds at most `maxBuffered` points plus the write that went over. With
 `'overflow' => 'refuse'`, such a write throws an
 `Ipsocode\InfluxDB\Write\BufferFullException` instead, and keeps none of the
 points it refuses. The writer's `getPendingPoints()` counts what it holds.

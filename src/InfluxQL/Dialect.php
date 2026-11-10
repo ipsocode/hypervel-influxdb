@@ -63,6 +63,13 @@ class Dialect
     private const string TYPE_HINT = '/^(.+)::(tag|field|float|integer|unsigned|string|boolean)$/i';
 
     /**
+     * The time zone names ensureTimeZone() accepts, as keys: PHP's list, read once per worker.
+     *
+     * @var null|array<string, int>
+     */
+    private static ?array $timeZones = null;
+
+    /**
      * Refuse an aggregate function name that is not an identifier, before it is written into a statement.
      *
      * @throws InvalidArgumentException
@@ -100,7 +107,9 @@ class Dialect
      */
     public static function ensureTimeZone(string $timezone): void
     {
-        if (! in_array($timezone, DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC), true)) {
+        self::$timeZones ??= array_flip(DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC));
+
+        if (! isset(self::$timeZones[$timezone])) {
             throw new InvalidArgumentException(sprintf('[%s] is not a time zone name, such as Europe/Amsterdam; offsets and abbreviations are not accepted.', $timezone));
         }
     }
@@ -145,12 +154,20 @@ class Dialect
     /**
      * Quote a regular expression as the /pattern/ literal InfluxQL reads.
      *
-     * A slash inside the pattern ends the literal early unless escaped, so
-     * every one not already preceded by a backslash gets one.
+     * A slash inside the pattern ends the literal early unless escaped, so every one
+     * that is not already escaped gets a backslash. A backslash escapes the character
+     * after it, so a pattern ending in a lone one would escape the closing slash: it is
+     * refused, as it is no valid regular expression either.
+     *
+     * @throws InvalidArgumentException for a pattern that ends in a backslash with nothing to escape
      */
     public static function quoteRegex(Regex $regex): string
     {
-        return '/' . preg_replace('~(?<!\\\)/~', '\/', $regex->pattern) . '/';
+        if (preg_match('~^(?:\\\.|[^\\\])*\\\$~sD', $regex->pattern) === 1) {
+            throw new InvalidArgumentException('A regular expression cannot end in a lone backslash, which would escape the closing slash of its InfluxQL literal.');
+        }
+
+        return '/' . preg_replace_callback('~\\\.|/~s', static fn (array $match): string => $match[0] === '/' ? '\/' : $match[0], $regex->pattern) . '/';
     }
 
     /**
@@ -235,13 +252,18 @@ class Dialect
      * Substitute escaped values for the `?` placeholders outside quoted strings and identifiers.
      *
      * The values are embedded as given, in order whatever their keys, and are not
-     * scanned again; a `?` left without one stays. A raw regular expression literal
+     * scanned again; a `?` left without one stays, so with no values the statement
+     * is returned without a scan. A raw regular expression literal
      * is not recognized, so a `?` in one is a placeholder: bind a Regex instead.
      *
      * @param array<string> $escaped the literals to embed, each already escaped
      */
     public static function substituteBindings(string $sql, array $escaped): string
     {
+        if ($escaped === []) {
+            return $sql;
+        }
+
         $escaped = array_values($escaped);
 
         $query = '';
@@ -286,5 +308,13 @@ class Dialect
     public static function stripTypeHint(string $column): string
     {
         return preg_match(self::TYPE_HINT, $column, $matches) === 1 ? $matches[1] : $column;
+    }
+
+    /**
+     * Flush all static state.
+     */
+    public static function flushState(): void
+    {
+        self::$timeZones = null;
     }
 }

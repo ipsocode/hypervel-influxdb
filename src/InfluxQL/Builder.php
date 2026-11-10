@@ -22,6 +22,7 @@ use Ipsocode\InfluxDB\InfluxQL\Grammars\Grammar;
 use RuntimeException;
 use SortDirection;
 use stdClass;
+use Swoole\Coroutine\CanceledException;
 use UnitEnum;
 
 /**
@@ -43,6 +44,11 @@ class Builder
     use Macroable {
         __call as macroCall;
     }
+
+    /**
+     * A where-method's name: `where` or `orWhere`, then what it compares.
+     */
+    private const string WHERE_METHOD = '/^(?:or)?[wW]here(.+)$/';
 
     /**
      * The where clauses of Hypervel's builder that this one does not implement.
@@ -1078,6 +1084,8 @@ class Builder
 
         try {
             $version = $this->connection->getServerVersion();
+        } catch (CanceledException $exception) {
+            throw $exception;
         } catch (Exception $exception) {
             throw new QueryException($this->connection->getName(), $this->embedBindings($query, $bindings), $bindings, $exception);
         }
@@ -1397,8 +1405,10 @@ class Builder
             throw new InvalidArgumentException('The chunk size should be at least 1');
         }
 
-        $skip = $this->getOffset();
-        $remaining = $this->getLimit();
+        $clone = clone $this;
+
+        $skip = $clone->getOffset();
+        $remaining = $clone->getLimit();
 
         $page = 1;
 
@@ -1411,7 +1421,7 @@ class Builder
                 break;
             }
 
-            $results = $this->offset($offset)->limit($limit)->get();
+            $results = $clone->offset($offset)->limit($limit)->get();
 
             $countResults = $results->count();
 
@@ -1724,7 +1734,7 @@ class Builder
             return $this->macroCall($method, $parameters);
         }
 
-        if (preg_match('/^(?:or)?[wW]here(?:' . implode('|', self::UNSUPPORTED_WHERES) . ')$/', $method) === 1) {
+        if (preg_match(self::WHERE_METHOD, $method, $matches) === 1 && in_array($matches[1], self::UNSUPPORTED_WHERES, true)) {
             throw new BadMethodCallException(sprintf('%s::%s() is not supported: InfluxQL has no NOT, NULL, LIKE, date part, sub-select, JSON or full-text clause, and a relative date is a comparison on time, such as where(\'time\', \'<\', now()).', static::class, $method));
         }
 

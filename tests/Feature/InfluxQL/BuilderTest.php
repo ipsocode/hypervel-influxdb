@@ -36,6 +36,7 @@ use ReflectionMethod;
 use RuntimeException;
 use SortDirection;
 use stdClass;
+use Swoole\Coroutine\CanceledException;
 use Throwable;
 
 /**
@@ -506,6 +507,26 @@ class BuilderTest extends TestCase
     }
 
     #[UnitTest]
+    public function testChunkLeavesTheBuilderWithItsOwnOffsetAndLimit(): void
+    {
+        $connection = $this->connection([
+            self::seriesResponse([self::series('cpu', ['time', 'value'], [['t1', 1], ['t2', 2]])]),
+            self::seriesResponse([self::series('cpu', ['time', 'value'], [['t3', 3]])]),
+            self::emptyResponse(),
+        ]);
+
+        $query = $connection->table('cpu')->offset(10)->limit(3);
+        $query->chunk(2, fn (): null => null);
+
+        $this->assertSame(10, $query->getOffset());
+        $this->assertSame(3, $query->getLimit());
+
+        $query->get();
+
+        $this->assertSame('select * from "cpu" limit 3 offset 10', $this->lastStatement());
+    }
+
+    #[UnitTest]
     public function testChunkSendsNothingOnceTheLimitIsUsedUp(): void
     {
         $connection = $this->connection([
@@ -704,6 +725,28 @@ class BuilderTest extends TestCase
 
         $this->expectException(QueryException::class);
         $this->expectExceptionMessageIsOrContains('Connection refused');
+
+        $query->get();
+    }
+
+    #[UnitTest]
+    public function testACanceledQueryIsNotWrappedInAQueryException(): void
+    {
+        $query = $this->connection([new CanceledException('The query was canceled.')])->table('cpu');
+
+        $this->expectException(CanceledException::class);
+
+        $query->get();
+    }
+
+    #[UnitTest]
+    public function testACanceledVersionCheckIsNotWrappedInAQueryException(): void
+    {
+        $this->pingVersion = null;
+
+        $query = $this->connection([new CanceledException('The ping was canceled.')])->table('cpu');
+
+        $this->expectException(CanceledException::class);
 
         $query->get();
     }

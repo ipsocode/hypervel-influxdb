@@ -55,6 +55,23 @@ class MeasurementTest extends TestCase
         ], $this->statements());
     }
 
+    public function testFindManyAndWhereKeyWithSeveralTimesAreRefusedRatherThanAnsweredWithNoPoints(): void
+    {
+        $keys = ['2024-01-01T00:00:00Z', '2024-01-01T00:00:10Z'];
+
+        foreach ([fn (): mixed => Cpu::findMany($keys), fn (): mixed => Cpu::query()->whereKey($keys)->get()] as $find) {
+            try {
+                $find();
+
+                $this->fail('No exception was thrown.');
+            } catch (RuntimeException $exception) {
+                $this->assertStringContainsString('OR between time ranges', $exception->getMessage());
+            }
+        }
+
+        $this->assertSame([], $this->history);
+    }
+
     public function testFindComparesTheTimeAndTheModelKeepsTheShapeOfItsPoint(): void
     {
         $this->responses->append(self::seriesResponse([self::series('cpu', ['time', 'host', 'usage_user'], [['2024-01-01T00:00:10Z', 'web1', 0.64]])]));

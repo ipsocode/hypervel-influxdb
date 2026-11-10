@@ -6,6 +6,7 @@ namespace Ipsocode\InfluxDB\Tests\Feature;
 
 use Hypervel\Testing\PHPUnit\AfterEachTestCleanup;
 use Ipsocode\InfluxDB\InfluxQL\Builder;
+use Ipsocode\InfluxDB\InfluxQL\Dialect;
 use Ipsocode\InfluxDB\Support\RefPoint;
 use Ipsocode\InfluxDB\Testing\TestState;
 use Ipsocode\InfluxDB\Tests\TestCase;
@@ -57,5 +58,14 @@ class TestStateTest extends TestCase
         AfterEachTestCleanup::runCallbacks();
 
         $this->assertFalse(Builder::hasMacro('onWebHosts'));
+    }
+
+    public function testFlushStateFlushesTheTimeZoneNames(): void
+    {
+        Dialect::ensureTimeZone('Europe/Amsterdam');
+
+        TestState::flushState();
+
+        $this->assertNull((new ReflectionProperty(Dialect::class, 'timeZones'))->getValue());
     }
 }

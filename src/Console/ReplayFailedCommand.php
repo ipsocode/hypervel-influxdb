@@ -7,6 +7,7 @@ namespace Ipsocode\InfluxDB\Console;
 use Hypervel\Console\Command;
 use InvalidArgumentException;
 use Ipsocode\InfluxDB\InfluxDBManager;
+use Ipsocode\InfluxDB\Write\ReplayableFailureStore;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Throwable;
 
@@ -23,7 +24,7 @@ class ReplayFailedCommand extends Command
      */
     protected ?string $signature = 'influxdb:replay-failed
         {connection? : The InfluxDB connection, the default one when left out}
-        {--limit=100 : The most batches to replay}
+        {--limit=' . ReplayableFailureStore::DEFAULT_LIMIT . ' : The most batches to replay}
     ';
 
     /**

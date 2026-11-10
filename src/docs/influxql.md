@@ -98,6 +98,10 @@ embedded, `getError()` the server's or the transport's message alone, and
 statements are sent together, the exception carries the error of the first
 one that failed.
 
+A coroutine canceled while a statement or the version check is in flight is not
+a failed statement: the `Swoole\Coroutine\CanceledException` comes through
+as it is, not wrapped in a `QueryException`.
+
 ## What carries over from Hypervel's builder
 
 The methods, and the way they combine, are Hypervel's: `select`, `addSelect`,
@@ -187,6 +191,8 @@ InfluxDB::table('cpu')
   value, which turns `=` and `!=` into `=~` and `!~`.
   `from(new Regex('^cpu'))` queries every measurement that matches. A pattern
   is given without its `/` delimiters, and a `/` inside it is escaped for you.
+  A pattern ending in a lone `\` is refused with an
+  `InvalidArgumentException`, since the backslash would escape the closing `/`.
   `=~` and `!~` take a regular expression only, and a `Regex` takes no
   operator but `=`, `!=`, `<>`, `=~` and `!~`: either mistake throws an
   `InvalidArgumentException`.
@@ -217,9 +223,13 @@ something else:
   clauses throw a `BadMethodCallException`. For a relative date, compare
   `time` directly: `where('time', '<', now())`.
 
-InfluxDB answers an `OR` between time ranges with no points, so keep `time`
-out of `whereIn()`, `whereNotBetween()` and `orWhere()`. They work as expected
-on fields and tags.
+InfluxDB answers an `OR` between time ranges with no points and no error, so a
+statement that joins a comparison on `time` to another with `OR` is refused with
+a `RuntimeException`, before anything is sent: `whereIn('time', ...)` given more
+than one value, `whereNotBetween('time', ...)`, and `orWhere()` on `time`, or
+after a clause on `time`, including inside a nested group. Query each time range
+on its own and merge the results. `whereIn('time', [$one])` is a single
+comparison and stays allowed, and none of this applies to fields and tags.
 
 A statement the server refuses throws a `QueryException`: see
 [Running statements](#running-statements).

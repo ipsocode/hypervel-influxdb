@@ -22,6 +22,7 @@ use Ipsocode\InfluxDB\Write\Failover;
 use Ipsocode\InfluxDB\Write\FailoverException;
 use Ipsocode\InfluxDB\Write\FailoverWriter;
 use Ipsocode\InfluxDB\Write\FailureStore;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Swoole\Coroutine\CanceledException;
 use Throwable;
 
@@ -373,6 +374,29 @@ class FailoverTest extends TestCase
         $this->expectExceptionMessage("The 'bucket' should be defined as argument or default option");
 
         $writer->writeRaw('cpu load=1i 1', null, ' ');
+    }
+
+    #[DataProvider('emptyOptions')]
+    public function testAnEmptyPrecisionBucketOrOrgIsRefusedByNameWithoutTheToken(string $option): void
+    {
+        $writer = new FailoverWriter([$option => ''] + self::clientOptions('main', null), $this->failover(['backup' => []]), ['maxRetries' => 0]);
+
+        try {
+            $writer->writeRaw('cpu load=1i 1');
+
+            $this->fail('No exception was thrown.');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame("The '{$option}' should be defined as argument or default option.", $exception->getMessage());
+            $this->assertStringNotContainsString('main-token', $exception->getMessage());
+        }
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function emptyOptions(): array
+    {
+        return ['precision' => ['precision'], 'bucket' => ['bucket'], 'org' => ['org']];
     }
 
     public function testAWriterGetsItsOwnCopyOfTheFailoverWithItsWriteOptions(): void

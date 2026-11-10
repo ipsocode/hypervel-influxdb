@@ -79,7 +79,7 @@ can say what that driver's builder can: see What to expect for
   several series can each hold a point at the same time, and `find()` returns
   one of them. InfluxQL answers an `OR` between times with no points, so on
   the `influxql` driver `findMany()`, and `whereKey()` given several keys,
-  find none. A date given to `find()` or `whereKey()` is compared as the
+  throw a `RuntimeException`. A date given to `find()` or `whereKey()` is compared as the
   instant it names, offset and fraction included, rather than cast to a
   string.
 - **A point cannot be reloaded by its `time`.** Because that point can belong

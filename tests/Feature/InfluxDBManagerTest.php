@@ -17,6 +17,8 @@ use Ipsocode\InfluxDB\InfluxQL\V3Connection;
 use Ipsocode\InfluxDB\InfluxQL\Version;
 use Ipsocode\InfluxDB\Tests\TestCase;
 
+use function Hypervel\Coroutine\parallel;
+
 class InfluxDBManagerTest extends TestCase
 {
     public function testConnectionReturnsAClientForTheDefaultConnection(): void
@@ -149,6 +151,58 @@ class InfluxDBManagerTest extends TestCase
         $writeApi = $manager->writeApi('main', ['batchSize' => 500]);
 
         $this->assertInstanceOf(WriteApi::class, $writeApi);
+    }
+
+    public function testWriteApiThrowsWhenALaterCallPassesDifferentOptions(): void
+    {
+        $manager = $this->app->make(InfluxDBManager::class);
+
+        $writeApi = $manager->writeApi('main', ['batchSize' => 500]);
+
+        $this->assertSame($writeApi, $manager->writeApi('main', ['batchSize' => 500]));
+        $this->assertSame($writeApi, $manager->writeApi('main'));
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('InfluxDB connection [main] already has a WriteApi');
+
+        $manager->writeApi('main', ['batchSize' => 1]);
+    }
+
+    public function testWriteApiOptionsOfAnotherCoroutineAreNotSilentlyIgnored(): void
+    {
+        $manager = $this->app->make(InfluxDBManager::class);
+
+        $results = parallel([
+            function () use ($manager): string {
+                $manager->writeApi('main', ['batchSize' => 500]);
+                usleep(20000);
+
+                return 'built';
+            },
+            function () use ($manager): string {
+                usleep(5000);
+
+                try {
+                    $manager->writeApi('main', ['batchSize' => 1]);
+                } catch (InvalidArgumentException) {
+                    return 'rejected';
+                }
+
+                return 'ignored';
+            },
+        ]);
+
+        $this->assertSame(['built', 'rejected'], $results);
+    }
+
+    public function testWriteApiOptionsResetWithTheConnection(): void
+    {
+        $manager = $this->app->make(InfluxDBManager::class);
+
+        $manager->writeApi('main', ['batchSize' => 500]);
+        $manager->disconnect('main');
+
+        $this->assertInstanceOf(WriteApi::class, $manager->writeApi('main', ['batchSize' => 1]));
     }
 
     public function testInfluxqlIsMemoisedPerConnectionOnTopOfItsClient(): void

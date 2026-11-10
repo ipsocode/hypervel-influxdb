@@ -28,11 +28,23 @@ class InfluxDBServiceProviderTest extends TestCase
         $this->assertSame($this->app->make('influxdb.factory'), $this->app->make(InfluxDBFactory::class));
     }
 
-    public function testItRegistersTheDefaultConnectionAsASingleton(): void
+    public function testItResolvesTheDefaultConnectionThroughTheManager(): void
     {
         $this->assertInstanceOf(Client::class, $this->app->make('influxdb.connection'));
         $this->assertInstanceOf(Client::class, $this->app->make(Client::class));
         $this->assertSame($this->app->make('influxdb.connection'), $this->app->make(Client::class));
+    }
+
+    public function testTheDefaultConnectionFollowsAReconnect(): void
+    {
+        $manager = $this->app->make('influxdb');
+        $before = $this->app->make(Client::class);
+
+        $manager->reconnect();
+
+        $this->assertNotSame($before, $this->app->make(Client::class));
+        $this->assertSame($manager->connection(), $this->app->make(Client::class));
+        $this->assertSame($manager->connection(), $this->app->make('influxdb.connection'));
     }
 
     public function testTheDefaultConnectionMatchesTheManagersConnection(): void

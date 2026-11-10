@@ -244,7 +244,7 @@ sent, as it is for the builder's statements. That differs from
   array, throws before anything is sent, the version check included.
 - **The database is the InfluxDB connection's.** A `database` set in
   `config/database.php` is replaced by the database the statements go to, and
-  `setDatabaseName()` does not redirect them. To read another database, use
+  `setDatabaseName()` throws a `LogicException`, since it could not redirect them. To read another database, use
   another InfluxDB connection or a qualified measurement, such as
   `from('telegraf.weekly.cpu')`.
 - **Errors are Hypervel's.** A statement the server refuses, or one that never

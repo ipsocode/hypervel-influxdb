@@ -26,6 +26,7 @@ The namespace `Ipsocode\InfluxDB` is rooted at `src/`.
 | `Write/Concerns/ReportsFailures.php` | Reporting through the exception handler, and running what may fail without throwing, shared by `BatchingWriter` and `Failover` | [Below](#failures) |
 | `Write/FailureStore.php`, `Write/ReplayableFailureStore.php`, `Write/ReplayStopped.php`, `Write/FailedBatch.php` | Where a batch that cannot be written goes; a store that can hand its batches back; the exception that ends a replay at the first batch that fails again; the batch it is handed | [When a batch cannot be written](../../src/docs/writing.md#when-a-batch-cannot-be-written), [Replaying failed batches](../../src/docs/writing.md#replaying-failed-batches) |
 | `Write/LogFailureStore.php`, `FilesystemFailureStore.php`, `RedisFailureStore.php`, `DatabaseFailureStore.php`, `QueueFailureStore.php` | The `onFailure` drivers | [The filesystem driver](../../src/docs/writing.md#the-filesystem-driver) and the sections after it |
+| `Write/FailedBatchReplayer.php` | Writes a connection's stored batches back through a synchronous `WriteApi` of its own, for the manager's `replayFailed()` and `writeFailed()` | [Replaying failed batches](../../src/docs/writing.md#replaying-failed-batches) |
 | `Console/ReplayFailedCommand.php`, `Jobs/ReplayFailedBatch.php` | `influxdb:replay-failed`, and the job the `queue` driver dispatches | [Replaying failed batches](../../src/docs/writing.md#replaying-failed-batches), [The queue driver](../../src/docs/writing.md#the-queue-driver) |
 | `Write/Batch.php`, `Write/BatchWriteException.php`, `Write/BufferFullException.php` | One request's line protocol; a batch dropped after its retries; a write refused past `maxBuffered` | [When a batch cannot be written](../../src/docs/writing.md#when-a-batch-cannot-be-written), [How much a worker holds](../../src/docs/writing.md#how-much-a-worker-holds) |
 | `InfluxQL/Connection.php`, `V1Connection.php`, `V2Connection.php`, `V3Connection.php` | Run InfluxQL on `/query`, addressed to a database and retention policy; one subclass per version, picked by `Connection::make()` | [Running statements](../../src/docs/influxql.md#running-statements); connecting to [1.x](../../src/docs/configuration.md#connecting-to-influxdb-1x), [2.x](../../src/docs/configuration.md#connecting-to-influxdb-2x) and [3](../../src/docs/configuration.md#connecting-to-influxdb-3) |
@@ -69,10 +70,10 @@ an application is in [Long-lived workers](../../src/docs/hypervel.md#long-lived-
 package keeps state, shared by every coroutine of a worker, in these places:
 
 - **The manager's caches.** `InfluxDBManager` is a container singleton, so its
-  resolved clients, memoized `WriteApi`s, the synchronous `WriteApi` per
-  connection that replays failed batches, and InfluxQL connections live as long
-  as the worker. They are instance properties, so they go when a test rebuilds
-  the container. `reconnect()`, `disconnect()` and `setDefaultConnection()`
+  resolved clients, memoized `WriteApi`s, its `Write\FailedBatchReplayer` with
+  the synchronous `WriteApi` per connection that replays failed batches, and
+  InfluxQL connections live as long as the worker. They are instance
+  properties, so they go when a test rebuilds the container. `reconnect()`, `disconnect()` and `setDefaultConnection()`
   change what every coroutine on the worker sees, and are for boot or tests
   only ([The connection manager](../../src/docs/hypervel.md#the-connection-manager)).
 - **Batching writers' buffers.** A `Write\BatchingWriter`, memoized by the
@@ -123,6 +124,8 @@ package keeps state, shared by every coroutine of a worker, in these places:
   `RefPoint::flushState()`.
 - **The InfluxQL builder's macros.** A static, reset by
   `InfluxQL\Builder::flushState()`.
+- **The time zone names `tz()` accepts.** PHP's list, flipped for a lookup and
+  read once per worker into a static, reset by `InfluxQL\Dialect::flushState()`.
 
 `Testing\TestState` flushes the static state: its `register()` hands
 `flushState()` to Hypervel's `AfterEachTestCleanup`. It is declared in
@@ -361,7 +364,7 @@ names their outcomes instead.
 ## The InfluxQL dialect
 
 How InfluxQL writes identifiers and literals lives in `InfluxQL\Dialect`, a
-class of static methods with no state. Both grammars delegate to it,
+class of static methods whose only state is the time zone list above. Both grammars delegate to it,
 `Grammars\Grammar` for `InfluxDB::table()`'s builder and `Driver\Grammar` for
 the `influxql` driver, so a statement reads the same whichever compiled it. It
 knows neither grammar's raw expression type: each grammar embeds its own

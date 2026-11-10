@@ -108,7 +108,7 @@ class ConnectionTest extends TestCase
         $this->assertSame(Version::V3, $connection->getVersion());
     }
 
-    public function testTheDatabaseIsTheOneTheStatementsAreAddressedTo(): void
+    public function testTheDatabaseIsTheOneTheStatementsAreAddressedToAndCannotBeChanged(): void
     {
         $this->app->get('config')->set('database.connections.influxql.database', 'other');
         $this->responses->append(self::emptyResponse());
@@ -117,9 +117,18 @@ class ConnectionTest extends TestCase
 
         $this->assertSame('telegraf', $connection->getDatabaseName());
 
-        $connection->setDatabaseName('other')->select('select * from "cpu"');
+        try {
+            $connection->setDatabaseName('other');
+
+            $this->fail('No exception was thrown.');
+        } catch (LogicException $exception) {
+            $this->assertStringContainsString('fixed by its InfluxDB connection', $exception->getMessage());
+        }
+
+        $connection->select('select * from "cpu"');
 
         $this->assertSame('telegraf', $this->lastQueryParameters()['db'], 'The InfluxDB connection addresses the statements.');
+        $this->assertSame('telegraf', $connection->getDatabaseName());
     }
 
     public function testAnInfluxdbConnectionThatIsNotConfiguredIsRefused(): void
@@ -565,6 +574,15 @@ class ConnectionTest extends TestCase
         $this->expectException(CanceledException::class);
 
         DB::connection('influxql')->ping();
+    }
+
+    public function testACanceledStatementIsNotWrappedInAQueryException(): void
+    {
+        $this->pings['v1.localhost'] = new CanceledException('The version check was canceled.');
+
+        $this->expectException(CanceledException::class);
+
+        DB::connection('influxql')->table('cpu')->get();
     }
 
     public function testADisconnectedConnectionLetsGoOfItsInfluxqlConnectionAndReconnectsForItsNextStatement(): void

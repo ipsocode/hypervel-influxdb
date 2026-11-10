@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Ipsocode\InfluxDB;
 
 use GuzzleHttp\Client as Guzzle;
+use GuzzleHttp\HandlerStack;
 use Http\Client\Common\PluginClient;
+use Hypervel\Http\Client\Guzzle\ReleaseIdleDatabaseConnections;
 use InfluxDB2\Client;
 use InvalidArgumentException;
 use Ipsocode\InfluxDB\Support\RetryableNetworkErrors;
@@ -27,7 +29,8 @@ class InfluxDBFactory
      *
      * Unless the connection sets its own `httpClient`, the client gets a Guzzle one with the
      * connection's `timeout`, `verifySSL` and `proxy`, whose network failures the client's write
-     * retries then see as network errors.
+     * retries then see as network errors, and which returns the request's idle database sessions
+     * before each request. A connection's own `httpClient` is used as given, so it does neither.
      *
      * @param array<string, mixed> $config
      *
@@ -59,7 +62,11 @@ class InfluxDBFactory
         }
 
         if (empty($config['httpClient'])) {
+            $stack = HandlerStack::create();
+            $stack->push(new ReleaseIdleDatabaseConnections, 'release_idle_database_connections');
+
             $config['httpClient'] = new PluginClient(new Guzzle([
+                'handler' => $stack,
                 'timeout' => $config['timeout'] ?? 10,
                 'verify' => $config['verifySSL'],
                 'proxy' => $config['proxy'] ?? null,

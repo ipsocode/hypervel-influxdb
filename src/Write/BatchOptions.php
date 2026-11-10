@@ -7,6 +7,7 @@ namespace Ipsocode\InfluxDB\Write;
 use InfluxDB2\WriteType;
 use InvalidArgumentException;
 use Ipsocode\InfluxDB\InfluxQL\Version;
+use Ipsocode\InfluxDB\Write\Concerns\DescribesInvalidOptions;
 
 /**
  * When a BatchingWriter sends a batch, and what it does when it cannot.
@@ -18,8 +19,21 @@ use Ipsocode\InfluxDB\InfluxQL\Version;
  */
 class BatchOptions
 {
+    use DescribesInvalidOptions;
+
     /**
-     * Past `maxBuffered`, write() sends the buffer itself before it returns.
+     * The names of the failure store drivers.
+     */
+    private const array DRIVERS = [
+        LogFailureStore::DRIVER,
+        FilesystemFailureStore::DRIVER,
+        RedisFailureStore::DRIVER,
+        DatabaseFailureStore::DRIVER,
+        QueueFailureStore::DRIVER,
+    ];
+
+    /**
+     * Past `maxBuffered`, write() hands the buffer to its sends without waiting on them, and hands its own lines to `onFailure` while the points held are still past the cap.
      */
     public const string FLUSH = 'flush';
 
@@ -110,7 +124,7 @@ class BatchOptions
             throw self::invalid($connection, 'overflow', $overflow, sprintf('%s or %s', self::FLUSH, self::REFUSE));
         }
 
-        if (in_array($onFailure, [LogFailureStore::DRIVER, FilesystemFailureStore::DRIVER, RedisFailureStore::DRIVER, DatabaseFailureStore::DRIVER, QueueFailureStore::DRIVER], true) || (is_array($onFailure) && array_key_exists('driver', $onFailure))) {
+        if (in_array($onFailure, self::DRIVERS, true) || (is_array($onFailure) && array_key_exists('driver', $onFailure))) {
             $onFailure = self::store($onFailure, $connection);
         }
 
@@ -140,14 +154,15 @@ class BatchOptions
     private static function store(array|string $driver, string $connection): FailureStore
     {
         $name = is_array($driver) ? $driver['driver'] : $driver;
+        $options = is_array($driver) ? $driver : [];
 
+        // Not a match: PHP compiles one on these constants with or without a jump table,
+        // depending on whether the stores were loaded first, which moves its covered lines.
         if ($name === LogFailureStore::DRIVER) {
             return new LogFailureStore;
         }
 
         if ($name === FilesystemFailureStore::DRIVER) {
-            $options = is_array($driver) ? $driver : [];
-
             return new FilesystemFailureStore(
                 self::storeOption($options, 'path', "influxdb/failed/{$connection}", $connection),
                 self::storeOption($options, 'disk', null, $connection),
@@ -155,8 +170,6 @@ class BatchOptions
         }
 
         if ($name === RedisFailureStore::DRIVER) {
-            $options = is_array($driver) ? $driver : [];
-
             return new RedisFailureStore(
                 "influxdb:failed:{$connection}",
                 self::storeOption($options, 'connection', null, $connection),
@@ -164,8 +177,6 @@ class BatchOptions
         }
 
         if ($name === DatabaseFailureStore::DRIVER) {
-            $options = is_array($driver) ? $driver : [];
-
             return new DatabaseFailureStore(
                 $connection,
                 self::storeOption($options, 'table', DatabaseFailureStore::DEFAULT_TABLE, $connection),
@@ -174,15 +185,13 @@ class BatchOptions
         }
 
         if ($name === QueueFailureStore::DRIVER) {
-            $options = is_array($driver) ? $driver : [];
-
             return new QueueFailureStore(
                 self::storeOption($options, 'connection', null, $connection),
                 self::storeOption($options, 'queue', null, $connection),
             );
         }
 
-        throw self::invalid($connection, 'onFailure', $name, sprintf('a callable, the name of an invokable class, or the driver %s, %s, %s, %s or %s', LogFailureStore::DRIVER, FilesystemFailureStore::DRIVER, RedisFailureStore::DRIVER, DatabaseFailureStore::DRIVER, QueueFailureStore::DRIVER));
+        throw self::invalid($connection, 'onFailure', $name, sprintf('a callable, the name of an invokable class, or the driver %s, %s, %s, %s or %s', ...self::DRIVERS));
     }
 
     /**
@@ -240,23 +249,5 @@ class BatchOptions
         }
 
         throw self::invalid($connection, $key, $value, 'a number above zero');
-    }
-
-    /**
-     * Describe an option that is out of range or of the wrong type.
-     */
-    private static function invalid(string $connection, string $key, mixed $value, string $expected): InvalidArgumentException
-    {
-        return new InvalidArgumentException(sprintf(
-            'InfluxDB connection [%s] has an invalid write.%s [%s]; expected %s.',
-            $connection,
-            $key,
-            match (true) {
-                is_string($value) => $value,
-                is_scalar($value) => var_export($value, true),
-                default => get_debug_type($value),
-            },
-            $expected,
-        ));
     }
 }

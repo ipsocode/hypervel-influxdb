@@ -6,6 +6,7 @@ namespace Ipsocode\InfluxDB\Testing;
 
 use Hypervel\Testing\PHPUnit\AfterEachTestCleanup;
 use Ipsocode\InfluxDB\InfluxQL\Builder;
+use Ipsocode\InfluxDB\InfluxQL\Dialect;
 use Ipsocode\InfluxDB\Support\RefPoint;
 
 /**
@@ -24,5 +25,6 @@ class TestState
     {
         RefPoint::flushState();
         Builder::flushState();
+        Dialect::flushState();
     }
 }

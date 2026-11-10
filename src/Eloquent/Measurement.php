@@ -15,7 +15,7 @@ use LogicException;
  * and fresh() are refused, as are chunkById() and lazyById() (and, on SQL, a cursorPaginate() ordered by time alone).
  * save() and delete() throw, and every model write built on them: write through InfluxDB::writeApi().
  * A `datetime` cast on `time` reads an `epoch` integer as seconds.
- * On influxql, findMany() and whereKey() with several keys find nothing: InfluxQL cannot OR times.
+ * On influxql, findMany() and whereKey() with several keys throw a RuntimeException: InfluxQL cannot OR times.
  *
  * @see src/docs/eloquent.md#the-settings-a-time-series-needs
  */

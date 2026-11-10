@@ -16,6 +16,8 @@ use Ipsocode\InfluxDB\Tests\TestCase;
 use Ipsocode\InfluxDB\Write\FailedBatch;
 use Mockery as m;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
+use Swoole\Coroutine\CanceledException;
 
 /**
  * Replaying the batches a ReplayableFailureStore kept, through the manager and the command.
@@ -78,6 +80,42 @@ class ReplayFailedTest extends TestCase
         $this->assertCount(1, $this->sentTo());
         $this->assertSame(['cpu b=1i 2', 1], [$store->batches[0]->payload, $store->batches[0]->attempts]);
         $this->assertSame(['cpu a=1i 1', 2], [$store->batches[1]->payload, $store->batches[1]->attempts]);
+    }
+
+    public function testAReplayCanceledMidWriteLeavesItsBatchAsItWas(): void
+    {
+        $store = $this->store([$this->failed('cpu a=1i 1', 1)]);
+        $logger = m::mock(LoggerInterface::class);
+        $logger->shouldNotReceive('warning');
+        $this->app->instance(LoggerInterface::class, $logger);
+        $this->connection($store, [$canceled = new CanceledException('The replay was canceled.')], ['maxAttempts' => 2]);
+
+        try {
+            $this->app->get(InfluxDBManager::class)->replayFailed('main');
+            $this->fail('The cancellation should reach the caller.');
+        } catch (CanceledException $exception) {
+            $this->assertSame($canceled, $exception);
+        }
+
+        $this->assertCount(1, $store->batches);
+        $this->assertSame(['cpu a=1i 1', 1], [$store->batches[0]->payload, $store->batches[0]->attempts]);
+    }
+
+    public function testABatchThatCannotBeStoredAgainStaysAsItWasAndTheFailureReachesTheCaller(): void
+    {
+        $store = $this->store([$this->failed('cpu a=1i 1', 1), $this->failed('cpu b=1i 2', 1)]);
+        $store->storeFailure = $failure = new RuntimeException('The store is full.');
+        $this->connection($store, [new Response(503)], ['maxAttempts' => 3]);
+
+        try {
+            $this->app->get(InfluxDBManager::class)->replayFailed('main');
+            $this->fail('The failure to store the batch again should reach the caller.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame($failure, $exception);
+        }
+
+        $this->assertCount(1, $this->sentTo());
+        $this->assertSame([['cpu a=1i 1', 1], ['cpu b=1i 2', 1]], array_map(static fn (FailedBatch $batch): array => [$batch->payload, $batch->attempts], $store->batches));
     }
 
     public function testBatchesAfterTheOneThatFailedAgainAreLeftUntouched(): void
@@ -228,7 +266,7 @@ class ReplayFailedTest extends TestCase
     /**
      * Make the `main` connection batch, with the given store as its `onFailure`.
      *
-     * @param list<Response> $responses
+     * @param list<Response|Throwable> $responses
      * @param array<string, mixed> $write
      */
     private function connection(?InMemoryFailureStore $store, array $responses, array $write = []): void
