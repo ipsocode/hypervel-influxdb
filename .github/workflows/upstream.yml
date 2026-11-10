@@ -34,7 +34,7 @@ jobs:
     steps:
       - name: Read the head of hypervel/components 0.4, and look for an earlier run on it
         id: watch
-        uses: ipsocode/hypervel-packages-ci/upstream/watch@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/upstream/watch@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
 
   test:
     name: PHP 8.4 on the latest components
@@ -57,17 +57,17 @@ jobs:
 
       - name: Install dependencies
         id: install
-        uses: ipsocode/hypervel-packages-ci/tests/install@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/tests/install@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           php: '8.4'
           restore-only: 'true'
 
       - name: Find the framework it installed
         id: components
-        uses: ipsocode/hypervel-packages-ci/upstream/components@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/upstream/components@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
 
       - name: Run PHPStan and the suite under the coverage gate
-        uses: ipsocode/hypervel-packages-ci/tests/suite@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/tests/suite@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           php: '8.4'
           min-coverage: '100'
@@ -75,7 +75,7 @@ jobs:
 
       - name: Remember the commit was tested
         if: ${{ always() && steps.install.outcome == 'success' }}
-        uses: ipsocode/hypervel-packages-ci/upstream/remember@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/upstream/remember@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           ref: ${{ needs.watch.outputs.ref }}
 
@@ -91,7 +91,7 @@ jobs:
 
     steps:
       - name: Open, update or close the components issue
-        uses: ipsocode/hypervel-packages-ci/upstream/report@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/upstream/report@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           result: ${{ needs.test.result }}
           ref: ${{ needs.test.outputs.ref || needs.watch.outputs.ref }}

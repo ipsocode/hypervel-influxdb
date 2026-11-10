@@ -39,12 +39,12 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        uses: ipsocode/hypervel-packages-ci/tests/install@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/tests/install@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           php: '8.4'
 
       - name: Check style, analyse and run the suite under the coverage gate
-        uses: ipsocode/hypervel-packages-ci/tests/suite@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/tests/suite@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           php: '8.4'
           style: 'true'
@@ -70,12 +70,12 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        uses: ipsocode/hypervel-packages-ci/tests/install@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/tests/install@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           php: '8.5'
 
       - name: Analyse and run the suite
-        uses: ipsocode/hypervel-packages-ci/tests/suite@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/tests/suite@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           php: '8.5'
 
@@ -101,6 +101,6 @@ jobs:
 
     steps:
       - name: Ask for a fix
-        uses: ipsocode/hypervel-packages-ci/tests/fix@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/tests/fix@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           label-token: ${{ secrets.TRAIN_TOKEN }}

@@ -56,7 +56,7 @@ jobs:
 
       - name: Decide the version
         id: plan
-        uses: ipsocode/hypervel-packages-ci/publish/plan@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/publish/plan@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           bump: ${{ inputs.bump }}
           version: ${{ inputs.version }}
@@ -90,7 +90,7 @@ jobs:
           fetch-tags: true
 
       - name: Write the notes, tag the commit and publish the release
-        uses: ipsocode/hypervel-packages-ci/publish/release@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/publish/release@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           mode: ${{ needs.plan.outputs.mode }}
           tag: ${{ needs.plan.outputs.tag }}

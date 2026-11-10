@@ -45,7 +45,7 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        uses: ipsocode/hypervel-packages-ci/tests/install@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/tests/install@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           php: '8.4'
           restore-only: 'true'
@@ -91,7 +91,7 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        uses: ipsocode/hypervel-packages-ci/tests/install@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/tests/install@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           php: '8.4'
           restore-only: 'true'
@@ -135,7 +135,7 @@ jobs:
           persist-credentials: false
 
       - name: Install dependencies
-        uses: ipsocode/hypervel-packages-ci/tests/install@7fc1b15e5073bb3ddb35b53b7d0f8e35bd4a68cb # v1
+        uses: ipsocode/hypervel-packages-ci/tests/install@ed1673a0c70ab3fa9f5e93e804db084b51eeb34e # v1
         with:
           php: '8.4'
           restore-only: 'true'
